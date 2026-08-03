@@ -1,0 +1,158 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsInt, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
+
+import { DocumentStatus, ProviderDocumentKind, ProviderStage } from '../../../generated/prisma/client';
+
+// Derived from the Prisma enums, never hand-copied. A hand-written duplicate is
+// how the OpenAPI spec ends up describing values the API no longer returns —
+// and the generated frontend types then contradict reality.
+const STAGES = Object.values(ProviderStage);
+const DOCUMENT_KINDS = Object.values(ProviderDocumentKind);
+const DOCUMENT_STATUSES = Object.values(DocumentStatus);
+
+export class UpdateProviderProfileDto {
+  @ApiProperty({ example: 'Kumar Agri Services Pvt Ltd' })
+  @IsString()
+  @Length(2, 200)
+  legalName: string;
+
+  @ApiPropertyOptional({ example: 'U01100TG2021PTC123456' })
+  @IsOptional()
+  @IsString()
+  @Length(3, 60)
+  registrationNumber?: string;
+
+  @ApiProperty({ example: '+919876543210' })
+  @Matches(/^\+?[0-9]{7,15}$/, { message: 'contactPhone must be 7-15 digits, optionally starting with +' })
+  contactPhone: string;
+
+  @ApiProperty({ example: 'Plot 14, Industrial Estate' })
+  @IsString()
+  @Length(3, 200)
+  addressLine: string;
+
+  @ApiProperty({ example: 'Warangal' })
+  @IsString()
+  @Length(2, 100)
+  city: string;
+
+  @ApiProperty({ example: 'Telangana' })
+  @IsString()
+  @Length(2, 100)
+  state: string;
+
+  @ApiProperty({ example: '506002' })
+  @Matches(/^[1-9][0-9]{5}$/, { message: 'pincode must be 6 digits and not start with 0' })
+  pincode: string;
+}
+
+export class RejectProviderDto {
+  @ApiProperty({ example: 'Registration number could not be verified' })
+  @IsString()
+  @Length(5, 500)
+  reason: string;
+}
+
+export class ProviderStageEventDto {
+  @ApiPropertyOptional({ enum: STAGES })
+  fromStage?: string;
+
+  @ApiProperty({ enum: STAGES })
+  toStage: string;
+
+  @ApiPropertyOptional()
+  reason?: string;
+
+  @ApiProperty({ format: 'date-time' })
+  at: string;
+}
+
+export class ProviderDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ format: 'uuid' })
+  organisationId: string;
+
+  @ApiProperty({ example: 'Kumar Agri Services' })
+  organisationName: string;
+
+  @ApiProperty({ enum: STAGES })
+  stage: string;
+
+  @ApiProperty({ description: 'BR1 — only an ACTIVATED provider may receive bookings' })
+  bookable: boolean;
+
+  @ApiProperty({ format: 'date-time', description: 'When the current stage was entered' })
+  stageEnteredAt: string;
+
+  @ApiPropertyOptional() legalName?: string;
+  @ApiPropertyOptional() registrationNumber?: string;
+  @ApiPropertyOptional() contactPhone?: string;
+  @ApiPropertyOptional() addressLine?: string;
+  @ApiPropertyOptional() city?: string;
+  @ApiPropertyOptional() state?: string;
+  @ApiPropertyOptional() pincode?: string;
+  @ApiPropertyOptional() rejectionReason?: string;
+}
+
+export class ProviderDetailDto extends ProviderDto {
+  @ApiProperty({ type: [ProviderStageEventDto] })
+  history: ProviderStageEventDto[];
+}
+
+export class ProviderListDto {
+  @ApiProperty({ type: [ProviderDto] })
+  items: ProviderDto[];
+
+  @ApiProperty({ example: 7 })
+  total: number;
+}
+
+export class RequestDocumentUploadDto {
+  @ApiProperty({ enum: DOCUMENT_KINDS })
+  @IsIn(DOCUMENT_KINDS)
+  kind: string;
+
+  @ApiProperty({ example: 'incorporation-certificate.pdf' })
+  @IsString()
+  @Length(1, 255)
+  filename: string;
+
+  @ApiProperty({ enum: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] })
+  @IsString()
+  @Length(3, 100)
+  contentType: string;
+}
+
+export class ConfirmDocumentUploadDto {
+  @ApiProperty({ example: 20481, description: 'Byte count the storage layer reported' })
+  @IsInt()
+  @Min(1)
+  sizeBytes: number;
+}
+
+export class UploadTicketDto {
+  @ApiProperty({ format: 'uuid' })
+  documentId: string;
+
+  @ApiProperty({ description: 'PUT the raw bytes here. Short-lived.' })
+  uploadUrl: string;
+
+  @ApiProperty({ example: 5242880 })
+  maxBytes: number;
+}
+
+export class DocumentDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+
+  @ApiPropertyOptional({ type: String, enum: DOCUMENT_KINDS, nullable: true })
+  kind?: string | null;
+
+  @ApiProperty() originalFilename: string;
+  @ApiProperty() contentType: string;
+  @ApiProperty() sizeBytes: number;
+
+  @ApiProperty({ enum: DOCUMENT_STATUSES }) status: string;
+  @ApiProperty({ format: 'date-time' }) createdAt: string;
+}

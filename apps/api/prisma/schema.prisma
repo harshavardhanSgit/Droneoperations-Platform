@@ -1,0 +1,981 @@
+// ============================================================================
+// Drone Operations Platform — database schema
+//
+// This file is the SINGLE source of truth for the database structure.
+// Never alter the database by hand. Change this file, then generate a
+// migration. That way the schema and the code using it cannot drift, and every
+// structural change becomes a reviewable file in git.
+//
+// Models are grouped by owning module, matching the architecture:
+//   Identity · Organisations · Catalogue · Offerings · Assets
+//   Booking · Assignment · Scheduling · Settlement · Reputation
+//   Field Service · Platform
+//
+// See docs/architecture/aggregates-and-invariants.md for which objects must
+// change together and which invariants each group is responsible for.
+// ============================================================================
+
+generator client {
+  // Prisma 7 generates the client into your SOURCE TREE rather than into
+  // node_modules (which is what Prisma 6 and earlier did). Better for bundlers,
+  // monorepos and ESM — and you can actually open and read the generated code.
+  // It is git-ignored: this is build output, exactly like dist/.
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  // Only the dialect is declared here. As of Prisma 7 the connection URL is
+  // deliberately NOT in this file, because there is no longer a single
+  // consumer of it:
+  //
+  //   CLI (migrations) -> prisma.config.ts
+  //   Runtime (the app) -> a driver adapter passed to new PrismaClient()
+  //
+  // Prisma 7 dropped its Rust query-engine binary in favour of the native
+  // node-postgres driver, so the app owns the connection now.
+  provider = "postgresql"
+}
+
+
+// ============================================================================
+// IDENTITY  — who someone is, and what they may do
+//
+// Three concepts kept separate on purpose:
+//   User         a human. One person, one login. Carries NO role.
+//   Organisation the party that owns data (bookings, drones, offerings).
+//   Membership   what a user may do inside an organisation.
+//
+// Permissions are derived from (Organisation.kind, Membership.role), never
+// stored on the user. See docs/architecture/aggregates-and-invariants.md.
+// ============================================================================
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// Which side of the marketplace an organisation sits on.
+enum OrganisationKind {
+  CUSTOMER
+  PROVIDER
+  PLATFORM
+}
+
+/// What shape of entity it is. Independent of `kind`: an SHG is a PROVIDER
+/// INSTITUTION, a farmer is a CUSTOMER INDIVIDUAL.
+enum OrganisationType {
+  INDIVIDUAL
+  BUSINESS
+  INSTITUTION
+}
+
+enum OrganisationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MembershipRole {
+  OWNER
+  MEMBER
+  ADMIN
+  SERVICE_ENGINEER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REVOKED
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Stored lower-cased. Normalisation happens in the service so the unique
+  /// index cannot be defeated by "A@x.com" vs "a@x.com".
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  fullName     String     @map("full_name")
+  phone        String?
+  status       UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships         Membership[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Organisation {
+  id String @id @default(uuid()) @db.Uuid
+
+  name   String
+  kind   OrganisationKind
+  type   OrganisationType
+  status OrganisationStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships Membership[]
+  provider    Provider?
+  bookings    Booking[]
+  notifications Notification[]
+
+  @@index([kind, status])
+  @@map("organisations")
+}
+
+model Membership {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId         String @map("user_id") @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+
+  role   MembershipRole
+  status MembershipStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  /// One membership per user per organisation. Enforced by the database, not
+  /// by an application check, because a check-then-insert loses under
+  /// concurrent requests.
+  @@unique([userId, organisationId])
+  @@index([organisationId, status])
+  @@map("memberships")
+}
+
+/// Opaque, rotating refresh tokens. Stored HASHED — a leaked database dump
+/// must not yield usable tokens.
+model RefreshToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId    String @map("user_id") @db.Uuid
+  tokenHash String @unique @map("token_hash")
+
+  /// All tokens descended from one login share a family. If a revoked token is
+  /// ever presented again, the whole family is revoked — that is theft
+  /// detection, and it is why rotation alone is not enough.
+  familyId String @map("family_id") @db.Uuid
+
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ============================================================================
+// ORGANISATIONS — provider onboarding
+//
+// A Provider is the PROFILE of an Organisation whose kind is PROVIDER: the
+// business detail and the onboarding pipeline. Customers have neither, which
+// is why this is a separate table rather than nullable columns on Organisation.
+//
+// Onboarding is modelled as ordered STAGES with recorded history, not an
+// approved boolean. Stage history cannot be reconstructed later, and
+// re-verification (an expiring certificate in V2) needs somewhere to return to.
+// ============================================================================
+
+enum ProviderStage {
+  REGISTERED // account created, nothing filled in
+  PROFILE_COMPLETE // business details supplied
+  DOCUMENTS_SUBMITTED // required documents uploaded
+  UNDER_REVIEW // submitted, awaiting platform staff
+  ACTIVATED // BR1: only this stage may receive bookings
+  REJECTED // reviewed and refused, may resubmit
+  SUSPENDED // was active, withdrawn by platform
+}
+
+model Provider {
+  id String @id @default(uuid()) @db.Uuid
+
+  organisationId String @unique @map("organisation_id") @db.Uuid
+
+  legalName          String? @map("legal_name")
+  registrationNumber String? @map("registration_number")
+  contactPhone       String? @map("contact_phone")
+  addressLine        String? @map("address_line")
+  city               String?
+  state              String?
+  pincode            String?
+
+  stage ProviderStage @default(REGISTERED)
+
+  /// Denormalised so "time in current stage" is a subtraction rather than a
+  /// scan of the event table. V1 funnel metrics are built on this.
+  stageEnteredAt DateTime @default(now()) @map("stage_entered_at")
+
+  activatedAt     DateTime? @map("activated_at")
+  rejectionReason String?   @map("rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organisation Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  stageEvents  ProviderStageEvent[]
+  offerings    Offering[]
+  assignments  BookingAssignment[]
+  reviews      Review[]
+  drones       Drone[]
+
+  @@index([stage])
+  @@map("providers")
+}
+
+/// Append-only. Every transition, who caused it, and why. BR16.
+model ProviderStageEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  providerId String @map("provider_id") @db.Uuid
+
+  fromStage ProviderStage? @map("from_stage")
+  toStage   ProviderStage  @map("to_stage")
+
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  reason      String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, createdAt])
+  @@map("provider_stage_events")
+}
+
+// ============================================================================
+// PLATFORM — documents
+//
+// Files are stored in object storage, never in the database. This table holds
+// only METADATA plus an opaque storage key, so a backup stays small and a
+// query never drags megabytes through the connection.
+//
+// Polymorphic owner (ownerType + ownerId) rather than a foreign key per
+// attachable entity: provider documents, completion photos and engineer
+// reports are the same concept with different owners. The trade is no
+// referential integrity from the database — enforced in the owning service.
+// ============================================================================
+
+enum DocumentOwnerType {
+  PROVIDER
+  TICKET
+}
+
+enum ProviderDocumentKind {
+  BUSINESS_REGISTRATION
+  DRONE_REGISTRATION
+  PILOT_LICENCE
+  INSURANCE
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING // upload URL issued, bytes not confirmed
+  READY // client confirmed the upload
+}
+
+model Document {
+  id String @id @default(uuid()) @db.Uuid
+
+  ownerType DocumentOwnerType @map("owner_type")
+  ownerId   String            @map("owner_id") @db.Uuid
+
+  /// Meaningful only for PROVIDER-owned documents.
+  kind ProviderDocumentKind?
+
+  /// What the user called it. Display only — NEVER used to build a path.
+  originalFilename String @map("original_filename")
+
+  /// Opaque locator returned by StorageService. Vendor-specific, never parsed.
+  storageKey String @unique @map("storage_key")
+
+  contentType String @map("content_type")
+  sizeBytes   Int    @map("size_bytes")
+
+  status DocumentStatus @default(PENDING)
+
+  uploadedByUserId String   @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerType, ownerId, status])
+  @@map("documents")
+}
+
+// ============================================================================
+// PLATFORM CATALOGUE — reference data
+//
+// Admin-owned, rarely changing, read by everyone. Deliberately separate from
+// Provider Offerings: the catalogue says WHAT a service is, an offering says
+// what one provider CHARGES for it. Different owners, different change rates.
+//
+// This is seam S5. Adding "survey" in V2 is a row here, not a code change.
+// ============================================================================
+
+/// How a service is quantified. Determines what the customer supplies when
+/// booking and what the price is multiplied by.
+enum PricingUnit {
+  PER_ACRE
+  PER_SQ_KM
+  PER_HOUR
+  PER_DAY
+  PER_ASSET
+}
+
+/// Reference data is RETIRED, never deleted. Bookings and offerings reference
+/// these rows permanently — deleting one would orphan history.
+enum CatalogueStatus {
+  ACTIVE
+  RETIRED
+}
+
+model ServiceType {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Stable business identifier, e.g. CROP_SPRAYING. Appears in URLs and
+  /// analytics. The UUID is a surrogate key and means nothing to a human.
+  code String @unique
+
+  name        String
+  description String?
+
+  pricingUnit PricingUnit     @map("pricing_unit")
+  status      CatalogueStatus @default(ACTIVE)
+
+  /// Display order in pickers. Alphabetical is rarely the useful order.
+  sortOrder Int @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  offerings Offering[]
+  bookings  Booking[]
+
+  @@index([status, sortOrder])
+  @@map("service_types")
+}
+
+enum AreaLevel {
+  STATE
+  DISTRICT
+  TALUKA
+}
+
+/// Self-referencing hierarchy: STATE -> DISTRICT -> TALUKA.
+///
+/// One table rather than three, because the shape is identical at every level
+/// and queries ("everything under Telangana") stay uniform. The cost is that
+/// the database cannot enforce that a DISTRICT's parent is a STATE — that
+/// invariant lives in the service.
+model Area {
+  id String @id @default(uuid()) @db.Uuid
+
+  parentId String? @map("parent_id") @db.Uuid
+
+  level AreaLevel
+  name  String
+
+  /// Official code where one exists (LGD/census). Nullable because talukas
+  /// often lack a stable published code.
+  code String? @unique
+
+  status CatalogueStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent   Area?  @relation("AreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children Area[] @relation("AreaHierarchy")
+  offerings OfferingArea[]
+  bookings  Booking[]
+
+  @@unique([parentId, name])
+  @@index([level, status])
+  @@map("areas")
+}
+
+// ============================================================================
+// PROVIDER OFFERINGS — what one provider sells, at what price, where
+//
+// Review finding F3. An Offering is stable identity; an OfferingVersion is an
+// IMMUTABLE priced commitment. Repricing closes the current version and opens
+// a new one — nothing is ever updated in place.
+//
+// A booking references a VERSION, so a quoted price can never move
+// retroactively. That replaces the unit_price_snapshot column the blueprint
+// originally planned, and generalises to every attribute that must be frozen.
+// ============================================================================
+
+enum OfferingStatus {
+  ACTIVE
+  WITHDRAWN
+}
+
+/// Resolves R9: the largest source of real-world disputes in drone spraying is
+/// who supplies the consumables. Making it part of the PRICED version means it
+/// is agreed before booking rather than argued about in a field.
+enum OfferingInclusion {
+  CHEMICAL
+  WATER
+  TRANSPORT
+  LABOUR
+  FUEL
+}
+
+model Offering {
+  id String @id @default(uuid()) @db.Uuid
+
+  providerId    String @map("provider_id") @db.Uuid
+  serviceTypeId String @map("service_type_id") @db.Uuid
+
+  status OfferingStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  provider    Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  serviceType ServiceType       @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
+  versions    OfferingVersion[]
+  areas       OfferingArea[]
+
+  @@index([providerId, status])
+  @@index([serviceTypeId, status])
+  @@map("offerings")
+}
+
+/// IMMUTABLE. There is no update path — repricing creates a new row.
+model OfferingVersion {
+  id String @id @default(uuid()) @db.Uuid
+
+  offeringId    String @map("offering_id") @db.Uuid
+  versionNumber Int    @map("version_number")
+
+  /// Integer MINOR units (paise). Never a float: 0.1 + 0.2 !== 0.3 in binary
+  /// floating point, and money that does not add up is a support ticket.
+  unitPriceMinor Int    @map("unit_price_minor")
+  currency       String @default("INR")
+
+  /// Denormalised from the service type at creation so the version records the
+  /// unit the price was agreed in, even if the catalogue is later reorganised.
+  pricingUnit PricingUnit @map("pricing_unit")
+
+  minQuantity Int? @map("min_quantity")
+
+  inclusions OfferingInclusion[]
+  notes      String?
+
+  effectiveFrom DateTime  @default(now()) @map("effective_from")
+  /// NULL means this is the current version. Exactly one per offering.
+  effectiveTo   DateTime? @map("effective_to")
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+
+  offering    Offering            @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+  assignments BookingAssignment[]
+
+  @@unique([offeringId, versionNumber])
+  @@index([offeringId, effectiveTo])
+  @@map("offering_versions")
+}
+
+/// Where an offering is available.
+///
+/// Coverage lives on the OFFERING, not the version: changing which districts
+/// you serve is not a price change, and a quote freezes price, not coverage.
+model OfferingArea {
+  offeringId String @map("offering_id") @db.Uuid
+  areaId     String @map("area_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  offering Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  area     Area     @relation(fields: [areaId], references: [id], onDelete: Restrict)
+
+  @@id([offeringId, areaId])
+  @@index([areaId])
+  @@map("offering_areas")
+}
+
+// ============================================================================
+// BOOKING — the job, and its lifecycle
+//
+// One aggregate: Booking is the root; assignments and status history live
+// inside it. See docs/architecture/aggregates-and-invariants.md.
+//
+// Seams exercised here:
+//   S1  assignment is a TABLE, not a column — rejection reopens the booking
+//   S6  an explicit state machine with recorded transitions
+//   F3  the booking references an OFFERING VERSION, so its price cannot move
+//   F6  a partial unique index enforces at most one active assignment (BR2)
+//   F9  a local date + named window, not a UTC instant
+// ============================================================================
+
+enum BookingStatus {
+  UNASSIGNED // created, or returned here after a rejection (D9)
+  ASSIGNED // a provider has been asked and has not answered
+  SCHEDULED // provider accepted; work is agreed
+  AWAITING_CONFIRMATION // provider says done, customer has not confirmed
+  COMPLETED // customer confirmed
+  CANCELLED // terminal
+}
+
+/// F9. Field work is agreed in bands, not to the second. "Thursday morning" is
+/// the real commitment; 06:00:00 is false precision that generates disputes.
+enum TimeWindow {
+  DAWN
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum AssignmentStatus {
+  PENDING // awaiting the provider's answer
+  ACCEPTED // this provider is fulfilling the booking
+  REJECTED // provider declined
+  SUPERSEDED // customer reassigned before this one answered
+  CANCELLED // booking was cancelled while this was open
+}
+
+/// S1. Recorded from day one even though only CUSTOMER_CHOICE exists, so V2's
+/// auto-assignment is a new enum value rather than a migration of live data.
+enum AssignmentStrategy {
+  CUSTOMER_CHOICE
+  PLATFORM_AUTO
+  PLATFORM_MANAGED
+}
+
+model Booking {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// The organisation the work is FOR. D7: this is the principal, which is not
+  /// necessarily the organisation of the person who clicked the button.
+  customerOrganisationId String @map("customer_organisation_id") @db.Uuid
+
+  /// Who actually created it. Differs from the principal for assisted booking.
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+
+  serviceTypeId String @map("service_type_id") @db.Uuid
+  areaId        String @map("area_id") @db.Uuid
+
+  quantity     Int
+  locationNote String? @map("location_note")
+
+  /// F3. The quote. Points at an IMMUTABLE offering version, so the agreed
+  /// price cannot change when the provider reprices. This is what replaces the
+  /// unit_price_snapshot column the blueprint originally planned.
+  offeringVersionId String? @map("offering_version_id") @db.Uuid
+
+  /// Denormalised at assignment for fast listing. Authoritative source is the
+  /// offering version above.
+  unitPriceMinor      Int?        @map("unit_price_minor")
+  estimatedTotalMinor Int?        @map("estimated_total_minor")
+  currency            String      @default("INR")
+  pricingUnit         PricingUnit @map("pricing_unit")
+
+  /// F9. A calendar date, not an instant, plus a named band.
+  preferredDate   DateTime   @map("preferred_date") @db.Date
+  preferredWindow TimeWindow @map("preferred_window")
+
+  status BookingStatus @default(UNASSIGNED)
+
+  /// F6. Optimistic lock. Every transition bumps this; a stale value loses.
+  version Int @default(0)
+
+  /// BR14. What was actually delivered, which may differ from what was booked
+  /// — 18 acres sprayed of 20 booked. Recorded at completion, never assumed.
+  finalQuantity    Int?      @map("final_quantity")
+  finalAmountMinor Int?      @map("final_amount_minor")
+  completionNote   String?   @map("completion_note")
+  completedAt      DateTime? @map("completed_at")
+
+  cancelledReason String?   @map("cancelled_reason")
+  cancelledAt     DateTime? @map("cancelled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  customerOrganisation Organisation           @relation(fields: [customerOrganisationId], references: [id], onDelete: Restrict)
+  serviceType          ServiceType            @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
+  area                 Area                   @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  offeringVersion      OfferingVersion?       @relation(fields: [offeringVersionId], references: [id], onDelete: Restrict)
+  assignments          BookingAssignment[]
+  schedules            BookingSchedule[]
+  statusHistory        BookingStatusHistory[]
+  payment              Payment?
+  review               Review?
+
+  @@index([customerOrganisationId, status])
+  @@index([status, preferredDate])
+  @@map("bookings")
+}
+
+/// S1 made concrete. Many rows per booking over its life; at most one active.
+model BookingAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId  String @map("booking_id") @db.Uuid
+  providerId String @map("provider_id") @db.Uuid
+
+  /// The exact terms this provider was asked to honour.
+  offeringVersionId String @map("offering_version_id") @db.Uuid
+
+  strategy AssignmentStrategy @default(CUSTOMER_CHOICE)
+  status   AssignmentStatus   @default(PENDING)
+
+  /// Who performed the assignment. Differs by strategy: the customer today,
+  /// the system or an account manager in V2.
+  assignedByUserId String @map("assigned_by_user_id") @db.Uuid
+
+  rejectionReason String?   @map("rejection_reason")
+  assignedAt      DateTime  @default(now()) @map("assigned_at")
+  respondedAt     DateTime? @map("responded_at")
+
+  booking         Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider        Provider        @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  offeringVersion OfferingVersion @relation(fields: [offeringVersionId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, status])
+  @@index([bookingId, assignedAt])
+  @@map("booking_assignments")
+}
+
+/// BR16. Append-only. Never derived from timestamps on the booking row.
+model BookingStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId String @map("booking_id") @db.Uuid
+
+  fromStatus BookingStatus? @map("from_status")
+  toStatus   BookingStatus  @map("to_status")
+
+  actorUserId         String  @map("actor_user_id") @db.Uuid
+  actorOrganisationId String  @map("actor_organisation_id") @db.Uuid
+  reason              String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_status_history")
+}
+
+// ============================================================================
+// BOOKING — scheduling
+//
+// D11: one party proposes a date, the OTHER confirms it (BR15). Both the
+// initial agreement and any later reschedule use the same mechanism.
+//
+// Deliberately NOT extra booking statuses. Booking status tracks the job;
+// schedule status tracks the date. Folding a negotiation into the job's state
+// machine is how a six-state machine becomes a twenty-state machine.
+// ============================================================================
+
+enum ScheduleStatus {
+  PENDING // proposed, awaiting the other party
+  CONFIRMED // agreed by both — at most one per booking
+  SUPERSEDED // replaced by a later proposal
+  DECLINED
+}
+
+enum SchedulePartyRole {
+  CUSTOMER
+  PROVIDER
+}
+
+model BookingSchedule {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId String @map("booking_id") @db.Uuid
+
+  /// F9 again: a calendar date plus a named band, never an instant.
+  proposedDate   DateTime   @map("proposed_date") @db.Date
+  proposedWindow TimeWindow @map("proposed_window")
+
+  /// BR15 is enforced against this: whoever proposed cannot confirm.
+  proposedByRole   SchedulePartyRole @map("proposed_by_role")
+  proposedByUserId String            @map("proposed_by_user_id") @db.Uuid
+
+  status ScheduleStatus @default(PENDING)
+
+  confirmedByUserId String?   @map("confirmed_by_user_id") @db.Uuid
+  confirmedAt       DateTime? @map("confirmed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_schedules")
+}
+
+// ============================================================================
+// SETTLEMENT — the RECORD of money having changed hands
+//
+// D6: the platform does not hold or route funds. It records that payment
+// happened. Named "Settlement" rather than "Payments" precisely to stop that
+// boundary eroding — nothing here should ever move money.
+//
+// R8 is real and unmitigated: either party records this, and there is no
+// verification. Both sides can see the record; disagreement is a V2 dispute.
+// ============================================================================
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum PartyRole {
+  CUSTOMER
+  PROVIDER
+}
+
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// One payment record per booking in MVP. Part payments are V2 — and would
+  /// be a new row here, not a mutation of this one.
+  bookingId String @unique @map("booking_id") @db.Uuid
+
+  amountMinor Int           @map("amount_minor")
+  currency    String        @default("INR")
+  method      PaymentMethod
+
+  /// F9 again: the day money changed hands, not a timestamp.
+  paidOn DateTime @map("paid_on") @db.Date
+
+  /// UPI reference, cheque number, whatever the parties have.
+  reference String?
+  note      String?
+
+  recordedByUserId String    @map("recorded_by_user_id") @db.Uuid
+  recordedByRole   PartyRole @map("recorded_by_role")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@map("payments")
+}
+
+// ============================================================================
+// REPUTATION — ratings
+//
+// The average is DERIVED, never stored on the provider. Storing it would mean
+// two writes per review across two aggregates; recomputing costs one query and
+// cannot drift. See the aggregates doc: this is eventually consistent by design.
+// ============================================================================
+
+model Review {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// BR7 — one review per booking, enforced by the database.
+  bookingId String @unique @map("booking_id") @db.Uuid
+
+  providerId             String @map("provider_id") @db.Uuid
+  customerOrganisationId String @map("customer_organisation_id") @db.Uuid
+
+  rating  Int
+  comment String?
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, createdAt])
+  @@map("reviews")
+}
+
+// ============================================================================
+// PLATFORM — notifications
+//
+// Written by a LISTENER reacting to domain events. No domain module imports
+// this one; they emit and forget. That is what makes email in V2 a new
+// subscriber rather than a change to Booking.
+//
+// Targeted at an ORGANISATION, not a user: the work belongs to the org, and
+// any member should see it. LIMITATION: read state is per-organisation, so one
+// member marking it read hides it for all. Correct once organisations really
+// have several members (V2) — the fix is a per-user read table, not a column.
+// ============================================================================
+
+enum NotificationType {
+  BOOKING_ASSIGNED
+  BOOKING_ACCEPTED
+  BOOKING_REJECTED
+  BOOKING_SCHEDULE_PROPOSED
+  BOOKING_SCHEDULE_CONFIRMED
+  BOOKING_WORK_COMPLETED
+  BOOKING_COMPLETION_CONFIRMED
+  BOOKING_CANCELLED
+  PAYMENT_RECORDED
+  REVIEW_RECEIVED
+  PROVIDER_ACTIVATED
+  PROVIDER_REJECTED
+}
+
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+
+  organisationId String @map("organisation_id") @db.Uuid
+
+  type  NotificationType
+  title String
+  body  String?
+
+  /// Where clicking it should go. Nullable because not every notice is about a booking.
+  bookingId String? @map("booking_id") @db.Uuid
+
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId, readAt, createdAt])
+  @@map("notifications")
+}
+
+// ============================================================================
+// ASSET REGISTRY — drones
+//
+// Named Asset, not Drone, in the architecture: when pilots and vehicles arrive
+// in V2 this becomes a Resource Registry and Assignment allocates a resource
+// rather than a business (S4). The table stays drone-specific until then.
+// ============================================================================
+
+enum Serviceability {
+  SERVICEABLE
+  UNDER_MAINTENANCE
+  RETIRED
+}
+
+model Drone {
+  id String @id @default(uuid()) @db.Uuid
+
+  providerId String @map("provider_id") @db.Uuid
+
+  model String
+
+  /// DGCA UIN. Globally unique — one airframe cannot be registered twice.
+  registrationNumber String @unique @map("registration_number")
+
+  capacityLitres Int? @map("capacity_litres")
+
+  serviceability Serviceability @default(SERVICEABLE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  provider Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tickets  MaintenanceTicket[]
+
+  @@index([providerId, serviceability])
+  @@map("drones")
+}
+
+// ============================================================================
+// FIELD SERVICE — maintenance tickets
+//
+// A SECOND PRODUCT LINE on a shared platform (review finding F10), not a fifth
+// CRUD flow. Different customer (the provider, not the farmer), different
+// revenue model, different lifecycle, different staff. It shares identity and
+// storage and nothing else — and it must be addable without modifying any
+// marketplace module.
+// ============================================================================
+
+enum TicketStatus {
+  OPEN // raised, nobody assigned
+  ASSIGNED // an engineer has it
+  IN_PROGRESS // engineer is on site
+  CLOSED // resolved, report filed
+  CANCELLED
+}
+
+model MaintenanceTicket {
+  id String @id @default(uuid()) @db.Uuid
+
+  droneId String @map("drone_id") @db.Uuid
+
+  /// Denormalised from the drone so a provider's tickets are one query.
+  providerId String @map("provider_id") @db.Uuid
+
+  raisedByUserId String @map("raised_by_user_id") @db.Uuid
+  description    String
+
+  status TicketStatus @default(OPEN)
+
+  assignedEngineerUserId String?   @map("assigned_engineer_user_id") @db.Uuid
+  assignedByUserId       String?   @map("assigned_by_user_id") @db.Uuid
+  assignedAt             DateTime? @map("assigned_at")
+
+  resolutionNote String?   @map("resolution_note")
+  closedAt       DateTime? @map("closed_at")
+
+  /// BR11 — a ticket cannot be closed without a report. Enforced in the service
+  /// because the requirement is conditional on the target status, which a
+  /// column constraint cannot express.
+  reportDocumentId String? @map("report_document_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  drone  Drone         @relation(fields: [droneId], references: [id], onDelete: Cascade)
+  events TicketEvent[]
+
+  @@index([providerId, status])
+  @@index([status, createdAt])
+  @@index([assignedEngineerUserId, status])
+  @@map("maintenance_tickets")
+}
+
+/// Append-only, same shape as provider and booking history.
+model TicketEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  ticketId String @map("ticket_id") @db.Uuid
+
+  fromStatus TicketStatus? @map("from_status")
+  toStatus   TicketStatus  @map("to_status")
+
+  actorUserId String  @map("actor_user_id") @db.Uuid
+  note        String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_events")
+}

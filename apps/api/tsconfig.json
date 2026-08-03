@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    /* REQUIRED by NestJS. Without these two, dependency injection cannot work:
+       emitDecoratorMetadata is what writes constructor parameter TYPES into the
+       compiled JavaScript, which is how Nest knows what to inject. */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    /* Output */
+    "module": "commonjs",
+    "target": "ES2023",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+    "declaration": false,
+    "removeComments": true,
+
+    /* Module resolution */
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Type safety — deliberately stricter than the NestJS default, which ships
+       with noImplicitAny and strictBindCallApply turned OFF. Turning strict on
+       later, across thousands of lines, is a painful day. Now it is free. */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    /* Deliberate exception: Nest and Prisma assign some properties outside the
+       constructor, which this rule would flag incorrectly. */
+    "strictPropertyInitialization": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

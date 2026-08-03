@@ -1,0 +1,29 @@
+{
+  "name": "drone-ops-platform",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Enterprise platform for commercial drone service operations",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "api:dev": "npm run start:dev --workspace @drone-ops/api",
+    "api:build": "npm run build --workspace @drone-ops/api",
+    "api:start": "npm run start:prod --workspace @drone-ops/api",
+    "api:typecheck": "npm run typecheck --workspace @drone-ops/api",
+    "web:dev": "npm run dev --workspace @drone-ops/web",
+    "web:build": "npm run build --workspace @drone-ops/web",
+    "web:start": "npm run start --workspace @drone-ops/web",
+    "web:typecheck": "npm run typecheck --workspace @drone-ops/web",
+    "web:generate-api": "npm run generate:api --workspace @drone-ops/web",
+    "typecheck": "npm run api:typecheck && npm run web:typecheck",
+    "api:seed": "npm run db:seed --workspace @drone-ops/api",
+    "api:test": "npm run test --workspace @drone-ops/api",
+    "test": "npm run api:test",
+    "api:test:int": "npm run test:int --workspace @drone-ops/api"
+  }
+}

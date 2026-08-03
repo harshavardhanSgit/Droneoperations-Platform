@@ -1,0 +1,30 @@
+{
+  "name": "@drone-ops/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Drone Operations Platform — web client",
+  "scripts": {
+    "dev": "next dev -p 3010",
+    "build": "next build",
+    "start": "next start -p 3010",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "generate:api": "openapi-typescript http://localhost:3000/api/docs-json -o src/core/api/schema.d.ts"
+  },
+  "dependencies": {
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "openapi-typescript": "^7.9.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

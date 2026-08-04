@@ -6,33 +6,53 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth/auth-context";
 import { NotificationBell } from "./notification-bell";
 
+type Link = { href: string; label: string };
+
 /**
- * Navigation is derived from the organisation KIND, mirroring how the backend
- * derives permissions. A single nav with hidden items is where permission bugs
- * live — a link a role cannot use should not exist for them at all.
+ * Keyed by organisation KIND and then ROLE — the same two coordinates the
+ * backend's permission map uses. Kind alone is not enough: an Admin and a
+ * Service Engineer are both PLATFORM, and showing an engineer the provider
+ * approval queue would advertise a page the API will refuse.
  *
- * This is presentation only. Hiding a link protects nobody: the API's guard is
- * the boundary.
+ * A single nav with hidden items is where permission bugs live; a link a role
+ * cannot use should not exist for them at all. This is still presentation only
+ * — hiding a link protects nobody, the API's guard is the boundary.
  */
-const NAV: Record<string, { href: string; label: string }[]> = {
-  CUSTOMER: [
-    { href: "/bookings", label: "My bookings" },
-    { href: "/search", label: "Book a service" },
-  ],
-  PROVIDER: [
-    { href: "/provider/requests", label: "Requests" },
-    { href: "/provider/jobs", label: "My jobs" },
-    { href: "/provider/drones", label: "Drones" },
-    { href: "/provider/earnings", label: "Earnings" },
-    { href: "/provider/onboarding", label: "My business" },
-    { href: "/dashboard", label: "Account" },
-  ],
-  PLATFORM: [
-    { href: "/admin/providers", label: "Providers" },
-    { href: "/admin/tickets", label: "Maintenance" },
-    { href: "/dashboard", label: "Account" },
-  ],
+const ACCOUNT: Link = { href: "/dashboard", label: "Account" };
+
+const NAV: Record<string, Record<string, Link[]>> = {
+  CUSTOMER: {
+    "*": [
+      { href: "/bookings", label: "My bookings" },
+      { href: "/search", label: "Book a service" },
+      ACCOUNT,
+    ],
+  },
+  PROVIDER: {
+    "*": [
+      { href: "/provider/requests", label: "Requests" },
+      { href: "/provider/jobs", label: "My jobs" },
+      { href: "/provider/drones", label: "Drones" },
+      { href: "/provider/earnings", label: "Earnings" },
+      { href: "/provider/onboarding", label: "My business" },
+      ACCOUNT,
+    ],
+  },
+  PLATFORM: {
+    ADMIN: [
+      { href: "/admin/providers", label: "Providers" },
+      { href: "/admin/tickets", label: "Maintenance" },
+      ACCOUNT,
+    ],
+    SERVICE_ENGINEER: [{ href: "/engineer/tickets", label: "My tickets" }, ACCOUNT],
+  },
 };
+
+function linksFor(kind: string, role: string): Link[] {
+  const byRole = NAV[kind];
+  if (!byRole) return [];
+  return byRole[role] ?? byRole["*"] ?? [];
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { status, account, signOut } = useAuth();
@@ -45,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  const links = NAV[account.organisation.kind] ?? [];
+  const links = linksFor(account.organisation.kind, account.role);
 
   return (
     <>

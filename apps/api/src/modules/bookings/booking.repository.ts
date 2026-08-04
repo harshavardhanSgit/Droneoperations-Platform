@@ -94,6 +94,35 @@ export class BookingRepository {
     ]);
   }
 
+  /**
+   * Every booking on the platform, scoped by nothing.
+   *
+   * The absence of an organisation filter is the whole point and the whole
+   * danger: this is the only list method that does not constrain by who is
+   * asking, so it must never be reachable without booking:read-any. Kept
+   * visibly separate from listForCustomer rather than making that method's
+   * organisation argument optional — an optional scope is one forgotten
+   * argument away from leaking every booking to every customer.
+   */
+  listAll(
+    page: { skip: number; take: number },
+    filters: { status?: BookingStatus } = {},
+    tx?: Tx,
+  ): Promise<[BookingWithDetail[], number]> {
+    const where = { ...(filters.status ? { status: filters.status } : {}) };
+
+    return Promise.all([
+      this.db(tx).booking.findMany({
+        where,
+        include: DETAIL_INCLUDE,
+        orderBy: { createdAt: 'desc' },
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.db(tx).booking.count({ where }),
+    ]);
+  }
+
   /** A provider's inbox: bookings where THEY hold an assignment. */
   listForProvider(
     providerId: string,

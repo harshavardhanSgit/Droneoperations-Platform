@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 
 import { CatalogueModule } from '../catalogue/catalogue.module';
+import { BookingsModule } from '../bookings/bookings.module';
 import { FieldServiceModule } from '../field-service/field-service.module';
 import { IdentityModule } from '../identity/identity.module';
 import { OrganisationsModule } from '../organisations/organisations.module';
+import { AdminBookingController } from './admin-booking.controller';
 import { AdminCatalogueController } from './admin-catalogue.controller';
 import { AdminTicketController } from './admin-ticket.controller';
 import { AdminOrganisationController } from './admin-organisation.controller';
@@ -19,13 +21,14 @@ import { AdminStaffController } from './admin-staff.controller';
  * god module.
  */
 @Module({
-  imports: [OrganisationsModule, CatalogueModule, FieldServiceModule, IdentityModule],
+  imports: [OrganisationsModule, CatalogueModule, FieldServiceModule, IdentityModule, BookingsModule],
   controllers: [
     AdminOrganisationController,
     AdminProviderController,
     AdminCatalogueController,
     AdminTicketController,
     AdminStaffController,
+    AdminBookingController,
   ],
 })
 export class AdminModule {}

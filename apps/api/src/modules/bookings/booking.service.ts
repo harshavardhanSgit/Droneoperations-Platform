@@ -181,7 +181,7 @@ export class BookingService {
   }
 
   async cancel(actor: ActorContext, bookingId: string, reason: string): Promise<BookingDetailDto> {
-    const booking = await this.requireOwnBooking(actor, bookingId);
+    const booking = await this.requireCancellable(actor, bookingId);
 
     assertNotTerminal(booking.status);
     assertTransition(booking.status, 'CANCELLED');
@@ -544,6 +544,22 @@ export class BookingService {
     return { items: items.map((item) => this.toDto(item)), total };
   }
 
+  /**
+   * The operator's view: every booking, unscoped.
+   *
+   * Deliberately takes no ActorContext. There is no ownership rule to apply —
+   * the guard's booking:read-any permission IS the authorisation, and accepting
+   * an actor here would imply a second check that does not exist.
+   */
+  async listAll(
+    page: { skip: number; take: number },
+    status?: BookingStatus,
+  ): Promise<BookingListDto> {
+    const [items, total] = await this.bookings.listAll(page, status ? { status } : {});
+
+    return { items: items.map((item) => this.toDto(item)), total };
+  }
+
   async listAssignedToMe(
     actor: ActorContext,
     page: { skip: number; take: number },
@@ -587,6 +603,44 @@ export class BookingService {
     }
 
     return booking;
+  }
+
+  /**
+   * Who may cancel: the customer, the actively assigned provider (BR9 — either
+   * party), or platform staff intervening on a stuck job (FR-ADMIN-3).
+   *
+   * Deliberately NOT a widened requireOwnBooking. That helper also guards
+   * assign() and confirmCompletion(), and confirming completion is the
+   * customer's alone (D10) — loosening it there would let an operator sign off
+   * work on a customer's behalf. Cancellation has its own rule, so it gets its
+   * own check.
+   */
+  private async requireCancellable(
+    actor: ActorContext,
+    id: string,
+  ): Promise<BookingWithDetail> {
+    const booking = await this.requireBooking(id);
+
+    if (booking.customerOrganisationId === actor.principalOrganisationId) {
+      return booking;
+    }
+
+    if (actor.organisationKind === 'PLATFORM') {
+      return booking;
+    }
+
+    if (actor.organisationKind === 'PROVIDER') {
+      const provider = await this.providers.findByOrganisation(actor.organisationId);
+      const active = booking.assignments.find(
+        (a) => a.providerId === provider?.id && (a.status === 'PENDING' || a.status === 'ACCEPTED'),
+      );
+
+      if (active) {
+        return booking;
+      }
+    }
+
+    throw new ResourceNotFoundException('Booking', id);
   }
 
   private async requireOwnBooking(

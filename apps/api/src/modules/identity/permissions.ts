@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   'booking:complete',
 
   // Bookings (Platform)
+  'booking:read-any',
   'booking:force-cancel',
   'booking:reassign',
 
@@ -63,6 +64,10 @@ const PROVIDER_MEMBER: Permission[] = [
   'booking:accept',
   'booking:reject',
   'booking:complete',
+  // BR9 — cancellation is available to EITHER party before completion. A
+  // provider whose drone is grounded must be able to release the job rather
+  // than silently not turn up.
+  'booking:cancel',
   'ticket:create',
 ];
 

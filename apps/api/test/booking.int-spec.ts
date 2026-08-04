@@ -197,6 +197,49 @@ describe('Booking — database-enforced rules', () => {
     });
   });
 
+  describe('BR9 — cancellation is available to either party, and to the platform', () => {
+    it('the assigned provider may cancel', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+
+      const cancelled = await bookings.cancel(fx.provider, booking.id, 'Drone grounded');
+
+      expect(cancelled.status).toBe('CANCELLED');
+      expect(cancelled.cancelledReason).toBe('Drone grounded');
+    });
+
+    it('a provider with no assignment on this booking may not', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+
+      // Not "forbidden" — not found. An unrelated provider should not be able to
+      // discover that this booking exists at all.
+      await expect(
+        bookings.cancel(fx.otherProvider, booking.id, 'Not mine to cancel'),
+      ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+    });
+
+    it('platform staff may force-cancel a stuck booking', async () => {
+      const booking = await newBooking();
+
+      const cancelled = await bookings.cancel(fx.admin, booking.id, 'Nobody available in this area');
+
+      expect(cancelled.status).toBe('CANCELLED');
+    });
+
+    it('the admin who cancelled is the actor on the history entry', async () => {
+      const booking = await newBooking();
+      await bookings.cancel(fx.admin, booking.id, 'Duplicate request');
+
+      const entry = await prisma.bookingStatusHistory.findFirstOrThrow({
+        where: { bookingId: booking.id, toStatus: 'CANCELLED' },
+      });
+
+      expect(entry.actorUserId).toBe(fx.admin.userId);
+      expect(entry.reason).toBe('Duplicate request');
+    });
+  });
+
   describe('optimistic locking', () => {
     it('two simultaneous cancels leave exactly one cancellation', async () => {
       const booking = await newBooking();

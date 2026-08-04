@@ -1,0 +1,229 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/ui/form";
+import { StatusPill } from "@/components/ui/status-pill";
+import { EmptyState, Page, PageHeader } from "@/components/ui/surface";
+import { ApiError } from "@/core/api/client";
+import type { Booking } from "@/core/api/types";
+import { RequireAuth } from "@/core/auth/require-auth";
+import * as admin from "@/features/admin/bookings-api";
+import { rupees, shortDate, STATUS_LABEL, STATUS_TONE } from "@/features/bookings/format";
+
+const FILTERS = [
+  { value: "UNASSIGNED", label: "Needs a provider" },
+  { value: "ASSIGNED", label: "Awaiting provider" },
+  { value: "SCHEDULED", label: "Scheduled" },
+  { value: "AWAITING_CONFIRMATION", label: "Awaiting sign-off" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "CANCELLED", label: "Cancelled" },
+  { value: "", label: "All" },
+];
+
+/**
+ * The operator's question is "what is stuck?", so UNASSIGNED is the default
+ * view rather than everything — a job nobody has taken is the one state that
+ * needs a human. Force-cancel is the only write here, and it is deliberately
+ * low-emphasis: it is terminal, and terminal actions should not be the easiest
+ * thing on the screen.
+ */
+function AdminBookings() {
+  const [items, setItems] = useState<Booking[]>([]);
+  const [status, setStatus] = useState("UNASSIGNED");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = (next: string) =>
+    admin
+      .listAllBookings(next || undefined)
+      .then((list) => setItems(list.items))
+      .catch((caught: unknown) =>
+        setError(caught instanceof ApiError ? caught.message : "Could not load bookings"),
+      )
+      .finally(() => setLoading(false));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    admin
+      .listAllBookings("UNASSIGNED")
+      .then((list) => {
+        if (cancelled) return;
+        setItems(list.items);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(caught instanceof ApiError ? caught.message : "Could not load bookings");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const choose = (next: string) => {
+    setStatus(next);
+    setCancelling(null);
+    setLoading(true);
+    void load(next);
+  };
+
+  const cancel = async (id: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await admin.forceCancel(id, reason.trim());
+      setCancelling(null);
+      setReason("");
+      await load(status);
+    } catch (caught: unknown) {
+      setError(caught instanceof ApiError ? caught.message : "Could not cancel that booking");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const terminal = (s: string) => s === "COMPLETED" || s === "CANCELLED";
+
+  return (
+    <Page size="console">
+      <PageHeader
+        title="Bookings"
+        description="Every job on the platform. Step in when one is stuck."
+      />
+
+      <div className="mb-4 flex flex-wrap gap-1">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value || "all"}
+            onClick={() => choose(f.value)}
+            className={`h-8 rounded-control px-3 text-sm ${
+              status === f.value
+                ? "bg-accent font-medium text-accent-fg"
+                : "text-fg-muted hover:bg-neutral-bg hover:text-fg"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <FormError message={error} />
+
+      {loading ? (
+        <p className="text-sm text-fg-subtle">Loading…</p>
+      ) : items.length === 0 ? (
+        <EmptyState
+          title="Nothing here"
+          description={
+            status === "UNASSIGNED"
+              ? "No job is waiting for a provider. That is the good outcome."
+              : "No bookings in this state."
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-surface border border-border">
+          <table className="w-full min-w-[52rem] text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-fg-subtle">
+                <th className="px-4 py-2 font-medium">Customer</th>
+                <th className="px-4 py-2 font-medium">Service</th>
+                <th className="px-4 py-2 font-medium">Provider</th>
+                <th className="px-4 py-2 text-right font-medium">Value</th>
+                <th className="px-4 py-2 font-medium">Wanted</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {items.map((b) => (
+                <tr key={b.id} className="align-middle">
+                  <td className="px-4 py-2 font-medium">{b.customerName}</td>
+                  <td className="px-4 py-2 text-fg-muted">
+                    {b.serviceTypeName}
+                    <span className="tabular ml-2 text-xs text-fg-subtle">
+                      {b.quantity} {b.pricingUnit.replace("PER_", "").toLowerCase()}
+                    </span>
+                    <span className="ml-2 text-xs text-fg-subtle">{b.areaName}</span>
+                  </td>
+                  <td className="px-4 py-2 text-fg-muted">
+                    {b.activeAssignment?.providerName ?? (
+                      <span className="text-fg-subtle">—</span>
+                    )}
+                  </td>
+                  <td className="tabular px-4 py-2 text-right">
+                    {rupees(b.finalAmountMinor ?? b.estimatedTotalMinor)}
+                  </td>
+                  <td className="tabular px-4 py-2 text-fg-muted">
+                    {shortDate(b.confirmedDate ?? b.preferredDate)}
+                  </td>
+                  <td className="px-4 py-2">
+                    <StatusPill tone={STATUS_TONE[b.status] ?? "neutral"} size="console">
+                      {STATUS_LABEL[b.status] ?? b.status}
+                    </StatusPill>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {terminal(b.status) ? null : cancelling === b.id ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <input
+                          autoFocus
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder="Why?"
+                          className="h-8 w-48 rounded-control border border-border-strong bg-bg px-2 text-sm"
+                        />
+                        <Button size="console" variant="ghost" onClick={() => setCancelling(null)}>
+                          Keep
+                        </Button>
+                        <Button
+                          size="console"
+                          variant="danger"
+                          disabled={reason.trim().length < 3 || busy}
+                          onClick={() => void cancel(b.id)}
+                        >
+                          Cancel it
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="console"
+                        variant="ghost"
+                        onClick={() => {
+                          setCancelling(b.id);
+                          setReason("");
+                        }}
+                      >
+                        Force-cancel
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="mt-3 text-xs text-fg-subtle">
+        Force-cancelling records the reason against the booking and names you as the actor. It is
+        terminal — the job does not come back.
+      </p>
+    </Page>
+  );
+}
+
+export default function AdminBookingsPage() {
+  return (
+    <RequireAuth>
+      <AdminBookings />
+    </RequireAuth>
+  );
+}

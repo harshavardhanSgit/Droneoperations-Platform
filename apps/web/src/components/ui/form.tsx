@@ -27,15 +27,17 @@ export function Field({
 
 export function SelectField({
   label,
+  hint,
   children,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hint?: string }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium">{label}</span>
       <select className={fieldClass} {...props}>
         {children}
       </select>
+      {hint ? <span className="mt-1 block text-xs text-fg-subtle">{hint}</span> : null}
     </label>
   );
 }

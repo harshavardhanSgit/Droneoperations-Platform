@@ -43,6 +43,7 @@ const NAV: Record<string, Record<string, Link[]>> = {
       { href: "/admin/bookings", label: "Bookings" },
       { href: "/admin/providers", label: "Providers" },
       { href: "/admin/tickets", label: "Maintenance" },
+      { href: "/admin/catalogue", label: "Catalogue" },
       ACCOUNT,
     ],
     SERVICE_ENGINEER: [{ href: "/engineer/tickets", label: "My tickets" }, ACCOUNT],

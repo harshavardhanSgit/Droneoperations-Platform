@@ -30,13 +30,20 @@ export const updateServiceType = (
     body: JSON.stringify(input),
   });
 
-export const listAreas = (parentId?: string) =>
-  apiFetch<Area[]>(
-    `/api/v1/admin/catalogue/areas${parentId ? `?parentId=${parentId}` : ""}&includeRetired=true`.replace(
-      "?&",
-      "?",
-    ),
-  );
+/**
+ * Built with URLSearchParams, not string concatenation. Hand-assembled query
+ * strings get the first separator wrong the moment a parameter becomes
+ * optional — which is exactly what happened here.
+ */
+export const listAreas = (parentId?: string) => {
+  const params = new URLSearchParams({ includeRetired: "true" });
+
+  if (parentId) {
+    params.set("parentId", parentId);
+  }
+
+  return apiFetch<Area[]>(`/api/v1/admin/catalogue/areas?${params.toString()}`);
+};
 
 export const createArea = (input: { parentId?: string; level: string; name: string; code?: string }) =>
   apiFetch<Area>("/api/v1/admin/catalogue/areas", {

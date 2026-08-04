@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, Page, PageHeader } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Booking, Match } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as admin from "@/features/admin/bookings-api";
 import * as discoveryApi from "@/features/discovery/api";
 import { rupees, shortDate, STATUS_LABEL, STATUS_TONE } from "@/features/bookings/format";
@@ -317,7 +317,9 @@ function AdminBookings() {
 export default function AdminBookingsPage() {
   return (
     <RequireAuth>
-      <AdminBookings />
+      <RequireRole kind="PLATFORM" role="ADMIN">
+        <AdminBookings />
+      </RequireRole>
     </RequireAuth>
   );
 }

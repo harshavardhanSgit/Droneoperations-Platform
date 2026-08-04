@@ -6,7 +6,7 @@ import { FormError } from "@/components/ui/form";
 import { ApiError } from "@/core/api/client";
 import type { Provider, ProviderDetail, ProviderDocument } from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as adminApi from "@/features/admin/api";
 
 const STAGES = [
@@ -314,7 +314,9 @@ function Queue() {
 export default function AdminProvidersPage() {
   return (
     <RequireAuth>
-      <Queue />
+      <RequireRole kind="PLATFORM" role="ADMIN">
+        <Queue />
+      </RequireRole>
     </RequireAuth>
   );
 }

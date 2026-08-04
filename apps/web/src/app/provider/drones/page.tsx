@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Drone, Ticket } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import {
   DRONE_LABEL,
   DRONE_TONE,
@@ -217,7 +217,9 @@ function Drones() {
 export default function ProviderDronesPage() {
   return (
     <RequireAuth>
-      <Drones />
+      <RequireRole kind="PROVIDER">
+        <Drones />
+      </RequireRole>
     </RequireAuth>
   );
 }

@@ -7,7 +7,7 @@ import { FormError } from "@/components/ui/form";
 import { Page, PageHeader, Surface } from "@/components/ui/surface";
 import { ApiError, apiFetch } from "@/core/api/client";
 import type { Dashboard } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 
 /**
  * Not four equal cards.
@@ -139,7 +139,9 @@ function AdminDashboard() {
 export default function AdminDashboardPage() {
   return (
     <RequireAuth>
-      <AdminDashboard />
+      <RequireRole kind="PLATFORM" role="ADMIN">
+        <AdminDashboard />
+      </RequireRole>
     </RequireAuth>
   );
 }

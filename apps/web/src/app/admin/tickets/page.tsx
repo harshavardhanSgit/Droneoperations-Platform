@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, PageHeader, Page } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { StaffMember, Ticket } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as admin from "@/features/admin/maintenance-api";
 import { TICKET_LABEL, TICKET_TONE, whenShort } from "@/features/maintenance/format";
 
@@ -192,7 +192,9 @@ function Tickets() {
 export default function AdminTicketsPage() {
   return (
     <RequireAuth>
-      <Tickets />
+      <RequireRole kind="PLATFORM" role="ADMIN">
+        <Tickets />
+      </RequireRole>
     </RequireAuth>
   );
 }

@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { cardGrid, EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Ticket } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as engineer from "@/features/engineer/api";
 import { TICKET_LABEL, TICKET_TONE, whenShort } from "@/features/maintenance/format";
 
@@ -233,7 +233,9 @@ function Tickets() {
 export default function EngineerTicketsPage() {
   return (
     <RequireAuth>
-      <Tickets />
+      <RequireRole kind="PLATFORM" role="SERVICE_ENGINEER">
+        <Tickets />
+      </RequireRole>
     </RequireAuth>
   );
 }

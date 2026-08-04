@@ -8,7 +8,7 @@ import { FormError } from "@/components/ui/form";
 import { EmptyState, PageHeader, Surface, Page } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Earnings } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import { rupees } from "@/features/bookings/format";
 import { getEarnings } from "@/features/provider/earnings-api";
 
@@ -105,7 +105,9 @@ function EarningsView() {
 export default function ProviderEarningsPage() {
   return (
     <RequireAuth>
-      <EarningsView />
+      <RequireRole kind="PROVIDER">
+        <EarningsView />
+      </RequireRole>
     </RequireAuth>
   );
 }

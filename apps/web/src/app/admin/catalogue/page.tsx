@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Area, ServiceType } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as catalogue from "@/features/admin/catalogue-api";
 
 const PRICING_UNITS = ["PER_ACRE", "PER_SQ_KM", "PER_HOUR", "PER_DAY", "PER_ASSET"];
@@ -316,7 +316,9 @@ function Catalogue() {
 export default function AdminCataloguePage() {
   return (
     <RequireAuth>
-      <Catalogue />
+      <RequireRole kind="PLATFORM" role="ADMIN">
+        <Catalogue />
+      </RequireRole>
     </RequireAuth>
   );
 }

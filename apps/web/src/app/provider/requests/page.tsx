@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
-import { RequireAuth } from "@/core/auth/require-auth";
+import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
 import { rupees, shortDate, WINDOWS, windowLabel } from "@/features/bookings/format";
 import * as providerApi from "@/features/provider/bookings-api";
@@ -244,7 +244,9 @@ function Requests() {
 export default function ProviderRequestsPage() {
   return (
     <RequireAuth>
-      <Requests />
+      <RequireRole kind="PROVIDER">
+        <Requests />
+      </RequireRole>
     </RequireAuth>
   );
 }

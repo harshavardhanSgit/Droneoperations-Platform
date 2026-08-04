@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -30,6 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<CurrentAccount | null>(null);
 
   /**
+   * True once an explicit sign-in or sign-out has decided who the user is.
+   *
+   * Session restore is asynchronous and can therefore still be in flight when
+   * someone signs in — and a late restore response would overwrite the fresh
+   * identity with the previous one, leaving the app rendering one role's
+   * navigation while holding another role's access token. Unmount is not the
+   * only reason to discard a stale response.
+   */
+  const decided = useRef(false);
+
+  /**
    * Session restore. The access token lives in memory, so a page reload loses
    * it — but the refresh cookie survives, so we exchange it for a new access
    * token on mount. This is the trade for not putting tokens in localStorage:
@@ -37,23 +49,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   useEffect(() => {
     let cancelled = false;
+    const stale = () => cancelled || decided.current;
 
     void (async () => {
       const restored = await refreshSession();
 
       if (!restored) {
-        if (!cancelled) setStatus("anonymous");
+        if (!stale()) setStatus("anonymous");
         return;
       }
 
       try {
         const me = await authApi.getCurrentAccount();
-        if (!cancelled) {
+        if (!stale()) {
           setAccount(me);
           setStatus("authenticated");
         }
       } catch {
-        if (!cancelled) setStatus("anonymous");
+        if (!stale()) setStatus("anonymous");
       }
     })();
 
@@ -64,6 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await authApi.login(email, password);
+
+    // Claim the identity before any state is written, so a session restore
+    // still in flight cannot land afterwards and overwrite it.
+    decided.current = true;
 
     const signedIn: CurrentAccount = {
       userId: result.userId,
@@ -81,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    decided.current = true;
     await authApi.logout();
     setAccessToken(null);
     setAccount(null);

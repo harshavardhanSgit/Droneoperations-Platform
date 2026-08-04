@@ -33,3 +33,42 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   return <>{children}</>;
 }
+
+/**
+ * Also UX only — the API's PermissionsGuard is still the boundary.
+ *
+ * Keyed on (kind, role) because kind alone is not enough: an Admin and a
+ * Service Engineer are both PLATFORM, and a kind-only check lets an engineer
+ * through to a screen the API will then refuse with a raw 403. Explaining that
+ * in the product beats surfacing the guard's error message.
+ */
+export function RequireRole({
+  kind,
+  role,
+  children,
+}: {
+  kind: string;
+  role?: string;
+  children: ReactNode;
+}) {
+  const { account } = useAuth();
+
+  if (!account) return null;
+
+  const allowed =
+    account.organisation.kind === kind && (role === undefined || account.role === role);
+
+  if (!allowed) {
+    return (
+      <div className="mx-auto w-full max-w-md px-5 py-20">
+        <p className="font-medium">Not your screen</p>
+        <p className="mt-1 text-sm text-fg-muted">
+          This is for {role ? role.toLowerCase().replace(/_/g, " ") : kind.toLowerCase()} accounts.
+          You are signed in as {account.email}.
+        </p>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}

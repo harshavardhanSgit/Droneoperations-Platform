@@ -14,6 +14,13 @@
 
 set -uo pipefail
 
+# Brace expansion OFF. A JSON payload written inline — {"a":"1","b":"2"} — looks
+# to bash exactly like the brace-expansion form {a,b}, so it expands into one
+# word per comma before curl ever sees it. Quoting does not prevent it in
+# argument position. Without this, payloads arrive at the API as fragments and
+# the harness reports failures that the application never caused.
+set +B
+
 DB=${SMOKE_DB:-drone_ops_smoke}
 PORT=${SMOKE_PORT:-3999}
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -99,6 +106,18 @@ check "seed runs" 0 $?
 (cd "$API" && DATABASE_URL="$URL" node dist/database/seed.js >>"$TMP/seed" 2>&1)
 check "seed is idempotent (second run)" 0 $?
 
+# A process left over from an earlier run would still answer on this port, the
+# new instance would fail to bind and die, and every check below would silently
+# pass against a binary we did not just build. Clear the port first, then prove
+# the listener is ours.
+listener() { lsof -nP -iTCP:$PORT -sTCP:LISTEN -t 2>/dev/null | head -1; }
+if [ -n "$(listener)" ]; then
+  kill "$(listener)" 2>/dev/null
+  for _ in $(seq 1 20); do [ -z "$(listener)" ] && break; sleep 0.25; done
+  [ -n "$(listener)" ] && kill -9 "$(listener)" 2>/dev/null && sleep 0.5
+fi
+check "port $PORT is free before boot" ok "$([ -z "$(listener)" ] && echo ok || echo STALE_PROCESS)"
+
 (cd "$API" && DATABASE_URL="$URL" PORT=$PORT API_PUBLIC_URL="http://localhost:$PORT" \
   STORAGE_LOCAL_DIR="$TMP/storage" exec node dist/main.js >"$TMP/api.log" 2>&1) &
 SRV=$!
@@ -106,6 +125,7 @@ for _ in $(seq 1 30); do
   curl -s -o /dev/null "http://localhost:$PORT/api/v1/health" && break; sleep 1
 done
 check "api boots and answers" 200 "$(req GET /health '')"
+check "the responding api is the one we just built" ok "$([ "$(listener)" = "$SRV" ] && echo ok || echo WRONG_PROCESS)"
 
 # --------------------------------------------------------------------- health
 section "Health & docs"
@@ -189,7 +209,7 @@ check "path traversal defeated" ok "$(find "$TMP/storage" -name 'passwd*' 2>/dev
 check "confirm the upload" 200 "$(req POST "/providers/me/documents/$DOCID/confirm" "$PROV" "{\"sizeBytes\":$SZ}")"
 check "submit for review" 200 "$(req POST /providers/me/submit "$PROV")"
 check "  stage" UNDER_REVIEW "$(json 'd.data.stage')"
-check "details locked under review" 409 "$(req PUT /providers/me/profile "$PROV" '{"legalName":"Sneaky","contactPhone":"+919000000001","addressLine":"x","city":"Warangal","state":"Telangana","pincode":"506002"}')"
+check "details locked under review" 409 "$(req PUT /providers/me/profile "$PROV" '{"legalName":"Sneaky","contactPhone":"+919000000001","addressLine":"Plot 2","city":"Warangal","state":"Telangana","pincode":"506002"}')"
 
 check "admin sees the review queue" 200 "$(req GET "/admin/providers?stage=UNDER_REVIEW" "$ADMIN")"
 PID=$(json 'd.data.items[0].id')
@@ -206,12 +226,12 @@ check "activating twice refused" 409 "$(req POST "/admin/providers/$PID/activate
 # ------------------------------------------------------------------ offerings
 section "Offerings"
 check "publish an offering" 201 "$(req POST /providers/me/offerings "$PROV" "{\"serviceTypeId\":\"$ST\",\"unitPriceMinor\":44000,\"minQuantity\":5,\"inclusions\":[\"WATER\",\"TRANSPORT\"],\"areaIds\":[\"$AID\"]}")"
-OFF=$(json 'd.data.id')
+OFFERING=$(json 'd.data.id')
 check "  version 1" 1 "$(json 'd.data.currentVersion.versionNumber')"
 check "same service twice refused (partial index)" 409 "$(req POST /providers/me/offerings "$PROV" "{\"serviceTypeId\":\"$ST\",\"unitPriceMinor\":50000}")"
-check "publish a new version" 201 "$(req POST "/providers/me/offerings/$OFF/versions" "$PROV" '{"unitPriceMinor":47000,"minQuantity":5,"inclusions":["WATER","TRANSPORT"]}')"
+check "publish a new version" 201 "$(req POST "/providers/me/offerings/$OFFERING/versions" "$PROV" '{"unitPriceMinor":47000,"minQuantity":5,"inclusions":["WATER","TRANSPORT"]}')"
 check "  version 2" 2 "$(json 'd.data.currentVersion.versionNumber')"
-check "price history keeps both" 200 "$(req GET "/providers/me/offerings/$OFF/history" "$PROV")"
+check "price history keeps both" 200 "$(req GET "/providers/me/offerings/$OFFERING/history" "$PROV")"
 check "  two versions recorded" 2 "$(json 'd.data.versions.length')"
 check "  exactly one is current" 1 "$(json 'd.data.versions.filter(v=>!v.effectiveTo).length')"
 check "customer cannot manage offerings" 403 "$(req GET /providers/me/offerings "$CUST")"
@@ -228,14 +248,14 @@ check "  filtered out" ok "$([ "$(json 'd.data.matches.filter(m=>m.minQuantity>1
 
 # ------------------------------------------------------------------- booking
 section "Booking lifecycle"
-check "create + assign" 201 "$(req POST /bookings "$CUST" "{\"serviceTypeId\":\"$ST\",\"areaId\":\"$AID\",\"quantity\":20,\"preferredDate\":\"2026-10-01\",\"preferredWindow\":\"DAWN\",\"locationNote\":\"North block\",\"offeringId\":\"$OFF\"}")"
+check "create + assign" 201 "$(req POST /bookings "$CUST" "{\"serviceTypeId\":\"$ST\",\"areaId\":\"$AID\",\"quantity\":20,\"preferredDate\":\"2026-10-01\",\"preferredWindow\":\"DAWN\",\"locationNote\":\"North block\",\"offeringId\":\"$OFFERING\"}")"
 BID=$(json 'd.data.id')
 check "  status" ASSIGNED "$(json 'd.data.status')"
 check "  quote frozen" 940000 "$(json 'd.data.estimatedTotalMinor')"
 check "provider sees the request" 200 "$(req GET "/providers/me/bookings?assignmentStatus=PENDING" "$PROV")"
 check "provider declines" 200 "$(req POST "/providers/me/bookings/$BID/reject" "$PROV" '{"reason":"Machine in for service"}')"
 check "  D9: booking reopens" UNASSIGNED "$(json 'd.data.status')"
-check "reassign the same booking" 201 "$(req POST "/bookings/$BID/assignments" "$CUST" "{\"offeringId\":\"$OFF\"}")"
+check "reassign the same booking" 201 "$(req POST "/bookings/$BID/assignments" "$CUST" "{\"offeringId\":\"$OFFERING\"}")"
 check "  two assignments on record (S1)" 2 "$(json 'd.data.assignments.length')"
 check "provider counter-proposes a date" 200 "$(req POST "/bookings/$BID/schedule/propose" "$PROV" '{"date":"2026-10-04","window":"MORNING"}')"
 check "proposer cannot confirm (BR15)" 403 "$(req POST "/bookings/$BID/schedule/confirm" "$PROV")"
@@ -306,9 +326,15 @@ check "  serviceability" SERVICEABLE "$(json 'd.data[0].serviceability')"
 
 # ------------------------------------------------------------------- teardown
 section "Cleanup"
-kill $SRV 2>/dev/null; SRV=""
-sleep 2
+# Nest runs onModuleDestroy hooks before releasing the socket, so the port stays
+# bound for a moment after SIGTERM. Poll instead of guessing at a sleep duration.
+kill "$SRV" 2>/dev/null
+for _ in $(seq 1 40); do
+  lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1 || break
+  sleep 0.25
+done
 check "api shut down cleanly" ok "$(lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1 && echo STILL_RUNNING || echo ok)"
+kill -9 "$SRV" 2>/dev/null; SRV=""
 dropdb --force --if-exists "$DB" 2>/dev/null || dropdb --if-exists "$DB" 2>/dev/null
 check "smoke database removed" ok "$(psql -lqt | cut -d\| -f1 | grep -qw "$DB" && echo STILL_THERE || echo ok)"
 

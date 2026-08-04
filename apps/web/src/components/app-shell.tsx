@@ -20,6 +20,8 @@ const NAV: Record<string, { href: string; label: string }[]> = {
     { href: "/search", label: "Book a service" },
   ],
   PROVIDER: [
+    { href: "/provider/requests", label: "Requests" },
+    { href: "/provider/jobs", label: "My jobs" },
     { href: "/provider/onboarding", label: "My business" },
     { href: "/dashboard", label: "Account" },
   ],

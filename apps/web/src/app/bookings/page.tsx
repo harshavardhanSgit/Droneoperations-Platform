@@ -8,6 +8,7 @@ import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
+import { StatusPill } from "@/components/ui/status-pill";
 import { rupees, STATUS_LABEL, STATUS_TONE } from "@/features/bookings/format";
 
 function needsYou(booking: Booking): string | null {
@@ -79,14 +80,10 @@ function Bookings() {
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
-                          STATUS_TONE[booking.status] ?? ""
-                        }`}
-                      >
+                      <StatusPill tone={STATUS_TONE[booking.status] ?? "neutral"}>
                         {STATUS_LABEL[booking.status] ?? booking.status}
-                      </span>
-                      <p className="mt-1 text-xs text-black/45 dark:text-white/45">
+                      </StatusPill>
+                      <p className="tabular mt-1 text-xs text-fg-subtle">
                         {rupees(booking.finalAmountMinor ?? booking.estimatedTotalMinor)}
                       </p>
                     </div>

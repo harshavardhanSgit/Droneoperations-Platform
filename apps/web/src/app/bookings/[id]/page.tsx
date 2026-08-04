@@ -9,6 +9,7 @@ import { ApiError } from "@/core/api/client";
 import type { BookingDetail, Payment, Review } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
+import { StatusPill } from "@/components/ui/status-pill";
 import { rupees, STATUS_LABEL, STATUS_TONE, WINDOWS } from "@/features/bookings/format";
 
 const field =
@@ -103,11 +104,9 @@ function Detail() {
             {booking.locationNote ? ` · ${booking.locationNote}` : ""}
           </p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[booking.status] ?? ""}`}
-        >
+        <StatusPill tone={STATUS_TONE[booking.status] ?? "neutral"}>
           {STATUS_LABEL[booking.status] ?? booking.status}
-        </span>
+        </StatusPill>
       </header>
 
       <FormError message={error} />

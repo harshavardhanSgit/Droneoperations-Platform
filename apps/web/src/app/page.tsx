@@ -23,13 +23,13 @@ async function probe<T>(fn: () => Promise<T>): Promise<Probe<T>> {
 
 function Status({ label, result }: { label: string; result: Probe<unknown> }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-black/5 py-2.5 text-sm last:border-0 dark:border-white/10">
-      <span className="text-black/50 dark:text-white/50">{label}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-border py-2.5 text-sm last:border-0">
+      <span className="text-fg-muted">{label}</span>
       <span
         className={
           result.ok
-            ? "text-emerald-700 dark:text-emerald-400"
-            : "text-red-700 dark:text-red-400"
+            ? "text-success"
+            : "text-danger"
         }
       >
         {result.ok ? "healthy" : (result.error.code ?? "unavailable")}
@@ -46,26 +46,26 @@ export default async function Home() {
       <h1 className="text-2xl font-semibold tracking-tight">
         Drone Operations Platform
       </h1>
-      <p className="mt-2 text-sm text-black/50 dark:text-white/50">
+      <p className="mt-2 text-sm text-fg-muted">
         Enterprise platform for commercial drone service operations.
       </p>
 
       <div className="mt-8 flex gap-3">
         <Link
           href="/login"
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
         >
           Sign in
         </Link>
         <Link
           href="/register"
-          className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium dark:border-white/20"
+          className="rounded-md border border-border-strong px-4 py-2 text-sm font-medium"
         >
           Create account
         </Link>
       </div>
 
-      <section className="mt-12 rounded-lg border border-black/10 p-5 dark:border-white/15">
+      <section className="mt-12 rounded-lg border border-border-strong p-5">
         <h2 className="mb-3 text-sm font-medium">API status</h2>
         <Status label="Liveness" result={liveness} />
         <Status label="Readiness (PostgreSQL)" result={readiness} />

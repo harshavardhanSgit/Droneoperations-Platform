@@ -73,7 +73,7 @@ export function NotificationBell() {
       <button
         onClick={() => void toggle()}
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
-        className="relative rounded-md px-2 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+        className="relative rounded-md px-2 py-1.5 text-sm hover:bg-neutral-bg"
       >
         <span aria-hidden>🔔</span>
         {unread > 0 ? (
@@ -84,13 +84,13 @@ export function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-black/10 bg-white shadow-lg dark:border-white/15 dark:bg-neutral-900">
-          <div className="flex items-center justify-between border-b border-black/5 px-4 py-2.5 dark:border-white/10">
+        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border-strong bg-bg-raised shadow-lg">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium">Notifications</span>
             {unread > 0 ? (
               <button
                 onClick={() => void readAll()}
-                className="text-xs text-black/50 hover:underline dark:text-white/50"
+                className="text-xs text-fg-muted hover:underline"
               >
                 Mark all read
               </button>
@@ -98,21 +98,21 @@ export function NotificationBell() {
           </div>
 
           {items.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-black/45 dark:text-white/45">
+            <p className="px-4 py-8 text-center text-sm text-fg-subtle">
               Nothing yet.
             </p>
           ) : (
-            <ul className="max-h-80 divide-y divide-black/5 overflow-y-auto dark:divide-white/10">
+            <ul className="max-h-80 divide-y divide-border overflow-y-auto">
               {items.map((item) => {
                 const body = (
                   <>
-                    <p className={`text-sm ${item.read ? "text-black/55 dark:text-white/55" : "font-medium"}`}>
+                    <p className={`text-sm ${item.read ? "text-fg-muted" : "font-medium"}`}>
                       {item.title}
                     </p>
                     {item.body ? (
-                      <p className="mt-0.5 text-xs text-black/45 dark:text-white/45">{item.body}</p>
+                      <p className="mt-0.5 text-xs text-fg-subtle">{item.body}</p>
                     ) : null}
-                    <p className="mt-1 text-[11px] text-black/35 dark:text-white/35">
+                    <p className="mt-1 text-[11px] text-fg-subtle">
                       {ago(item.createdAt)}
                     </p>
                   </>
@@ -127,7 +127,7 @@ export function NotificationBell() {
                           setOpen(false);
                           if (!item.read) void api.markRead(item.id).then(refreshCount);
                         }}
-                        className="block px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                        className="block px-4 py-3 hover:bg-neutral-bg"
                       >
                         {body}
                       </Link>

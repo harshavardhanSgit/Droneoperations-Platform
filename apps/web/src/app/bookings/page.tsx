@@ -39,7 +39,7 @@ function Bookings() {
         <h1 className="text-xl font-semibold tracking-tight">My bookings</h1>
         <Link
           href="/search"
-          className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-black"
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg"
         >
           Book a service
         </Link>
@@ -48,13 +48,13 @@ function Bookings() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-black/45 dark:text-white/45">Loading…</p>
+        <p className="text-sm text-fg-subtle">Loading…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg border border-black/10 px-4 py-10 text-center text-sm text-black/45 dark:border-white/15 dark:text-white/45">
+        <p className="rounded-lg border border-border-strong px-4 py-10 text-center text-sm text-fg-subtle">
           No bookings yet.
         </p>
       ) : (
-        <ul className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/15 dark:border-white/15">
+        <ul className="divide-y divide-border rounded-lg border border-border-strong">
           {items.map((booking) => {
             const action = needsYou(booking);
 
@@ -62,7 +62,7 @@ function Bookings() {
               <li key={booking.id}>
                 <Link
                   href={`/bookings/${booking.id}`}
-                  className="block px-4 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                  className="block px-4 py-3.5 hover:bg-neutral-bg"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -70,7 +70,7 @@ function Bookings() {
                         {booking.serviceTypeName} · {booking.quantity}{" "}
                         {booking.pricingUnit.replace("PER_", "").toLowerCase()}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-black/45 dark:text-white/45">
+                      <p className="mt-0.5 truncate text-xs text-fg-subtle">
                         {booking.areaName} ·{" "}
                         {booking.confirmedDate ?? booking.preferredDate}{" "}
                         {(booking.confirmedWindow ?? booking.preferredWindow).toLowerCase()}
@@ -90,7 +90,7 @@ function Bookings() {
                   </div>
 
                   {action ? (
-                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    <p className="mt-2 text-xs font-medium text-warning">
                       → {action}
                     </p>
                   ) : null}

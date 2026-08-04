@@ -58,7 +58,7 @@ export default function RegisterPage() {
   return (
     <main className="mx-auto w-full max-w-sm px-6 py-20">
       <h1 className="text-xl font-semibold tracking-tight">Create an account</h1>
-      <p className="mt-1 mb-8 text-sm text-black/50 dark:text-white/50">
+      <p className="mt-1 mb-8 text-sm text-fg-muted">
         Drone Operations Platform
       </p>
 
@@ -98,7 +98,7 @@ export default function RegisterPage() {
         <SubmitButton pending={pending}>Create account</SubmitButton>
       </form>
 
-      <p className="mt-6 text-sm text-black/50 dark:text-white/50">
+      <p className="mt-6 text-sm text-fg-muted">
         Already registered?{" "}
         <Link href="/login" className="underline underline-offset-4">
           Sign in

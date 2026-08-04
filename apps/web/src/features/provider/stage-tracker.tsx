@@ -13,7 +13,7 @@ const PIPELINE = [
 export function StageTracker({ stage }: { stage: string }) {
   if (stage === "REJECTED" || stage === "SUSPENDED") {
     return (
-      <div className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+      <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
         {stage === "REJECTED"
           ? "Your application was not approved. Update your details and submit again."
           : "This account has been suspended by the platform."}
@@ -34,21 +34,21 @@ export function StageTracker({ stage }: { stage: string }) {
             <span
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
                 done
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                  ? "bg-success-bg text-success"
                   : active
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "bg-black/5 text-black/40 dark:bg-white/10 dark:text-white/40"
+                    ? "bg-accent text-accent-fg"
+                    : "bg-neutral-bg text-fg-subtle"
               }`}
             >
               {done ? "✓" : index + 1}
             </span>
             <span
-              className={`text-sm ${active ? "font-medium" : "text-black/50 dark:text-white/50"}`}
+              className={`text-sm ${active ? "font-medium" : "text-fg-muted"}`}
             >
               {step.label}
             </span>
             {index < PIPELINE.length - 1 ? (
-              <span className="text-black/20 dark:text-white/20">→</span>
+              <span className="text-fg-subtle">→</span>
             ) : null}
           </li>
         );

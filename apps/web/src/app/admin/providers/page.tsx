@@ -48,7 +48,7 @@ function Detail({
   }
 
   return (
-    <div className="border-t border-black/10 bg-black/[0.015] px-4 py-5 dark:border-white/15 dark:bg-white/[0.02]">
+    <div className="border-t border-border-strong bg-neutral-bg px-4 py-5">
       <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
         {[
           ["Legal name", provider.legalName],
@@ -60,13 +60,13 @@ function Detail({
           ["PIN", provider.pincode],
         ].map(([label, value]) => (
           <div key={label} className="flex gap-2">
-            <dt className="text-black/45 dark:text-white/45">{label}:</dt>
-            <dd>{value ?? <span className="text-black/30 dark:text-white/30">—</span>}</dd>
+            <dt className="text-fg-subtle">{label}:</dt>
+            <dd>{value ?? <span className="text-fg-subtle">—</span>}</dd>
           </div>
         ))}
       </dl>
 
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-black/45 dark:text-white/45">
+      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-subtle">
         Documents
       </h3>
       {documents.length ? (
@@ -79,23 +79,23 @@ function Detail({
               >
                 {doc.originalFilename}
               </button>
-              <span className="text-black/40 dark:text-white/40">
+              <span className="text-fg-subtle">
                 {doc.kind} · {(doc.sizeBytes / 1024).toFixed(0)} KB · {doc.status}
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mb-5 text-sm text-black/45 dark:text-white/45">No documents uploaded.</p>
+        <p className="mb-5 text-sm text-fg-subtle">No documents uploaded.</p>
       )}
 
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-black/45 dark:text-white/45">
+      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-subtle">
         History
       </h3>
-      <ol className="mb-5 space-y-1 text-sm text-black/55 dark:text-white/55">
+      <ol className="mb-5 space-y-1 text-sm text-fg-muted">
         {provider.history.map((event, index) => (
           <li key={index}>
-            <span className="tabular-nums text-black/35 dark:text-white/35">
+            <span className="tabular-nums text-fg-subtle">
               {new Date(event.at).toLocaleString()}
             </span>{" "}
             {event.fromStage ? `${event.fromStage} → ` : ""}
@@ -113,7 +113,7 @@ function Detail({
               onChange={(e) => setReason(e.target.value)}
               rows={2}
               placeholder="Why is this being rejected? The provider will see this."
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-white/5"
+              className="w-full rounded-md border border-border-strong bg-bg px-3 py-2 text-sm"
             />
             <div className="flex gap-2">
               <button
@@ -125,7 +125,7 @@ function Detail({
               </button>
               <button
                 onClick={() => setRejecting(false)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm dark:border-white/20"
+                className="rounded-md border border-border-strong px-3 py-1.5 text-sm"
               >
                 Cancel
               </button>
@@ -136,20 +136,20 @@ function Detail({
             <button
               disabled={busy}
               onClick={() => onAction("activate")}
-              className="rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg disabled:opacity-50"
             >
               Activate
             </button>
             <button
               onClick={() => setRejecting(true)}
-              className="rounded-md border border-black/15 px-3 py-1.5 text-sm dark:border-white/20"
+              className="rounded-md border border-border-strong px-3 py-1.5 text-sm"
             >
               Reject…
             </button>
           </div>
         )
       ) : (
-        <p className="text-xs text-black/40 dark:text-white/40">
+        <p className="text-xs text-fg-subtle">
           Only an application that is UNDER_REVIEW can be decided.
         </p>
       )}
@@ -238,7 +238,7 @@ function Queue() {
 
   if (account && account.organisation.kind !== "PLATFORM") {
     return (
-      <main className="mx-auto w-full max-w-lg px-6 py-20 text-sm text-black/60 dark:text-white/60">
+      <main className="mx-auto w-full max-w-lg px-6 py-20 text-sm text-fg-muted">
         This console is for platform staff only.
       </main>
     );
@@ -248,7 +248,7 @@ function Queue() {
     <main className="mx-auto w-full max-w-3xl px-6 py-14">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight">Provider pipeline</h1>
-        <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+        <p className="mt-1 text-sm text-fg-muted">
           Oldest-waiting first. {total} in {stage.toLowerCase().replace(/_/g, " ")}.
         </p>
       </header>
@@ -260,8 +260,8 @@ function Queue() {
             onClick={() => setStage(s)}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               s === stage
-                ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-black/5 text-black/60 dark:bg-white/10 dark:text-white/60"
+                ? "bg-accent text-accent-fg"
+                : "bg-neutral-bg text-fg-muted"
             }`}
           >
             {s.replace(/_/g, " ").toLowerCase()}
@@ -271,9 +271,9 @@ function Queue() {
 
       <FormError message={error} />
 
-      <div className="mt-4 divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/15 dark:border-white/15">
+      <div className="mt-4 divide-y divide-border rounded-lg border border-border-strong">
         {rows.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-black/45 dark:text-white/45">
+          <p className="px-4 py-8 text-center text-sm text-fg-subtle">
             Nothing in this stage.
           </p>
         ) : (
@@ -281,20 +281,20 @@ function Queue() {
             <div key={row.id}>
               <button
                 onClick={() => void open(row.id)}
-                className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-neutral-bg"
               >
                 <span>
                   <span className="block text-sm font-medium">{row.organisationName}</span>
-                  <span className="block text-xs text-black/45 dark:text-white/45">
+                  <span className="block text-xs text-fg-subtle">
                     {row.legalName ?? "no business details yet"}
                     {row.city ? ` · ${row.city}` : ""}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-3 text-xs">
-                  <span className="text-black/45 dark:text-white/45">
+                  <span className="text-fg-subtle">
                     waiting {waitingFor(row.stageEnteredAt)}
                   </span>
-                  <span className="text-black/30 dark:text-white/30">
+                  <span className="text-fg-subtle">
                     {openId === row.id ? "▲" : "▼"}
                   </span>
                 </span>

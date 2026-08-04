@@ -208,7 +208,7 @@ function Onboarding() {
         {documents.length ? (
           <ul className="mb-5 space-y-2">
             {documents.map((doc) => (
-              <li key={doc.id} className="flex items-center justify-between gap-4 border-b border-black/5 pb-2 text-sm last:border-0 dark:border-white/10">
+              <li key={doc.id} className="flex items-center justify-between gap-4 border-b border-border pb-2 text-sm last:border-0">
                 <span className="truncate">
                   {doc.originalFilename}
                   <span className="ml-2 text-fg-subtle">
@@ -229,13 +229,13 @@ function Onboarding() {
           <form onSubmit={onUpload} className="space-y-3">
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium">Document type</span>
-              <select name="kind" defaultValue="BUSINESS_REGISTRATION" className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-white/5">
+              <select name="kind" defaultValue="BUSINESS_REGISTRATION" className="w-full rounded-md border border-border-strong bg-bg px-3 py-2 text-sm">
                 {DOCUMENT_KINDS.map((k) => (
                   <option key={k.value} value={k.value}>{k.label}</option>
                 ))}
               </select>
             </label>
-            <input name="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" required className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-black/5 file:px-3 file:py-2 file:text-sm dark:file:bg-white/10" />
+            <input name="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" required className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-bg file:px-3 file:py-2 file:text-sm" />
             <SubmitButton pending={busy === "upload"}>Upload</SubmitButton>
           </form>
         ) : null}
@@ -250,7 +250,7 @@ function Onboarding() {
           <button
             onClick={() => void onSubmit()}
             disabled={busy === "submit"}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
           >
             {busy === "submit" ? "Submitting…" : "Submit for review"}
           </button>
@@ -262,7 +262,7 @@ function Onboarding() {
         <ol className="space-y-1.5 text-sm">
           {provider.history.map((event, index) => (
             <li key={index} className="flex gap-3 text-fg-muted">
-              <span className="tabular-nums text-black/35 dark:text-white/35">
+              <span className="tabular-nums text-fg-subtle">
                 {new Date(event.at).toLocaleString()}
               </span>
               <span>

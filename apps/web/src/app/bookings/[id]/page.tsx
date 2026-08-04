@@ -13,16 +13,16 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { rupees, STATUS_LABEL, STATUS_TONE, WINDOWS } from "@/features/bookings/format";
 
 const field =
-  "rounded-md border border-black/15 bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-white/5";
+  "rounded-md border border-border-strong bg-bg px-3 py-2 text-sm";
 const primary =
-  "rounded-md bg-black px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black";
+  "rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg disabled:opacity-50";
 const secondary =
-  "rounded-md border border-black/15 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-white/20";
+  "rounded-md border border-border-strong px-3 py-1.5 text-sm disabled:opacity-50";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-6 border-b border-black/5 py-2 text-sm last:border-0 dark:border-white/10">
-      <span className="text-black/45 dark:text-white/45">{label}</span>
+    <div className="flex justify-between gap-6 border-b border-border py-2 text-sm last:border-0">
+      <span className="text-fg-subtle">{label}</span>
       <span className="text-right">{value}</span>
     </div>
   );
@@ -98,7 +98,7 @@ function Detail() {
     return (
       <main className="mx-auto w-full max-w-2xl px-6 py-14">
         <FormError message={error} />
-        {!error ? <p className="text-sm text-black/45 dark:text-white/45">Loading…</p> : null}
+        {!error ? <p className="text-sm text-fg-subtle">Loading…</p> : null}
       </main>
     );
   }
@@ -110,7 +110,7 @@ function Detail() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-14">
-      <Link href="/bookings" className="text-sm text-black/45 hover:underline dark:text-white/45">
+      <Link href="/bookings" className="text-sm text-fg-subtle hover:underline">
         ← My bookings
       </Link>
 
@@ -120,7 +120,7 @@ function Detail() {
             {booking.serviceTypeName} · {booking.quantity}{" "}
             {booking.pricingUnit.replace("PER_", "").toLowerCase()}
           </h1>
-          <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+          <p className="mt-1 text-sm text-fg-muted">
             {booking.areaName}
             {booking.locationNote ? ` · ${booking.locationNote}` : ""}
           </p>
@@ -132,7 +132,7 @@ function Detail() {
 
       <FormError message={error} />
 
-      <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+      <section className="mt-4 rounded-lg border border-border-strong p-5">
         <Row
           label="Provider"
           value={booking.activeAssignment?.providerName ?? "None — choose one"}
@@ -157,7 +157,7 @@ function Detail() {
       </section>
 
       {booking.status === "UNASSIGNED" ? (
-        <p className="mt-4 rounded-md bg-amber-500/10 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+        <p className="mt-4 rounded-md bg-warning-bg px-3 py-2.5 text-sm text-warning">
           No provider is assigned.{" "}
           <Link href="/search" className="underline underline-offset-4">
             Find another
@@ -167,11 +167,11 @@ function Detail() {
       ) : null}
 
       {pending ? (
-        <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-4 rounded-lg border border-border-strong p-5">
           <h2 className="mb-1 text-sm font-medium">
             {awaitingMe ? "The provider proposed a different date" : "Waiting on the provider"}
           </h2>
-          <p className="mb-3 text-sm text-black/55 dark:text-white/55">
+          <p className="mb-3 text-sm text-fg-muted">
             {pending.date} {pending.window.toLowerCase()} — proposed by{" "}
             {pending.proposedBy.toLowerCase()}
           </p>
@@ -184,7 +184,7 @@ function Detail() {
               {busy === "confirm" ? "Confirming…" : "Accept this date"}
             </button>
           ) : (
-            <p className="text-xs text-black/45 dark:text-white/45">
+            <p className="text-xs text-fg-subtle">
               You proposed this — the provider must confirm it.
             </p>
           )}
@@ -192,7 +192,7 @@ function Detail() {
       ) : null}
 
       {open && booking.status !== "UNASSIGNED" ? (
-        <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-4 rounded-lg border border-border-strong p-5">
           <h2 className="mb-3 text-sm font-medium">Propose a different date</h2>
           <div className="flex flex-wrap gap-2">
             <input
@@ -220,9 +220,9 @@ function Detail() {
       ) : null}
 
       {booking.status === "AWAITING_CONFIRMATION" ? (
-        <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-4 rounded-lg border border-border-strong p-5">
           <h2 className="mb-1 text-sm font-medium">The provider says the work is done</h2>
-          <p className="mb-3 text-sm text-black/55 dark:text-white/55">
+          <p className="mb-3 text-sm text-fg-muted">
             {booking.finalQuantity} {booking.pricingUnit.replace("PER_", "").toLowerCase()} ·{" "}
             {rupees(booking.finalAmountMinor)}
           </p>
@@ -237,7 +237,7 @@ function Detail() {
       ) : null}
 
       {booking.status === "COMPLETED" ? (
-        <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-4 rounded-lg border border-border-strong p-5">
           <h2 className="mb-3 text-sm font-medium">Payment</h2>
           {payment ? (
             <>
@@ -248,7 +248,7 @@ function Detail() {
             </>
           ) : (
             <>
-              <p className="mb-3 text-sm text-black/55 dark:text-white/55">
+              <p className="mb-3 text-sm text-fg-muted">
                 You pay the provider directly. Record it here so both sides have the same record.
               </p>
               <div className="flex flex-wrap gap-2">
@@ -282,18 +282,18 @@ function Detail() {
       ) : null}
 
       {booking.status === "COMPLETED" && reviewed ? (
-        <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-4 rounded-lg border border-border-strong p-5">
           <h2 className="mb-2 text-sm font-medium">Your review</h2>
           <p className="text-sm">
             {"★".repeat(review.rating)}
-            <span className="text-black/25 dark:text-white/25">{"★".repeat(5 - review.rating)}</span>
+            <span className="text-fg-subtle">{"★".repeat(5 - review.rating)}</span>
             {review.comment ? <span className="ml-2">{review.comment}</span> : null}
           </p>
         </section>
       ) : null}
 
       {booking.status === "COMPLETED" && !reviewed ? (
-        <section className="mt-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-4 rounded-lg border border-border-strong p-5">
           <h2 className="mb-3 text-sm font-medium">Rate this provider</h2>
           <div className="mb-3 flex gap-1.5">
             {[1, 2, 3, 4, 5].map((n) => (
@@ -302,8 +302,8 @@ function Detail() {
                 onClick={() => setRating(n)}
                 className={`h-8 w-8 rounded-md text-sm ${
                   n <= rating
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "bg-black/5 dark:bg-white/10"
+                    ? "bg-accent text-accent-fg"
+                    : "bg-neutral-bg"
                 }`}
               >
                 {n}
@@ -341,7 +341,7 @@ function Detail() {
                 void act("cancel", () => bookingApi.cancelBooking(id, reason.trim()));
               }
             }}
-            className="text-sm text-red-700 hover:underline dark:text-red-400"
+            className="text-sm text-danger hover:underline"
           >
             Cancel this booking
           </button>
@@ -352,8 +352,8 @@ function Detail() {
         <h2 className="mb-3 text-sm font-medium">Timeline</h2>
         <ol className="space-y-1.5 text-sm">
           {booking.history.map((entry, index) => (
-            <li key={index} className="flex gap-3 text-black/55 dark:text-white/55">
-              <span className="shrink-0 tabular-nums text-black/35 dark:text-white/35">
+            <li key={index} className="flex gap-3 text-fg-muted">
+              <span className="shrink-0 tabular-nums text-fg-subtle">
                 {new Date(entry.at).toLocaleString()}
               </span>
               <span>
@@ -366,10 +366,10 @@ function Detail() {
 
         {booking.assignments.length > 1 ? (
           <>
-            <h3 className="mt-6 mb-2 text-xs font-medium uppercase tracking-wide text-black/45 dark:text-white/45">
+            <h3 className="mt-6 mb-2 text-xs font-medium uppercase tracking-wide text-fg-subtle">
               Providers asked
             </h3>
-            <ul className="space-y-1 text-sm text-black/55 dark:text-white/55">
+            <ul className="space-y-1 text-sm text-fg-muted">
               {booking.assignments.map((a) => (
                 <li key={a.id}>
                   {a.providerName} — {a.status.toLowerCase()}

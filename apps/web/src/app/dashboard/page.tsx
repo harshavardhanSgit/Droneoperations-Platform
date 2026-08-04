@@ -5,8 +5,8 @@ import { RequireAuth } from "@/core/auth/require-auth";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-6 border-b border-black/5 py-2.5 text-sm last:border-0 dark:border-white/10">
-      <span className="text-black/50 dark:text-white/50">{label}</span>
+    <div className="flex justify-between gap-6 border-b border-border py-2.5 text-sm last:border-0">
+      <span className="text-fg-muted">{label}</span>
       <span className="text-right font-medium">{value}</span>
     </div>
   );
@@ -24,13 +24,13 @@ function DashboardContent() {
           <h1 className="text-xl font-semibold tracking-tight">
             {account.organisation.name}
           </h1>
-          <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+          <p className="mt-1 text-sm text-fg-muted">
             Signed in as {account.fullName}
           </p>
         </div>
       </header>
 
-      <section className="rounded-lg border border-black/10 p-5 dark:border-white/15">
+      <section className="rounded-lg border border-border-strong p-5">
         <h2 className="mb-3 text-sm font-medium">Account</h2>
         <Row label="Email" value={account.email} />
         {account.phone ? <Row label="Phone" value={account.phone} /> : null}
@@ -42,7 +42,7 @@ function DashboardContent() {
 
 
 
-      <p className="mt-6 text-xs text-black/40 dark:text-white/40">
+      <p className="mt-6 text-xs text-fg-subtle">
         This data came from <code className="font-mono">GET /api/v1/auth/me</code>, which
         requires a valid access token. Reload the page — the access token is lost, and the
         session is restored from the refresh cookie.

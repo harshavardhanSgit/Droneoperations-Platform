@@ -22,6 +22,39 @@ export function Surface({
   );
 }
 
+/**
+ * The page container. Mobile-first means the layout ADAPTS upward, not that it
+ * caps at a phone width and leaves a desktop two-thirds empty — which is what a
+ * bare max-w-2xl does.
+ *
+ *   field   — reading and acting on records; wide enough for two columns of
+ *             cards on a laptop, one on a phone.
+ *   console — scanning tables; as wide as the content needs.
+ *   form    — a single column of inputs. Deliberately narrow: line length is a
+ *             legibility constraint, and a 1200px-wide text field is unusable.
+ */
+export function Page({
+  children,
+  size = "field",
+}: {
+  children: React.ReactNode;
+  size?: "field" | "console" | "form";
+}) {
+  const width =
+    size === "console" ? "max-w-6xl" : size === "form" ? "max-w-md" : "max-w-5xl";
+
+  return (
+    <main className={`mx-auto w-full ${width} px-5 py-8 sm:px-6 sm:py-10`}>{children}</main>
+  );
+}
+
+/**
+ * Cards in one column on a phone, two from `md` up. `items-start` matters:
+ * without it, expanding a panel inside one card stretches its neighbour to
+ * match, which looks like a rendering fault.
+ */
+export const cardGrid = "grid items-start gap-3 md:grid-cols-2";
+
 export function PageHeader({
   title,
   description,

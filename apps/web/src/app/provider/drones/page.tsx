@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
-import { EmptyState, PageHeader, Surface } from "@/components/ui/surface";
+import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Drone, Ticket } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -73,7 +73,7 @@ function Drones() {
     );
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10">
+    <Page>
       <PageHeader
         title="My drones"
         description="Your machines, and anything that is stopping them flying."
@@ -144,7 +144,7 @@ function Drones() {
           action={<Button onClick={() => setAdding(true)}>Add a drone</Button>}
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className={cardGrid}>
           {drones.map((drone) => {
             const open = openTicketFor(drone.id);
 
@@ -210,7 +210,7 @@ function Drones() {
           })}
         </ul>
       )}
-    </main>
+    </Page>
   );
 }
 

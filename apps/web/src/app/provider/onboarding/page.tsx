@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Field, FormError, SubmitButton } from "@/components/ui/form";
+import { Page } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { ProviderDetail, ProviderDocument } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -38,11 +39,27 @@ function Onboarding() {
     setDocuments(docs);
   }, []);
 
+  // The effect owns its own fetch rather than calling refresh(): every setState
+  // then happens inside a promise callback, never synchronously in the effect
+  // body. `cancelled` stops a slow response writing to an unmounted component.
   useEffect(() => {
-    void refresh().catch((caught: unknown) => {
-      setError(caught instanceof ApiError ? caught.message : "Could not load your application");
-    });
-  }, [refresh]);
+    let cancelled = false;
+
+    Promise.all([providerApi.getOwnProvider(), providerApi.listOwnDocuments()])
+      .then(([detail, docs]) => {
+        if (cancelled) return;
+        setProvider(detail);
+        setDocuments(docs);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(caught instanceof ApiError ? caught.message : "Could not load your application");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handle(caught: unknown) {
     if (caught instanceof ApiError) {
@@ -122,40 +139,42 @@ function Onboarding() {
 
   if (account && account.organisation.kind !== "PROVIDER") {
     return (
-      <main className="mx-auto w-full max-w-lg px-6 py-20 text-sm text-black/60 dark:text-white/60">
-        This page is for provider accounts. Your account is a{" "}
-        {account.organisation.kind.toLowerCase()}.
-      </main>
+      <Page size="form">
+        <p className="text-sm text-fg-muted">
+          This page is for provider accounts. Your account is a{" "}
+          {account.organisation.kind.toLowerCase()}.
+        </p>
+      </Page>
     );
   }
 
   if (!provider) {
     return (
-      <main className="mx-auto w-full max-w-2xl px-6 py-20">
+      <Page>
         <FormError message={error} />
-        {!error ? <p className="text-sm text-black/50 dark:text-white/50">Loading…</p> : null}
-      </main>
+        {!error ? <p className="text-sm text-fg-subtle">Loading…</p> : null}
+      </Page>
     );
   }
 
   const editable = EDITABLE.includes(provider.stage);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-14">
+    <Page>
       <header className="mb-8">
         <h1 className="text-xl font-semibold tracking-tight">{provider.organisationName}</h1>
-        <p className="mt-1 text-sm text-black/50 dark:text-white/50">Provider onboarding</p>
+        <p className="mt-1 text-sm text-fg-subtle">Provider onboarding</p>
       </header>
 
-      <section className="mb-8 rounded-lg border border-black/10 p-5 dark:border-white/15">
+      <section className="mb-8 rounded-surface border border-border p-5">
         <StageTracker stage={provider.stage} />
         {provider.rejectionReason ? (
-          <p className="mt-4 text-sm text-red-700 dark:text-red-400">
+          <p className="mt-4 text-sm text-danger">
             Reason: {provider.rejectionReason}
           </p>
         ) : null}
         {provider.bookable ? (
-          <p className="mt-4 text-sm text-emerald-700 dark:text-emerald-400">
+          <p className="mt-4 text-sm text-success">
             You are active and can receive bookings.
           </p>
         ) : null}
@@ -163,7 +182,7 @@ function Onboarding() {
 
       <FormError message={error} />
 
-      <section className="mt-6 rounded-lg border border-black/10 p-5 dark:border-white/15">
+      <section className="mt-6 rounded-surface border border-border p-5">
         <h2 className="mb-4 text-sm font-medium">Business details</h2>
         <form onSubmit={onSaveProfile} className="space-y-4">
           <Field label="Legal name" name="legalName" required defaultValue={provider.legalName ?? ""} disabled={!editable} error={fieldErrors.legalName?.[0]} />
@@ -176,14 +195,14 @@ function Onboarding() {
             <Field label="PIN code" name="pincode" required defaultValue={provider.pincode ?? ""} disabled={!editable} error={fieldErrors.pincode?.[0]} />
           </div>
           {editable ? <SubmitButton pending={busy === "profile"}>Save details</SubmitButton> : (
-            <p className="text-xs text-black/40 dark:text-white/40">
+            <p className="text-xs text-fg-subtle">
               Details are locked while your application is {provider.stage.toLowerCase().replace("_", " ")}.
             </p>
           )}
         </form>
       </section>
 
-      <section className="mt-6 rounded-lg border border-black/10 p-5 dark:border-white/15">
+      <section className="mt-6 rounded-surface border border-border p-5">
         <h2 className="mb-4 text-sm font-medium">Documents</h2>
 
         {documents.length ? (
@@ -192,18 +211,18 @@ function Onboarding() {
               <li key={doc.id} className="flex items-center justify-between gap-4 border-b border-black/5 pb-2 text-sm last:border-0 dark:border-white/10">
                 <span className="truncate">
                   {doc.originalFilename}
-                  <span className="ml-2 text-black/40 dark:text-white/40">
+                  <span className="ml-2 text-fg-subtle">
                     {DOCUMENT_KINDS.find((k) => k.value === doc.kind)?.label ?? doc.kind}
                   </span>
                 </span>
-                <span className={doc.status === "READY" ? "text-emerald-700 dark:text-emerald-400" : "text-black/40 dark:text-white/40"}>
+                <span className={doc.status === "READY" ? "text-success" : "text-fg-subtle"}>
                   {doc.status === "READY" ? `${(doc.sizeBytes / 1024).toFixed(0)} KB` : "pending"}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mb-5 text-sm text-black/50 dark:text-white/50">No documents uploaded yet.</p>
+          <p className="mb-5 text-sm text-fg-subtle">No documents uploaded yet.</p>
         )}
 
         {editable ? (
@@ -223,9 +242,9 @@ function Onboarding() {
       </section>
 
       {provider.stage === "DOCUMENTS_SUBMITTED" ? (
-        <section className="mt-6 rounded-lg border border-black/10 p-5 dark:border-white/15">
+        <section className="mt-6 rounded-surface border border-border p-5">
           <h2 className="mb-2 text-sm font-medium">Ready to submit</h2>
-          <p className="mb-4 text-sm text-black/50 dark:text-white/50">
+          <p className="mb-4 text-sm text-fg-subtle">
             Your details will be locked while platform staff review your application.
           </p>
           <button
@@ -242,7 +261,7 @@ function Onboarding() {
         <h2 className="mb-3 text-sm font-medium">History</h2>
         <ol className="space-y-1.5 text-sm">
           {provider.history.map((event, index) => (
-            <li key={index} className="flex gap-3 text-black/60 dark:text-white/60">
+            <li key={index} className="flex gap-3 text-fg-muted">
               <span className="tabular-nums text-black/35 dark:text-white/35">
                 {new Date(event.at).toLocaleString()}
               </span>
@@ -255,7 +274,7 @@ function Onboarding() {
           ))}
         </ol>
       </section>
-    </main>
+    </Page>
   );
 }
 

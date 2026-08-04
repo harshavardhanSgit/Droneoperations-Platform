@@ -49,8 +49,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-white/85 backdrop-blur dark:border-white/10 dark:bg-black/70">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-4 px-6 py-3">
+      <header className="sticky top-0 z-40 border-b border-border bg-bg/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-5 py-3 sm:px-6">
           <Link href={links[0]?.href ?? "/dashboard"} className="shrink-0 text-sm font-semibold tracking-tight">
             Drone Ops
           </Link>
@@ -63,10 +63,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm ${
+                  className={`shrink-0 rounded-control px-2.5 py-1.5 text-sm ${
                     active
-                      ? "bg-black/[0.06] font-medium dark:bg-white/10"
-                      : "text-black/55 hover:bg-black/[0.03] dark:text-white/55 dark:hover:bg-white/[0.06]"
+                      ? "bg-neutral-bg font-medium"
+                      : "text-fg-muted hover:bg-neutral-bg hover:text-fg"
                   }`}
                 >
                   {link.label}
@@ -82,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 await signOut();
                 router.push("/login");
               }}
-              className="rounded-md px-2.5 py-1.5 text-sm text-black/55 hover:bg-black/5 dark:text-white/55 dark:hover:bg-white/10"
+              className="rounded-control px-2.5 py-1.5 text-sm text-fg-muted hover:bg-neutral-bg hover:text-fg"
             >
               Sign out
             </button>

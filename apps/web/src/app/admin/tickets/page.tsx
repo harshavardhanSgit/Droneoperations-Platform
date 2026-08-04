@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
-import { EmptyState, PageHeader } from "@/components/ui/surface";
+import { EmptyState, PageHeader, Page } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { StaffMember, Ticket } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -80,7 +80,7 @@ function Tickets() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-10">
+    <Page size="console">
       <PageHeader
         title="Maintenance"
         description="Faults reported by providers. Assign an engineer to get the machine back in the air."
@@ -185,7 +185,7 @@ function Tickets() {
           </table>
         </div>
       )}
-    </main>
+    </Page>
   );
 }
 

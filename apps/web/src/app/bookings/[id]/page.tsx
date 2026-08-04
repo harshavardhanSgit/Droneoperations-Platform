@@ -54,11 +54,32 @@ function Detail() {
     setDate(detail.confirmedDate ?? detail.preferredDate);
   }, [id]);
 
+  // Every setState happens inside a promise callback, never synchronously in the
+  // effect body, and a late response cannot write to an unmounted component.
   useEffect(() => {
-    void load().catch((caught: unknown) =>
-      setError(caught instanceof ApiError ? caught.message : "Could not load this booking"),
-    );
-  }, [load]);
+    let cancelled = false;
+
+    Promise.all([
+      bookingApi.getBooking(id),
+      bookingApi.getPayment(id).catch(() => null),
+      bookingApi.getReview(id).catch(() => null),
+    ])
+      .then(([detail, paid, existing]) => {
+        if (cancelled) return;
+        setBooking(detail);
+        setPayment(paid);
+        setReview(existing);
+        setDate(detail.confirmedDate ?? detail.preferredDate);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(caught instanceof ApiError ? caught.message : "Could not load this booking");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   async function act(key: string, fn: () => Promise<unknown>) {
     setError(null);

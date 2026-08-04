@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, SelectField } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
-import { EmptyState, PageHeader, Surface } from "@/components/ui/surface";
+import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -259,7 +259,7 @@ function Jobs() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10">
+    <Page>
       <PageHeader title="My jobs" description="Work you have taken on." />
 
       <FormError message={error} />
@@ -276,14 +276,14 @@ function Jobs() {
           {toDo.length > 0 ? (
             <section>
               <h2 className="mb-3 text-sm font-medium text-fg-muted">To do</h2>
-              <ul className="space-y-3">{toDo.map(scheduled)}</ul>
+              <ul className={cardGrid}>{toDo.map(scheduled)}</ul>
             </section>
           ) : null}
 
           {waiting.length > 0 ? (
             <section>
               <h2 className="mb-3 text-sm font-medium text-fg-muted">Waiting on the customer</h2>
-              <ul className="space-y-3">
+              <ul className={cardGrid}>
                 {waiting.map((b) => (
                   <Surface as="li" key={b.id} className="p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -333,7 +333,7 @@ function Jobs() {
           ) : null}
         </div>
       )}
-    </main>
+    </Page>
   );
 }
 

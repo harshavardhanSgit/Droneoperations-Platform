@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, SelectField } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
-import { EmptyState, PageHeader, Surface } from "@/components/ui/surface";
+import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -69,7 +69,7 @@ function Requests() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10">
+    <Page>
       <PageHeader
         title="Requests"
         description={
@@ -89,7 +89,7 @@ function Requests() {
           description="When a customer picks your business for a job, it lands here. You will also get a notification."
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className={cardGrid}>
           {items.map((booking) => {
             const waiting = awaitingCustomer(booking);
             const open = panel?.id === booking.id ? panel.kind : null;
@@ -237,7 +237,7 @@ function Requests() {
           })}
         </ul>
       )}
-    </main>
+    </Page>
   );
 }
 

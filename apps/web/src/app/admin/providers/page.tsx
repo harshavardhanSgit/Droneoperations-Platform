@@ -175,13 +175,29 @@ function Queue() {
     setTotal(list.total);
   }, [stage]);
 
+  // Clearing the open row belongs with the stage change that caused it, not in
+  // an effect body — and the fetch keeps its setState inside promise callbacks.
   useEffect(() => {
-    setOpenId(null);
-    setDetail(null);
-    void load().catch((caught: unknown) =>
-      setError(caught instanceof ApiError ? caught.message : "Could not load the queue"),
-    );
-  }, [load]);
+    let cancelled = false;
+
+    adminApi
+      .listProviders(stage)
+      .then((list) => {
+        if (cancelled) return;
+        setOpenId(null);
+        setDetail(null);
+        setRows(list.items);
+        setTotal(list.total);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(caught instanceof ApiError ? caught.message : "Could not load the queue");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stage]);
 
   async function open(id: string) {
     if (openId === id) {

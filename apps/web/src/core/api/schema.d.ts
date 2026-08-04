@@ -1258,6 +1258,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/bookings/{id}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a stuck booking with a provider directly
+         * @description For jobs nobody has taken. Creates a PLATFORM_MANAGED assignment — the same table, lifecycle and price snapshot as a customer choosing, differing only in strategy and actor (S1). This is the embryo of V3 managed assignment.
+         */
+        post: operations["AdminBookingController_reassign_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bookings/{id}/force-cancel": {
         parameters: {
             query?: never;
@@ -1842,8 +1862,12 @@ export interface components {
             id: string;
             /** @enum {string} */
             status: "UNASSIGNED" | "ASSIGNED" | "SCHEDULED" | "AWAITING_CONFIRMATION" | "COMPLETED" | "CANCELLED";
+            /** Format: uuid */
+            serviceTypeId: string;
             /** @example Crop spraying */
             serviceTypeName: string;
+            /** Format: uuid */
+            areaId: string;
             /** @example Warangal */
             areaName: string;
             /** @example 20 */
@@ -1923,8 +1947,12 @@ export interface components {
             id: string;
             /** @enum {string} */
             status: "UNASSIGNED" | "ASSIGNED" | "SCHEDULED" | "AWAITING_CONFIRMATION" | "COMPLETED" | "CANCELLED";
+            /** Format: uuid */
+            serviceTypeId: string;
             /** @example Crop spraying */
             serviceTypeName: string;
+            /** Format: uuid */
+            areaId: string;
             /** @example Warangal */
             areaName: string;
             /** @example 20 */
@@ -4442,6 +4470,42 @@ export interface operations {
                     "application/json": {
                         data: components["schemas"]["BookingDetailDto"];
                     };
+                };
+            };
+        };
+    };
+    AdminBookingController_reassign_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignProviderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BookingDetailDto"];
+                    };
+                };
+            };
+            /** @description Already has an active assignment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
                 };
             };
         };

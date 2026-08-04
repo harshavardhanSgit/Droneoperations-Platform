@@ -151,7 +151,11 @@ export class BookingDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ enum: Object.values(BookingStatus) }) status: string;
 
+  // The ids as well as the names: an operator looking at an unassigned job needs
+  // to ask Discovery who could take it, and that question is asked with ids.
+  @ApiProperty({ format: 'uuid' }) serviceTypeId: string;
   @ApiProperty({ example: 'Crop spraying' }) serviceTypeName: string;
+  @ApiProperty({ format: 'uuid' }) areaId: string;
   @ApiProperty({ example: 'Warangal' }) areaName: string;
   @ApiProperty({ example: 20 }) quantity: number;
   @ApiProperty({ example: 'PER_ACRE' }) pricingUnit: string;

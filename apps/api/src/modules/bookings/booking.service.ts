@@ -98,7 +98,7 @@ export class BookingService {
     bookingId: string,
     offeringId: string,
   ): Promise<BookingDetailDto> {
-    const booking = await this.requireOwnBooking(actor, bookingId);
+    const booking = await this.requireAssignable(actor, bookingId);
     const offering = await this.requireBookableOffering(offeringId);
     const version = offering.versions[0];
 
@@ -132,6 +132,12 @@ export class BookingService {
             providerId: offering.providerId,
             offeringVersionId: version.id,
             assignedByUserId: actor.userId,
+            // S1 in practice. The strategy column and every value in it were
+            // written on day one; an operator stepping in is a value that was
+            // already legal, not a schema change. V2's auto-assignment adds
+            // PLATFORM_AUTO here and touches nothing else.
+            strategy:
+              actor.organisationKind === 'PLATFORM' ? 'PLATFORM_MANAGED' : 'CUSTOMER_CHOICE',
           },
           tx,
         );
@@ -606,6 +612,28 @@ export class BookingService {
   }
 
   /**
+   * Who may choose a provider: the customer, or platform staff stepping in on a
+   * job that is going nowhere (J6). Never a provider — a provider assigning
+   * themselves work is the marketplace failing.
+   */
+  private async requireAssignable(
+    actor: ActorContext,
+    id: string,
+  ): Promise<BookingWithDetail> {
+    const booking = await this.requireBooking(id);
+
+    if (booking.customerOrganisationId === actor.principalOrganisationId) {
+      return booking;
+    }
+
+    if (actor.organisationKind === 'PLATFORM') {
+      return booking;
+    }
+
+    throw new ResourceNotFoundException('Booking', id);
+  }
+
+  /**
    * Who may cancel: the customer, the actively assigned provider (BR9 — either
    * party), or platform staff intervening on a stuck job (FR-ADMIN-3).
    *
@@ -796,7 +824,9 @@ export class BookingService {
     return {
       id: booking.id,
       status: booking.status,
+      serviceTypeId: booking.serviceTypeId,
       serviceTypeName: booking.serviceType.name,
+      areaId: booking.areaId,
       areaName: booking.area.name,
       quantity: booking.quantity,
       pricingUnit: booking.pricingUnit,

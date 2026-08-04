@@ -7,9 +7,10 @@ import { FormError } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, Page, PageHeader } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
-import type { Booking } from "@/core/api/types";
+import type { Booking, Match } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as admin from "@/features/admin/bookings-api";
+import * as discoveryApi from "@/features/discovery/api";
 import { rupees, shortDate, STATUS_LABEL, STATUS_TONE } from "@/features/bookings/format";
 
 const FILTERS = [
@@ -37,6 +38,9 @@ function AdminBookings() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [placing, setPlacing] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Match[] | null>(null);
 
   const load = (next: string) =>
     admin
@@ -86,6 +90,41 @@ function AdminBookings() {
       await load(status);
     } catch (caught: unknown) {
       setError(caught instanceof ApiError ? caught.message : "Could not cancel that booking");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Asks Discovery the same question a customer's search asks — S10 in
+  // practice: one matching implementation, two callers. V2's auto-assignment
+  // becomes a third caller of this exact query.
+  const findProviders = async (b: Booking) => {
+    setPlacing(b.id);
+    setCandidates(null);
+    setError(null);
+    try {
+      const results = await discoveryApi.findMatches({
+        serviceTypeId: b.serviceTypeId,
+        areaId: b.areaId,
+        quantity: b.quantity,
+      });
+      setCandidates(results.matches);
+    } catch (caught: unknown) {
+      setError(caught instanceof ApiError ? caught.message : "Could not look up providers");
+      setPlacing(null);
+    }
+  };
+
+  const place = async (bookingId: string, offeringId: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await admin.reassign(bookingId, offeringId);
+      setPlacing(null);
+      setCandidates(null);
+      await load(status);
+    } catch (caught: unknown) {
+      setError(caught instanceof ApiError ? caught.message : "Could not place that booking");
     } finally {
       setBusy(false);
     }
@@ -193,16 +232,23 @@ function AdminBookings() {
                         </Button>
                       </div>
                     ) : (
-                      <Button
-                        size="console"
-                        variant="ghost"
-                        onClick={() => {
-                          setCancelling(b.id);
-                          setReason("");
-                        }}
-                      >
-                        Force-cancel
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {b.status === "UNASSIGNED" ? (
+                          <Button size="console" onClick={() => void findProviders(b)}>
+                            Find a provider
+                          </Button>
+                        ) : null}
+                        <Button
+                          size="console"
+                          variant="ghost"
+                          onClick={() => {
+                            setCancelling(b.id);
+                            setReason("");
+                          }}
+                        >
+                          Force-cancel
+                        </Button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -212,9 +258,57 @@ function AdminBookings() {
         </div>
       )}
 
+      {placing ? (
+        <section className="mt-4 rounded-surface border border-border p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium">Providers who can take this job</h2>
+            <Button size="console" variant="ghost" onClick={() => setPlacing(null)}>
+              Close
+            </Button>
+          </div>
+
+          {candidates === null ? (
+            <p className="text-sm text-fg-subtle">Looking…</p>
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-fg-muted">
+              Nobody covers this area at this quantity. Force-cancelling with an honest reason is
+              kinder than leaving it open.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {candidates.map((m) => (
+                <li key={m.offeringId} className="flex items-center justify-between gap-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{m.provider.name}</p>
+                    <p className="text-xs text-fg-subtle">
+                      {m.provider.rating != null
+                        ? `★ ${m.provider.rating.toFixed(1)} (${m.provider.ratingCount})`
+                        : "New — no reviews yet"}
+                      {m.provider.city ? ` · ${m.provider.city}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="tabular text-sm">{rupees(m.price.estimatedTotalMinor)}</span>
+                    <Button
+                      size="console"
+                      variant="primary"
+                      disabled={busy}
+                      onClick={() => void place(placing, m.offeringId)}
+                    >
+                      Place here
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
       <p className="mt-3 text-xs text-fg-subtle">
-        Force-cancelling records the reason against the booking and names you as the actor. It is
-        terminal — the job does not come back.
+        Placing a job records it as a platform-managed assignment, so the history shows an operator
+        chose the provider rather than the customer. Force-cancelling is terminal — the job does not
+        come back.
       </p>
     </Page>
   );

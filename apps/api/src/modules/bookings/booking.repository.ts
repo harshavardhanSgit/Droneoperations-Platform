@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type {
   AssignmentStatus,
+  AssignmentStrategy,
   BookingStatus,
   PricingUnit,
   ScheduleStatus,
@@ -232,6 +233,7 @@ export class BookingRepository {
       providerId: string;
       offeringVersionId: string;
       assignedByUserId: string;
+      strategy?: AssignmentStrategy;
     },
     tx?: Tx,
   ): Promise<BookingAssignmentModel> {

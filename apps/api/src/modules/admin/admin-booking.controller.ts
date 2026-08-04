@@ -4,6 +4,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import { BookingService } from '../bookings/booking.service';
 import {
+  AssignProviderDto,
   BookingDetailDto,
   BookingListDto,
   BookingQueryDto,
@@ -48,6 +49,24 @@ export class AdminBookingController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<BookingDetailDto> {
     return this.bookings.findOne(actor, id);
+  }
+
+  @Post(':id/reassign')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions('booking:reassign')
+  @ApiOperation({
+    summary: 'Put a stuck booking with a provider directly',
+    description:
+      'For jobs nobody has taken. Creates a PLATFORM_MANAGED assignment — the same table, lifecycle and price snapshot as a customer choosing, differing only in strategy and actor (S1). This is the embryo of V3 managed assignment.',
+  })
+  @ApiEnvelope(BookingDetailDto)
+  @ApiErrorEnvelope(HttpStatus.CONFLICT, 'Already has an active assignment')
+  reassign(
+    @CurrentUser() actor: ActorContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignProviderDto,
+  ): Promise<BookingDetailDto> {
+    return this.bookings.assign(actor, id, dto.offeringId);
   }
 
   @Post(':id/force-cancel')

@@ -197,6 +197,55 @@ describe('Booking — database-enforced rules', () => {
     });
   });
 
+  describe('S1 — assignment strategy records HOW a provider was chosen', () => {
+    it('a customer choosing records CUSTOMER_CHOICE', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+
+      const assignment = await prisma.bookingAssignment.findFirstOrThrow({
+        where: { bookingId: booking.id },
+      });
+
+      expect(assignment.strategy).toBe('CUSTOMER_CHOICE');
+    });
+
+    it('an operator stepping in records PLATFORM_MANAGED', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.admin, booking.id, fx.offeringId);
+
+      const assignment = await prisma.bookingAssignment.findFirstOrThrow({
+        where: { bookingId: booking.id },
+      });
+
+      // The whole point of S1: same table, same lifecycle, same price snapshot.
+      // Only how the provider was chosen differs — no schema change, no
+      // migration, no second assignment path.
+      expect(assignment.strategy).toBe('PLATFORM_MANAGED');
+      expect(assignment.assignedByUserId).toBe(fx.admin.userId);
+      expect(assignment.status).toBe('PENDING');
+    });
+
+    it('the booking is otherwise identical however it was assigned', async () => {
+      const byCustomer = await newBooking();
+      const byAdmin = await newBooking();
+
+      const a = await bookings.assign(fx.customer, byCustomer.id, fx.offeringId);
+      const b = await bookings.assign(fx.admin, byAdmin.id, fx.offeringId);
+
+      expect(b.status).toBe(a.status);
+      expect(b.unitPriceMinor).toBe(a.unitPriceMinor);
+      expect(b.estimatedTotalMinor).toBe(a.estimatedTotalMinor);
+    });
+
+    it('a provider cannot assign work to themselves', async () => {
+      const booking = await newBooking();
+
+      await expect(
+        bookings.assign(fx.provider, booking.id, fx.offeringId),
+      ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+    });
+  });
+
   describe('BR9 — cancellation is available to either party, and to the platform', () => {
     it('the assigned provider may cancel', async () => {
       const booking = await newBooking();

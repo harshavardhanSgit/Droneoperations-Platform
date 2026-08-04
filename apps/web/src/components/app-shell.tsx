@@ -40,6 +40,7 @@ const NAV: Record<string, Record<string, Link[]>> = {
   },
   PLATFORM: {
     ADMIN: [
+      { href: "/admin/dashboard", label: "Operations" },
       { href: "/admin/bookings", label: "Bookings" },
       { href: "/admin/providers", label: "Providers" },
       { href: "/admin/tickets", label: "Maintenance" },

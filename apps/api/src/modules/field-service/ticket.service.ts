@@ -85,6 +85,10 @@ export class TicketService {
 
   // ---------------------------------------------------------------- admin
 
+  countByStatus(): Promise<Record<string, number>> {
+    return this.tickets.countByStatus();
+  }
+
   async listAll(
     page: { skip: number; take: number },
     status?: TicketDetailDto['status'],

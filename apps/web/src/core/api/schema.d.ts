@@ -1298,6 +1298,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What needs attention
+         * @description Counts only. Charts and trends are deliberately V2.
+         */
+        get: operations["AdminDashboardController_summary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2324,6 +2344,43 @@ export interface components {
             items: components["schemas"]["StaffMemberDto"][];
             /** @example 3 */
             total: number;
+        };
+        DashboardDto: {
+            /**
+             * @description Providers submitted and awaiting review
+             * @example 3
+             */
+            providersAwaitingReview: number;
+            /**
+             * @description Providers who can currently receive bookings
+             * @example 12
+             */
+            providersActive: number;
+            /**
+             * @description Jobs with no provider — the operator queue
+             * @example 1
+             */
+            bookingsUnassigned: number;
+            /**
+             * @description Jobs agreed and not yet delivered
+             * @example 4
+             */
+            bookingsInFlight: number;
+            /**
+             * @description Work delivered, awaiting the customer
+             * @example 2
+             */
+            bookingsAwaitingSignOff: number;
+            /**
+             * @description Grounded drones with no engineer assigned
+             * @example 1
+             */
+            ticketsUnassigned: number;
+            /**
+             * @description Repairs under way
+             * @example 2
+             */
+            ticketsInProgress: number;
         };
     };
     responses: never;
@@ -4537,6 +4594,36 @@ export interface operations {
             };
             /** @description Already in a terminal state */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminDashboardController_summary_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DashboardDto"];
+                    };
+                };
+            };
+            /** @description Role does not permit this action */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

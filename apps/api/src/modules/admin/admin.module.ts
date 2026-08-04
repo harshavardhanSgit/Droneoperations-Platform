@@ -6,6 +6,7 @@ import { FieldServiceModule } from '../field-service/field-service.module';
 import { IdentityModule } from '../identity/identity.module';
 import { OrganisationsModule } from '../organisations/organisations.module';
 import { AdminBookingController } from './admin-booking.controller';
+import { AdminDashboardController } from './admin-dashboard.controller';
 import { AdminCatalogueController } from './admin-catalogue.controller';
 import { AdminTicketController } from './admin-ticket.controller';
 import { AdminOrganisationController } from './admin-organisation.controller';
@@ -29,6 +30,7 @@ import { AdminStaffController } from './admin-staff.controller';
     AdminTicketController,
     AdminStaffController,
     AdminBookingController,
+    AdminDashboardController,
   ],
 })
 export class AdminModule {}

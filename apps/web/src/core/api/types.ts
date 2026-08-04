@@ -31,6 +31,7 @@ export type BookingList = components["schemas"]["BookingListDto"];
 export type Payment = components["schemas"]["PaymentDto"];
 export type Review = components["schemas"]["ReviewDto"];
 export type Earnings = components["schemas"]["EarningsDto"];
+export type Dashboard = components["schemas"]["DashboardDto"];
 export type StaffMember = components["schemas"]["StaffMemberDto"];
 export type StaffList = components["schemas"]["StaffListDto"];
 

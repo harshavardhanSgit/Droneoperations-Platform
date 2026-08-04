@@ -96,6 +96,15 @@ export class TicketRepository {
     return result;
   }
 
+  async countByStatus(tx?: Tx): Promise<Record<string, number>> {
+    const rows = await this.db(tx).maintenanceTicket.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+
+    return Object.fromEntries(rows.map((row) => [row.status, row._count._all]));
+  }
+
   recordCreation(input: { id: string; actorUserId: string }, tx?: Tx): Promise<TicketEventModel> {
     return this.db(tx).ticketEvent.create({
       data: { ticketId: input.id, fromStatus: null, toStatus: 'OPEN', actorUserId: input.actorUserId },

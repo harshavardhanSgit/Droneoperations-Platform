@@ -125,6 +125,10 @@ export class ProviderService {
 
   // ------------------------------------------------------------------- admin
 
+  countByStage(): Promise<Record<string, number>> {
+    return this.providers.countByStage();
+  }
+
   async list(
     filter: { stage?: ProviderStage },
     page: { skip: number; take: number },

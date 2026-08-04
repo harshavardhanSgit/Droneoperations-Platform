@@ -124,6 +124,15 @@ export class BookingRepository {
     ]);
   }
 
+  async countByStatus(tx?: Tx): Promise<Record<string, number>> {
+    const rows = await this.db(tx).booking.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+
+    return Object.fromEntries(rows.map((row) => [row.status, row._count._all]));
+  }
+
   /** A provider's inbox: bookings where THEY hold an assignment. */
   listForProvider(
     providerId: string,

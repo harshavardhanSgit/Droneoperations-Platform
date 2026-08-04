@@ -108,6 +108,16 @@ export class ProviderRepository {
     return { items, total };
   }
 
+  /** One row per stage, one query. Counting by fetching rows does not scale. */
+  async countByStage(tx?: Tx): Promise<Record<string, number>> {
+    const rows = await this.db(tx).provider.groupBy({
+      by: ['stage'],
+      _count: { _all: true },
+    });
+
+    return Object.fromEntries(rows.map((row) => [row.stage, row._count._all]));
+  }
+
   listStageHistory(providerId: string, tx?: Tx) {
     return this.db(tx).providerStageEvent.findMany({
       where: { providerId },

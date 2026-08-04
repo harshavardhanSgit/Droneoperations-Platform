@@ -550,6 +550,11 @@ export class BookingService {
     return { items: items.map((item) => this.toDto(item)), total };
   }
 
+  /** Counts by status, for the operator's dashboard. Owned here because Booking owns booking state. */
+  countByStatus(): Promise<Record<string, number>> {
+    return this.bookings.countByStatus();
+  }
+
   /**
    * The operator's view: every booking, unscoped.
    *

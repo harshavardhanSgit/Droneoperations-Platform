@@ -22,11 +22,14 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   PROVIDER: [
     { href: "/provider/requests", label: "Requests" },
     { href: "/provider/jobs", label: "My jobs" },
+    { href: "/provider/drones", label: "Drones" },
+    { href: "/provider/earnings", label: "Earnings" },
     { href: "/provider/onboarding", label: "My business" },
     { href: "/dashboard", label: "Account" },
   ],
   PLATFORM: [
     { href: "/admin/providers", label: "Providers" },
+    { href: "/admin/tickets", label: "Maintenance" },
     { href: "/dashboard", label: "Account" },
   ],
 };

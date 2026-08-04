@@ -68,6 +68,7 @@ export class TicketEventDto {
 export class TicketDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ enum: Object.values(TicketStatus) }) status: string;
+  @ApiProperty({ format: 'uuid' }) droneId: string;
   @ApiProperty({ example: 'Marut AG365' }) droneModel: string;
   @ApiProperty({ example: 'UIN-TG-0042' }) droneRegistration: string;
   @ApiProperty({ example: 'Kumar Agri Services' }) providerName: string;

@@ -12,6 +12,7 @@ import { PasswordService } from './password.service';
 
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { UserRepository } from './repositories/user.repository';
+import { StaffService } from './staff.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TokenService } from './token.service';
@@ -38,11 +39,12 @@ import { TokenService } from './token.service';
     AuthService,
     PasswordService,
     TokenService,
+    StaffService,
     UserRepository,
     RefreshTokenRepository,
     JwtStrategy,
     JwtAuthGuard,
   ],
-  exports: [TokenService, UserRepository, JwtAuthGuard],
+  exports: [TokenService, StaffService, UserRepository, JwtAuthGuard],
 })
 export class IdentityModule {}

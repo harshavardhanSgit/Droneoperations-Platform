@@ -31,5 +31,13 @@ export type BookingList = components["schemas"]["BookingListDto"];
 export type Payment = components["schemas"]["PaymentDto"];
 export type Review = components["schemas"]["ReviewDto"];
 export type Earnings = components["schemas"]["EarningsDto"];
+export type StaffMember = components["schemas"]["StaffMemberDto"];
+export type StaffList = components["schemas"]["StaffListDto"];
+
+export type Drone = components["schemas"]["DroneDto"];
+export type Ticket = components["schemas"]["TicketDto"];
+export type TicketDetail = components["schemas"]["TicketDetailDto"];
+export type TicketList = components["schemas"]["TicketListDto"];
+
 export type Notification = components["schemas"]["NotificationDto"];
 export type NotificationList = components["schemas"]["NotificationListDto"];

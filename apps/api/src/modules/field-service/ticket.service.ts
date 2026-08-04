@@ -273,6 +273,7 @@ export class TicketService {
     return {
       id: ticket.id,
       status: ticket.status,
+      droneId: ticket.droneId,
       droneModel: ticket.drone.model,
       droneRegistration: ticket.drone.registrationNumber,
       providerName: ticket.drone.provider.organisation.name,

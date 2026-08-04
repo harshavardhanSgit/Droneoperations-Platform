@@ -1201,6 +1201,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/engineers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service engineers available for assignment
+         * @description Who an open maintenance ticket can be handed to (D12).
+         */
+        get: operations["AdminStaffController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2065,6 +2085,8 @@ export interface components {
             id: string;
             /** @enum {string} */
             status: "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "CLOSED" | "CANCELLED";
+            /** Format: uuid */
+            droneId: string;
             /** @example Marut AG365 */
             droneModel: string;
             /** @example UIN-TG-0042 */
@@ -2092,6 +2114,8 @@ export interface components {
             id: string;
             /** @enum {string} */
             status: "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "CLOSED" | "CANCELLED";
+            /** Format: uuid */
+            droneId: string;
             /** @example Marut AG365 */
             droneModel: string;
             /** @example UIN-TG-0042 */
@@ -2192,6 +2216,19 @@ export interface components {
              * @description A user with the SERVICE_ENGINEER role
              */
             engineerUserId: string;
+        };
+        StaffMemberDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Ravi Teja */
+            fullName: string;
+            /** @example engineer@droneops.local */
+            email: string;
+        };
+        StaffListDto: {
+            items: components["schemas"]["StaffMemberDto"][];
+            /** @example 3 */
+            total: number;
         };
     };
     responses: never;
@@ -4246,6 +4283,36 @@ export interface operations {
             };
             /** @description Illegal transition */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminStaffController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffListDto"];
+                    };
+                };
+            };
+            /** @description Role does not permit this action */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

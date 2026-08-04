@@ -126,13 +126,28 @@ export class AuthController {
   }
 
   private refreshCookieOptions(): CookieOptions {
+    const production = this.config.get('NODE_ENV', { infer: true }) === 'production';
+
     return {
       // Unreadable from JavaScript, so XSS cannot exfiltrate it.
       httpOnly: true,
       // HTTPS only in production; must stay false locally or the browser drops it.
-      secure: this.config.get('NODE_ENV', { infer: true }) === 'production',
-      // Not sent on cross-site requests, which blocks the basic CSRF shape.
-      sameSite: 'lax',
+      secure: production,
+      /**
+       * Locally the API and the web app share a site, so `lax` holds and blocks
+       * the basic CSRF shape. Deployed they do not: the browser is on
+       * *.vercel.app and the API on another host entirely, which makes every
+       * refresh a cross-site request — and a `lax` cookie is simply not sent.
+       * The session would appear to work until the first reload and then
+       * silently sign the user out.
+       *
+       * `none` is the only value that survives that, and it is only legal
+       * alongside `secure`. The CSRF protection it gives up is replaced by two
+       * things already in place: CORS restricted to one explicit origin with
+       * credentials, and a refresh token that is single-use and rotates, so a
+       * replayed one revokes the whole family rather than granting access.
+       */
+      sameSite: production ? 'none' : 'lax',
       // Scoped: the browser only attaches it to auth routes, so it is absent
       // from every ordinary API call and cannot leak through them.
       path: '/api/v1/auth',

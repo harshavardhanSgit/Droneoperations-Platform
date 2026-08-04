@@ -24,6 +24,7 @@
     "api:seed": "npm run db:seed --workspace @drone-ops/api",
     "api:test": "npm run test --workspace @drone-ops/api",
     "test": "npm run api:test",
-    "api:test:int": "npm run test:int --workspace @drone-ops/api"
+    "api:test:int": "npm run test:int --workspace @drone-ops/api",
+    "api:migrate:deploy": "npm run migrate:deploy --workspace @drone-ops/api"
   }
 }

@@ -2,9 +2,9 @@
   "name": "@drone-ops/api",
   "version": "0.0.1",
   "private": true,
-  "description": "Drone Operations Platform \u2014 HTTP API",
+  "description": "Drone Operations Platform — HTTP API",
   "scripts": {
-    "build": "nest build",
+    "build": "prisma generate && nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
@@ -15,7 +15,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:int": "jest --config jest.integration.config.js"
+    "test:int": "jest --config jest.integration.config.js",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

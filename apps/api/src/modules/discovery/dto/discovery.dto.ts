@@ -7,6 +7,7 @@ import { OfferingInclusion } from '../../../generated/prisma/client';
 export enum MatchSort {
   PRICE_ASC = 'PRICE_ASC',
   PRICE_DESC = 'PRICE_DESC',
+  RATING_DESC = 'RATING_DESC',
 }
 
 /**
@@ -40,6 +41,15 @@ export class MatchProviderDto {
   @ApiProperty({ format: 'uuid' }) providerId: string;
   @ApiProperty({ example: 'Yali' }) name: string;
   @ApiPropertyOptional({ example: 'Thanjavur' }) city?: string;
+
+  @ApiPropertyOptional({
+    example: 4.6,
+    description: 'Absent when the provider has no reviews — not zero, which would read as a bad score',
+  })
+  rating?: number;
+
+  @ApiProperty({ example: 12, description: 'How many reviews the average is based on' })
+  ratingCount: number;
 }
 
 export class MatchPriceDto {

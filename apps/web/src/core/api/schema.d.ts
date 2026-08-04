@@ -444,6 +444,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bookings/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The review for a booking
+         * @description Null if not reviewed yet.
+         */
+        get: operations["ReputationController_findForBooking_v1"];
+        put?: never;
+        /**
+         * Review a completed booking
+         * @description BR7 — the customer only, once, and only after completion is confirmed.
+         */
+        post: operations["ReputationController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/providers/{id}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A provider’s rating and recent reviews
+         * @description The average is derived on read, never stored.
+         */
+        get: operations["ReputationController_rating_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bookings": {
         parameters: {
             query?: never;
@@ -695,50 +739,6 @@ export interface paths {
          * @description Derived from completed bookings and their payment records — never a stored running total.
          */
         get: operations["SettlementController_earnings_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/bookings/{id}/review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The review for a booking
-         * @description Null if not reviewed yet.
-         */
-        get: operations["ReputationController_findForBooking_v1"];
-        put?: never;
-        /**
-         * Review a completed booking
-         * @description BR7 — the customer only, once, and only after completion is confirmed.
-         */
-        post: operations["ReputationController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/providers/{id}/rating": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A provider’s rating and recent reviews
-         * @description The average is derived on read, never stored.
-         */
-        get: operations["ReputationController_rating_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1649,6 +1649,16 @@ export interface components {
             name: string;
             /** @example Thanjavur */
             city?: string;
+            /**
+             * @description Absent when the provider has no reviews — not zero, which would read as a bad score
+             * @example 4.6
+             */
+            rating?: number;
+            /**
+             * @description How many reviews the average is based on
+             * @example 12
+             */
+            ratingCount: number;
         };
         MatchPriceDto: {
             /**
@@ -1701,6 +1711,37 @@ export interface components {
             matches: components["schemas"]["MatchDto"][];
             /** @example 1 */
             total: number;
+        };
+        ReviewDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            /** @example 4 */
+            rating: number;
+            comment?: string;
+            /** @example Ramesh Kumar Farms */
+            customerName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreateReviewDto: {
+            /** @example 4 */
+            rating: number;
+            /** @example Arrived on time, coverage was even. */
+            comment?: string;
+        };
+        ProviderRatingDto: {
+            /** Format: uuid */
+            providerId: string;
+            /**
+             * @description Derived from reviews on every request. Null until the first review.
+             * @example 4.3
+             */
+            average?: number;
+            /** @example 7 */
+            count: number;
+            reviews: components["schemas"]["ReviewDto"][];
         };
         BookingAssignmentDto: {
             /** Format: uuid */
@@ -1971,37 +2012,6 @@ export interface components {
             outstandingMinor: number;
             /** @example INR */
             currency: string;
-        };
-        ReviewDto: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            bookingId: string;
-            /** @example 4 */
-            rating: number;
-            comment?: string;
-            /** @example Ramesh Kumar Farms */
-            customerName: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        CreateReviewDto: {
-            /** @example 4 */
-            rating: number;
-            /** @example Arrived on time, coverage was even. */
-            comment?: string;
-        };
-        ProviderRatingDto: {
-            /** Format: uuid */
-            providerId: string;
-            /**
-             * @description Derived from reviews on every request. Null until the first review.
-             * @example 4.3
-             */
-            average?: number;
-            /** @example 7 */
-            count: number;
-            reviews: components["schemas"]["ReviewDto"][];
         };
         NotificationDto: {
             /** Format: uuid */
@@ -2934,7 +2944,7 @@ export interface operations {
                 areaId: string;
                 /** @description How many pricing units — e.g. acres */
                 quantity: number;
-                sort?: "PRICE_ASC" | "PRICE_DESC";
+                sort?: "PRICE_ASC" | "PRICE_DESC" | "RATING_DESC";
             };
             header?: never;
             path?: never;
@@ -2959,6 +2969,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ReputationController_findForBooking_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ReviewDto"];
+                    };
+                };
+            };
+        };
+    };
+    ReputationController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ReviewDto"];
+                    };
+                };
+            };
+            /** @description Already reviewed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description Work not confirmed complete */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ReputationController_rating_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ProviderRatingDto"];
+                    };
                 };
             };
         };
@@ -3413,97 +3514,6 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["EarningsDto"];
-                    };
-                };
-            };
-        };
-    };
-    ReputationController_findForBooking_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["ReviewDto"];
-                    };
-                };
-            };
-        };
-    };
-    ReputationController_create_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateReviewDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["ReviewDto"];
-                    };
-                };
-            };
-            /** @description Already reviewed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
-                };
-            };
-            /** @description Work not confirmed complete */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
-                };
-            };
-        };
-    };
-    ReputationController_rating_v1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["ProviderRatingDto"];
                     };
                 };
             };

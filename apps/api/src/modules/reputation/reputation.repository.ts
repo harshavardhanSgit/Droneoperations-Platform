@@ -54,6 +54,37 @@ export class ReputationRepository {
     };
   }
 
+  /**
+   * Ratings for many providers in ONE query.
+   *
+   * Discovery needs a rating per result. Calling ratingFor() in a loop would be
+   * a classic N+1 — twenty matches becoming twenty round trips — so the batch
+   * shape exists before there is a caller tempted to write the loop.
+   */
+  async ratingsFor(
+    providerIds: string[],
+    tx?: Tx,
+  ): Promise<Map<string, { average: number | null; count: number }>> {
+    if (providerIds.length === 0) return new Map();
+
+    const rows = await this.db(tx).review.groupBy({
+      by: ['providerId'],
+      where: { providerId: { in: providerIds } },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+
+    return new Map(
+      rows.map((row) => [
+        row.providerId,
+        {
+          average: row._avg.rating === null ? null : Math.round(row._avg.rating * 10) / 10,
+          count: row._count._all,
+        },
+      ]),
+    );
+  }
+
   organisationNames(ids: string[], tx?: Tx): Promise<OrganisationModel[]> {
     return this.db(tx).organisation.findMany({ where: { id: { in: ids } } });
   }

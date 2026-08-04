@@ -38,6 +38,7 @@ function Search() {
   const [window_, setWindow] = useState("DAWN");
   const [locationNote, setLocationNote] = useState("");
 
+  const [sort, setSort] = useState<discoveryApi.MatchSort>("PRICE_ASC");
   const [results, setResults] = useState<MatchResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -72,9 +73,26 @@ function Search() {
     setBusy("search");
 
     try {
-      setResults(await discoveryApi.findMatches({ serviceTypeId, areaId, quantity }));
+      setResults(await discoveryApi.findMatches({ serviceTypeId, areaId, quantity, sort }));
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Search failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Re-sorting asks the server rather than reordering in the browser. The
+  // ranking rule — unrated providers last, price breaking ties — belongs in one
+  // place, and duplicating it here is how two sort orders start to disagree.
+  async function resort(next: discoveryApi.MatchSort) {
+    setSort(next);
+    if (!results) return;
+
+    setBusy("search");
+    try {
+      setResults(await discoveryApi.findMatches({ serviceTypeId, areaId, quantity, sort: next }));
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not re-sort");
     } finally {
       setBusy(null);
     }
@@ -230,10 +248,28 @@ function Search() {
 
       {results ? (
         <section className="mt-6">
-          <h2 className="mb-3 text-sm font-medium">
-            {results.total} provider{results.total === 1 ? "" : "s"} for {results.quantity}{" "}
-            {results.pricingUnit.replace("PER_", "").toLowerCase()} of {results.serviceTypeName}
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-medium">
+              {results.total} provider{results.total === 1 ? "" : "s"} for {results.quantity}{" "}
+              {results.pricingUnit.replace("PER_", "").toLowerCase()} of {results.serviceTypeName}
+            </h2>
+
+            {results.total > 1 ? (
+              <label className="flex items-center gap-2 text-xs text-fg-muted">
+                Sort by
+                <select
+                  value={sort}
+                  onChange={(e) => void resort(e.target.value as discoveryApi.MatchSort)}
+                  disabled={busy !== null}
+                  className="h-8 rounded-control border border-border-strong bg-bg px-2 text-sm text-fg"
+                >
+                  <option value="PRICE_ASC">Cheapest first</option>
+                  <option value="PRICE_DESC">Most expensive first</option>
+                  <option value="RATING_DESC">Best rated first</option>
+                </select>
+              </label>
+            ) : null}
+          </div>
 
           {results.total === 0 ? (
             <p className="rounded-lg border border-black/10 px-4 py-8 text-center text-sm text-black/45 dark:border-white/15 dark:text-white/45">
@@ -247,17 +283,37 @@ function Search() {
                   className="rounded-lg border border-black/10 p-4 dark:border-white/15"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">{match.provider.name}</p>
-                      <p className="text-xs text-black/45 dark:text-white/45">
+                      {/*
+                        A provider with no reviews reads "New", never a rating of
+                        zero — an unknown is not a bad score, and the review count
+                        is shown because 5.0 from one customer and 4.6 from forty
+                        are not the same claim.
+                      */}
+                      <p className="mt-0.5 text-xs">
+                        {match.provider.rating != null ? (
+                          <span className="tabular text-fg">
+                            ★ {match.provider.rating.toFixed(1)}{" "}
+                            <span className="text-fg-subtle">
+                              ({match.provider.ratingCount})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-fg-subtle">New — no reviews yet</span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-fg-subtle">
                         {match.provider.city ? `${match.provider.city} · ` : ""}
                         serves {match.matchedArea}
                         {match.minQuantity ? ` · minimum ${match.minQuantity}` : ""}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="font-semibold">{rupees(match.price.estimatedTotalMinor)}</p>
-                      <p className="text-xs text-black/45 dark:text-white/45">
+                      <p className="tabular font-semibold">
+                        {rupees(match.price.estimatedTotalMinor)}
+                      </p>
+                      <p className="tabular text-xs text-fg-subtle">
                         {rupees(match.price.unitPriceMinor)} ×{results.quantity}
                       </p>
                     </div>

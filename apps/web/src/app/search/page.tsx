@@ -4,17 +4,25 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { FormError } from "@/components/ui/form";
+import { Page } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
-import type { Area, Match, MatchResults, ServiceType } from "@/core/api/types";
+import type {
+  Area,
+  Match,
+  MatchResults,
+  ProviderRating,
+  ServiceType,
+} from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
 import { rupees, WINDOWS } from "@/features/bookings/format";
 import * as catalogueApi from "@/features/catalogue/api";
 import * as discoveryApi from "@/features/discovery/api";
+import { getProviderRating } from "@/features/discovery/reviews-api";
 
 const field =
-  "w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm dark:border-white/20 dark:bg-white/5";
+  "h-11 w-full rounded-control border border-border-strong bg-bg px-3 text-[15px] outline-none focus:border-accent";
 
 function tomorrow(): string {
   const d = new Date();
@@ -39,6 +47,8 @@ function Search() {
   const [locationNote, setLocationNote] = useState("");
 
   const [sort, setSort] = useState<discoveryApi.MatchSort>("PRICE_ASC");
+  const [openReviews, setOpenReviews] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ProviderRating | null>(null);
   const [results, setResults] = useState<MatchResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -78,6 +88,24 @@ function Search() {
       setError(caught instanceof ApiError ? caught.message : "Search failed");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function toggleReviews(providerId: string) {
+    if (openReviews === providerId) {
+      setOpenReviews(null);
+      return;
+    }
+
+    setOpenReviews(providerId);
+    setReviews(null);
+
+    try {
+      setReviews(await getProviderRating(providerId));
+    } catch {
+      // A profile that will not load must not break the booking flow. The
+      // customer can still see price and inclusions and book.
+      setReviews({ providerId, count: 0, reviews: [] });
     }
   }
 
@@ -121,22 +149,22 @@ function Search() {
 
   if (account && account.organisation.kind !== "CUSTOMER") {
     return (
-      <main className="mx-auto w-full max-w-lg px-6 py-20 text-sm text-black/60 dark:text-white/60">
-        Only customer accounts can book services.
-      </main>
+      <Page size="form">
+        <p className="text-sm text-fg-muted">Only customer accounts can book services.</p>
+      </Page>
     );
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-14">
+    <Page>
       <h1 className="text-xl font-semibold tracking-tight">Book a service</h1>
-      <p className="mt-1 mb-8 text-sm text-black/50 dark:text-white/50">
+      <p className="mt-1 mb-8 text-sm text-fg-subtle">
         Tell us the job. We&apos;ll show who can do it and what it costs.
       </p>
 
       <form
         onSubmit={onSearch}
-        className="space-y-4 rounded-lg border border-black/10 p-5 dark:border-white/15"
+        className="space-y-4 rounded-surface border border-border p-5"
       >
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">Service</span>
@@ -272,7 +300,7 @@ function Search() {
           </div>
 
           {results.total === 0 ? (
-            <p className="rounded-lg border border-black/10 px-4 py-8 text-center text-sm text-black/45 dark:border-white/15 dark:text-white/45">
+            <p className="rounded-surface border border-dashed border-border px-4 py-8 text-center text-sm text-fg-muted">
               Nobody covers this area for that quantity yet.
             </p>
           ) : (
@@ -280,7 +308,7 @@ function Search() {
               {results.matches.map((match) => (
                 <li
                   key={match.offeringId}
-                  className="rounded-lg border border-black/10 p-4 dark:border-white/15"
+                  className="rounded-surface border border-border p-4"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -293,12 +321,16 @@ function Search() {
                       */}
                       <p className="mt-0.5 text-xs">
                         {match.provider.rating != null ? (
-                          <span className="tabular text-fg">
+                          <button
+                            onClick={() => void toggleReviews(match.provider.providerId)}
+                            className="tabular text-fg underline decoration-border underline-offset-2 hover:decoration-fg"
+                          >
                             ★ {match.provider.rating.toFixed(1)}{" "}
                             <span className="text-fg-subtle">
-                              ({match.provider.ratingCount})
+                              ({match.provider.ratingCount}{" "}
+                              {match.provider.ratingCount === 1 ? "review" : "reviews"})
                             </span>
-                          </span>
+                          </button>
                         ) : (
                           <span className="text-fg-subtle">New — no reviews yet</span>
                         )}
@@ -323,7 +355,7 @@ function Search() {
                     {match.included.map((item) => (
                       <span
                         key={item}
-                        className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-400"
+                        className="rounded-full bg-success-bg px-2 py-0.5 text-success"
                       >
                         {item.toLowerCase()} included
                       </span>
@@ -331,7 +363,7 @@ function Search() {
                     {match.notIncluded.map((item) => (
                       <span
                         key={item}
-                        className="rounded-full bg-black/5 px-2 py-0.5 text-black/45 dark:bg-white/10 dark:text-white/45"
+                        className="rounded-full bg-neutral-bg px-2 py-0.5 text-neutral"
                       >
                         no {item.toLowerCase()}
                       </span>
@@ -339,13 +371,40 @@ function Search() {
                   </div>
 
                   {match.notes ? (
-                    <p className="mt-2 text-xs text-black/50 dark:text-white/50">{match.notes}</p>
+                    <p className="mt-2 text-xs text-fg-muted">{match.notes}</p>
+                  ) : null}
+
+                  {openReviews === match.provider.providerId ? (
+                    <div className="mt-3 border-t border-border pt-3">
+                      {reviews === null ? (
+                        <p className="text-xs text-fg-subtle">Loading reviews…</p>
+                      ) : reviews.reviews.length === 0 ? (
+                        <p className="text-xs text-fg-subtle">No written reviews yet.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {reviews.reviews.slice(0, 5).map((review) => (
+                            <li key={review.id} className="text-xs">
+                              <p className="tabular text-fg">
+                                {"★".repeat(review.rating)}
+                                <span className="text-fg-subtle">
+                                  {"★".repeat(5 - review.rating)}
+                                </span>{" "}
+                                <span className="text-fg-muted">{review.customerName}</span>
+                              </p>
+                              {review.comment ? (
+                                <p className="mt-0.5 text-fg-muted">{review.comment}</p>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   ) : null}
 
                   <button
                     onClick={() => void book(match)}
                     disabled={busy !== null}
-                    className="mt-4 w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+                    className="mt-4 h-11 w-full rounded-control bg-accent px-3 text-[15px] font-medium text-accent-fg disabled:opacity-45"
                   >
                     {busy === match.offeringId ? "Booking…" : "Book this provider"}
                   </button>
@@ -355,7 +414,7 @@ function Search() {
           )}
         </section>
       ) : null}
-    </main>
+    </Page>
   );
 }
 

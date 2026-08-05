@@ -36,6 +36,10 @@ export type ProviderRating = components["schemas"]["ProviderRatingDto"];
 export type StaffMember = components["schemas"]["StaffMemberDto"];
 export type StaffList = components["schemas"]["StaffListDto"];
 
+export type Offering = components["schemas"]["OfferingDto"];
+export type OfferingVersion = components["schemas"]["OfferingVersionDto"];
+export type OfferingHistory = components["schemas"]["OfferingHistoryDto"];
+
 export type Drone = components["schemas"]["DroneDto"];
 export type Ticket = components["schemas"]["TicketDto"];
 export type TicketDetail = components["schemas"]["TicketDetailDto"];

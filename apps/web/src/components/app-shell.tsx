@@ -34,6 +34,7 @@ const NAV: Record<string, Record<string, Link[]>> = {
     "*": [
       { href: "/provider/requests", label: "Requests" },
       { href: "/provider/jobs", label: "My jobs" },
+      { href: "/provider/services", label: "My services" },
       { href: "/provider/drones", label: "Drones" },
       { href: "/provider/earnings", label: "Earnings" },
       { href: "/provider/onboarding", label: "My business" },

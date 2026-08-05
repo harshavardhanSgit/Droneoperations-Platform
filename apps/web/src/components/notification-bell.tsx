@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Notification } from "@/core/api/types";
+import { useAuth } from "@/core/auth/auth-context";
 import * as api from "@/features/notifications/api";
+import { destinationFor } from "@/features/notifications/route";
 
 function ago(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -15,6 +17,7 @@ function ago(iso: string): string {
 }
 
 export function NotificationBell() {
+  const { account } = useAuth();
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
@@ -119,26 +122,37 @@ export function NotificationBell() {
                 );
 
                 return (
-                  <li key={item.id} className={item.read ? "" : "bg-blue-500/[0.04]"}>
-                    {item.bookingId ? (
-                      <Link
-                        href={`/bookings/${item.bookingId}`}
-                        onClick={() => {
-                          setOpen(false);
-                          if (!item.read) void api.markRead(item.id).then(refreshCount);
-                        }}
-                        className="block px-4 py-3 hover:bg-neutral-bg"
-                      >
-                        {body}
-                      </Link>
-                    ) : (
-                      <div className="px-4 py-3">{body}</div>
-                    )}
+                  <li key={item.id} className={item.read ? "" : "bg-info-bg"}>
+                    {/*
+                      Destination depends on who is reading, not on the event.
+                      Linking every notification to /bookings/:id sent providers
+                      to a customer-only route and the API answered with a 403.
+                    */}
+                    <Link
+                      href={destinationFor(item, account)}
+                      onClick={() => {
+                        setOpen(false);
+                        if (!item.read) void api.markRead(item.id).then(refreshCount);
+                      }}
+                      className="block px-4 py-3 hover:bg-neutral-bg"
+                    >
+                      {body}
+                    </Link>
                   </li>
                 );
               })}
             </ul>
           )}
+
+          {items.length > 0 ? (
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="block border-t border-border px-4 py-2.5 text-center text-xs text-fg-muted hover:bg-neutral-bg hover:text-fg"
+            >
+              See all
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>

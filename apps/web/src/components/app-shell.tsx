@@ -18,6 +18,7 @@ type Link = { href: string; label: string };
  * cannot use should not exist for them at all. This is still presentation only
  * — hiding a link protects nobody, the API's guard is the boundary.
  */
+const NOTIFICATIONS: Link = { href: "/notifications", label: "Notifications" };
 const ACCOUNT: Link = { href: "/dashboard", label: "Account" };
 
 const NAV: Record<string, Record<string, Link[]>> = {
@@ -25,6 +26,7 @@ const NAV: Record<string, Record<string, Link[]>> = {
     "*": [
       { href: "/bookings", label: "My bookings" },
       { href: "/search", label: "Book a service" },
+      NOTIFICATIONS,
       ACCOUNT,
     ],
   },
@@ -35,6 +37,7 @@ const NAV: Record<string, Record<string, Link[]>> = {
       { href: "/provider/drones", label: "Drones" },
       { href: "/provider/earnings", label: "Earnings" },
       { href: "/provider/onboarding", label: "My business" },
+      NOTIFICATIONS,
       ACCOUNT,
     ],
   },
@@ -45,9 +48,10 @@ const NAV: Record<string, Record<string, Link[]>> = {
       { href: "/admin/providers", label: "Providers" },
       { href: "/admin/tickets", label: "Maintenance" },
       { href: "/admin/catalogue", label: "Catalogue" },
+      NOTIFICATIONS,
       ACCOUNT,
     ],
-    SERVICE_ENGINEER: [{ href: "/engineer/tickets", label: "My tickets" }, ACCOUNT],
+    SERVICE_ENGINEER: [{ href: "/engineer/tickets", label: "My tickets" }, NOTIFICATIONS, ACCOUNT],
   },
 };
 

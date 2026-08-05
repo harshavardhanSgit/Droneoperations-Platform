@@ -1,8 +1,9 @@
 import { apiFetch } from "@/core/api/client";
 import type { NotificationList } from "@/core/api/types";
 
-export const listNotifications = () =>
-  apiFetch<NotificationList>("/api/v1/notifications?limit=15");
+/** The bell shows a preview; the page asks for the full history. */
+export const listNotifications = (take = 15) =>
+  apiFetch<NotificationList>(`/api/v1/notifications?take=${take}`);
 
 export const unreadCount = () =>
   apiFetch<{ unread: number }>("/api/v1/notifications/unread-count").then((r) => r.unread);

@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/core/auth/auth-context";
+import * as notificationApi from "@/features/notifications/api";
+import { CloseIcon, CollapseIcon, MenuIcon, NavIcon, SignOutIcon } from "./icons";
 import { NotificationBell } from "./notification-bell";
 
 type Link = { href: string; label: string };
@@ -56,16 +59,118 @@ const NAV: Record<string, Record<string, Link[]>> = {
   },
 };
 
-function linksFor(kind: string, role: string): Link[] {
+/** Exported so the landing page can send a signed-in visitor to their first
+ * screen without duplicating the map. One source of truth for role → links. */
+export function linksFor(kind: string, role: string): Link[] {
   const byRole = NAV[kind];
   if (!byRole) return [];
   return byRole[role] ?? byRole["*"] ?? [];
+}
+
+/**
+ * Which links belong under "Account" rather than "Workspace".
+ *
+ * Derived from the shared constants rather than re-listing them, so a change to
+ * NAV cannot leave the grouping behind. linksFor() itself is untouched — this
+ * only decides where its output is drawn.
+ */
+const ACCOUNT_HREFS = new Set([NOTIFICATIONS.href, ACCOUNT.href]);
+
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: "Owner",
+  MEMBER: "Member",
+  ADMIN: "Platform admin",
+  SERVICE_ENGINEER: "Service engineer",
+};
+
+function NavLink({
+  link,
+  active,
+  collapsed,
+  badge,
+  onNavigate,
+}: {
+  link: Link;
+  active: boolean;
+  collapsed: boolean;
+  badge?: number;
+  onNavigate?: () => void;
+}) {
+  return (
+    <NextLink
+      href={link.href}
+      onClick={onNavigate}
+      title={collapsed ? link.label : undefined}
+      aria-current={active ? "page" : undefined}
+      className={`relative flex items-center gap-2.5 rounded-control py-2 text-sm transition-colors ${
+        collapsed ? "justify-center px-0" : "px-2.5"
+      } ${active ? "bg-neutral-bg font-medium text-fg" : "text-fg-muted hover:bg-neutral-bg hover:text-fg"}`}
+    >
+      {/* 2px rail rather than a border, so the row's height and padding do not
+          shift between states — a border would move every label by 2px. */}
+      {active ? (
+        <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" aria-hidden />
+      ) : null}
+
+      <NavIcon href={link.href} />
+
+      {collapsed ? null : <span className="min-w-0 flex-1 truncate">{link.label}</span>}
+
+      {badge && badge > 0 ? (
+        <span
+          className={`tabular flex h-4 min-w-4 items-center justify-center rounded-full bg-info-bg px-1 text-[10px] font-medium text-info ${
+            collapsed ? "absolute right-1 top-1" : ""
+          }`}
+        >
+          {badge > 9 ? "9+" : badge}
+        </span>
+      ) : null}
+    </NextLink>
+  );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { status, account, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [drawer, setDrawer] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  /**
+   * The count that used to live only inside the bell. On desktop there is no
+   * top bar to hang a bell from, so the Notifications row carries it instead.
+   * Refetched on focus rather than polled — the endpoint is cheap but not free,
+   * and a user looking at another tab does not need a live number.
+   */
+  const refreshUnread = useCallback(() => {
+    if (status !== "authenticated") return;
+    void notificationApi.unreadCount().then(setUnread).catch(() => undefined);
+  }, [status]);
+
+  useEffect(() => {
+    refreshUnread();
+    window.addEventListener("focus", refreshUnread);
+    return () => window.removeEventListener("focus", refreshUnread);
+  }, [refreshUnread]);
+
+  /*
+   * The drawer closes where it is dismissed — on the link, the overlay, the
+   * close button and Escape — rather than in an effect watching the pathname.
+   * Watching the URL would close it as a side effect of navigation instead of
+   * as part of the click that caused it, and React rightly objects to setting
+   * state synchronously in an effect body.
+   */
+  useEffect(() => {
+    if (!drawer) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawer(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawer]);
 
   // Public pages render bare — a sign-in screen with a nav bar advertising
   // links you cannot follow is worse than no nav bar.
@@ -74,51 +179,158 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const links = linksFor(account.organisation.kind, account.role);
+  const workspace = links.filter((link) => !ACCOUNT_HREFS.has(link.href));
+  const personal = links.filter((link) => ACCOUNT_HREFS.has(link.href));
+  const home = links[0]?.href ?? "/dashboard";
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  const onSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
+  const sidebar = (inDrawer: boolean) => {
+    const narrow = collapsed && !inDrawer;
+
+    return (
+      <div className="flex h-full flex-col">
+        <div
+          className={`flex h-14 shrink-0 items-center border-b border-border ${
+            narrow ? "justify-center px-0" : "justify-between px-4"
+          }`}
+        >
+          {narrow ? null : (
+            <NextLink href={home} className="text-sm font-semibold tracking-tight">
+              Drone Ops
+            </NextLink>
+          )}
+
+          {inDrawer ? (
+            <button
+              onClick={() => setDrawer(false)}
+              aria-label="Close menu"
+              className="rounded-control p-1 text-fg-muted hover:bg-neutral-bg hover:text-fg"
+            >
+              <CloseIcon />
+            </button>
+          ) : (
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="rounded-control p-1 text-fg-subtle hover:bg-neutral-bg hover:text-fg"
+            >
+              <CollapseIcon collapsed={collapsed} />
+            </button>
+          )}
+        </div>
+
+        <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-2 py-4">
+          <section className="space-y-0.5">
+            {narrow ? null : (
+              <h2 className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
+                Workspace
+              </h2>
+            )}
+            {workspace.map((link) => (
+              <NavLink
+                key={link.href}
+                link={link}
+                active={isActive(link.href)}
+                collapsed={narrow}
+                onNavigate={inDrawer ? () => setDrawer(false) : undefined}
+              />
+            ))}
+          </section>
+
+          <section className="space-y-0.5">
+            {narrow ? null : (
+              <h2 className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
+                Account
+              </h2>
+            )}
+            {personal.map((link) => (
+              <NavLink
+                key={link.href}
+                link={link}
+                active={isActive(link.href)}
+                collapsed={narrow}
+                {...(link.href === NOTIFICATIONS.href ? { badge: unread } : {})}
+                onNavigate={inDrawer ? () => setDrawer(false) : undefined}
+              />
+            ))}
+          </section>
+        </nav>
+
+        <div className={`shrink-0 border-t border-border py-3 ${narrow ? "px-2" : "px-4"}`}>
+          {narrow ? null : (
+            <div className="mb-2 min-w-0">
+              <p className="truncate text-sm font-medium">{account.organisation.name}</p>
+              <p className="truncate text-xs text-fg-subtle">
+                {ROLE_LABEL[account.role] ?? account.role} · {account.email}
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={() => void onSignOut()}
+            title={narrow ? "Sign out" : undefined}
+            className={`flex w-full items-center gap-2.5 rounded-control py-1.5 text-sm text-fg-muted hover:bg-neutral-bg hover:text-fg ${
+              narrow ? "justify-center px-0" : "px-2.5"
+            }`}
+          >
+            <SignOutIcon />
+            {narrow ? null : "Sign out"}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <>
-      <header className="sticky top-0 z-40 border-b border-border bg-bg/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-5 py-3 sm:px-6">
-          <Link href={links[0]?.href ?? "/dashboard"} className="shrink-0 text-sm font-semibold tracking-tight">
+    <div className="flex min-h-dvh">
+      <aside
+        className={`hidden shrink-0 border-r border-border md:sticky md:top-0 md:block md:h-dvh ${
+          collapsed ? "md:w-16" : "md:w-60"
+        }`}
+      >
+        {sidebar(false)}
+      </aside>
+
+      {drawer ? (
+        <>
+          <div
+            onClick={() => setDrawer(false)}
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            aria-hidden
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r border-border bg-bg md:hidden">
+            {sidebar(true)}
+          </aside>
+        </>
+      ) : null}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur md:hidden">
+          <button
+            onClick={() => setDrawer(true)}
+            aria-label="Open menu"
+            className="rounded-control p-1 text-fg-muted hover:bg-neutral-bg hover:text-fg"
+          >
+            <MenuIcon />
+          </button>
+
+          <NextLink href={home} className="flex-1 text-sm font-semibold tracking-tight">
             Drone Ops
-          </Link>
+          </NextLink>
 
-          <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-            {links.map((link) => {
-              const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+          {/* The bell keeps its right-anchored dropdown, which only works with a
+              top bar. On desktop the Notifications row carries the count. */}
+          <NotificationBell />
+        </header>
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`shrink-0 rounded-control px-2.5 py-1.5 text-sm ${
-                    active
-                      ? "bg-neutral-bg font-medium"
-                      : "text-fg-muted hover:bg-neutral-bg hover:text-fg"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="flex shrink-0 items-center gap-1">
-            <NotificationBell />
-            <button
-              onClick={async () => {
-                await signOut();
-                router.push("/login");
-              }}
-              className="rounded-control px-2.5 py-1.5 text-sm text-fg-muted hover:bg-neutral-bg hover:text-fg"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {children}
-    </>
+        {children}
+      </div>
+    </div>
   );
 }

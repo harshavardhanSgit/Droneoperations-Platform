@@ -51,10 +51,30 @@ export class PaymentDto {
   @ApiProperty({ format: 'date-time' }) recordedAt: string;
 }
 
+export class EarningsJobDto {
+  @ApiProperty({ format: 'uuid' }) bookingId: string;
+  @ApiProperty({ example: 'Kothapally FPO' }) customerName: string;
+
+  @ApiPropertyOptional({ example: '2026-09-12', description: 'Local date the work was confirmed done' })
+  completedOn?: string;
+
+  @ApiProperty({ example: 1215000, description: 'What this job is worth, minor units' })
+  amountMinor: number;
+
+  @ApiProperty({ example: false }) paid: boolean;
+  @ApiPropertyOptional({ example: '2026-09-14' }) paidOn?: string;
+}
+
 export class EarningsDto {
   @ApiProperty({ example: 12, description: 'Bookings completed' }) completedJobs: number;
   @ApiProperty({ example: 9, description: 'Of those, how many have a payment recorded' }) paidJobs: number;
   @ApiProperty({ example: 8424000, description: 'Sum of recorded payments, minor units' }) receivedMinor: number;
   @ApiProperty({ example: 1872000, description: 'Completed work with no payment recorded yet' }) outstandingMinor: number;
   @ApiProperty({ example: 'INR' }) currency: string;
+
+  @ApiProperty({
+    type: [EarningsJobDto],
+    description: 'Every completed job, unpaid first. A total nobody can break down is not actionable.',
+  })
+  jobs: EarningsJobDto[];
 }

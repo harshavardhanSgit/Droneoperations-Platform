@@ -38,28 +38,32 @@ export class SettlementRepository {
    * kept as a running total on the provider. A stored total is a second source
    * of truth that drifts the first time a write fails halfway.
    */
-  async earningsFor(providerId: string): Promise<{
-    completedJobs: number;
-    paidJobs: number;
-    receivedMinor: number;
-    billedMinor: number;
-  }> {
-    const completed = await this.prisma.booking.findMany({
+  /**
+   * Every completed job for this provider, each with its payment or the absence
+   * of one.
+   *
+   * Returns the rows rather than only the totals: the caller needs both, and
+   * the totals are derived from exactly these rows. Summing here and fetching
+   * the same bookings again for the breakdown would be two queries answering
+   * one question — and two chances for the list and the total to disagree.
+   */
+  earningsFor(providerId: string) {
+    return this.prisma.booking.findMany({
       where: {
         status: 'COMPLETED',
         assignments: { some: { providerId, status: 'ACCEPTED' } },
       },
-      select: { finalAmountMinor: true, payment: { select: { amountMinor: true } } },
+      select: {
+        id: true,
+        finalAmountMinor: true,
+        estimatedTotalMinor: true,
+        completedAt: true,
+        customerOrganisation: { select: { name: true } },
+        payment: { select: { amountMinor: true, paidOn: true } },
+      },
+      // Unpaid work is what the provider came here to find, and the oldest
+      // unpaid job is the one that needs chasing.
+      orderBy: { completedAt: 'desc' },
     });
-
-    return completed.reduce(
-      (acc, booking) => ({
-        completedJobs: acc.completedJobs + 1,
-        paidJobs: acc.paidJobs + (booking.payment ? 1 : 0),
-        receivedMinor: acc.receivedMinor + (booking.payment?.amountMinor ?? 0),
-        billedMinor: acc.billedMinor + (booking.finalAmountMinor ?? 0),
-      }),
-      { completedJobs: 0, paidJobs: 0, receivedMinor: 0, billedMinor: 0 },
-    );
   }
 }

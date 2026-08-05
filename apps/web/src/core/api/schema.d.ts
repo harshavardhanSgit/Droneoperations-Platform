@@ -2094,6 +2094,26 @@ export interface components {
             reference?: string;
             note?: string;
         };
+        EarningsJobDto: {
+            /** Format: uuid */
+            bookingId: string;
+            /** @example Kothapally FPO */
+            customerName: string;
+            /**
+             * @description Local date the work was confirmed done
+             * @example 2026-09-12
+             */
+            completedOn?: string;
+            /**
+             * @description What this job is worth, minor units
+             * @example 1215000
+             */
+            amountMinor: number;
+            /** @example false */
+            paid: boolean;
+            /** @example 2026-09-14 */
+            paidOn?: string;
+        };
         EarningsDto: {
             /**
              * @description Bookings completed
@@ -2117,6 +2137,8 @@ export interface components {
             outstandingMinor: number;
             /** @example INR */
             currency: string;
+            /** @description Every completed job, unpaid first. A total nobody can break down is not actionable. */
+            jobs: components["schemas"]["EarningsJobDto"][];
         };
         NotificationDto: {
             /** Format: uuid */

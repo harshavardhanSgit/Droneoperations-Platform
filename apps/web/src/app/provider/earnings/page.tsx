@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form";
-import { EmptyState, PageHeader, Surface, Page } from "@/components/ui/surface";
+import { EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
+import { StatusPill } from "@/components/ui/status-pill";
 import { ApiError } from "@/core/api/client";
 import type { Earnings } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
-import { rupees } from "@/features/bookings/format";
+import { rupees, shortDate } from "@/features/bookings/format";
 import { getEarnings } from "@/features/provider/earnings-api";
 
 /**
@@ -86,6 +87,39 @@ function EarningsView() {
               <span className="tabular font-medium">{data.paidJobs}</span>
             </div>
           </Surface>
+
+          {/*
+            The breakdown. A total nobody can decompose is not actionable — a
+            provider owed money needs to know WHICH customer owes it, which is
+            the whole reason to open this screen.
+          */}
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-fg-muted">Every completed job</h2>
+            <Surface className="divide-y divide-border">
+              {data.jobs.map((job) => (
+                <Link
+                  key={job.bookingId}
+                  href={`/provider/jobs`}
+                  className="flex items-center justify-between gap-3 px-5 py-3 transition-colors first:rounded-t-surface last:rounded-b-surface hover:bg-neutral-bg"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{job.customerName}</p>
+                    <p className="tabular mt-0.5 text-xs text-fg-subtle">
+                      {job.completedOn ? `done ${shortDate(job.completedOn)}` : "completed"}
+                      {job.paid && job.paidOn ? ` · paid ${shortDate(job.paidOn)}` : ""}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="tabular text-sm font-medium">{rupees(job.amountMinor)}</span>
+                    <StatusPill tone={job.paid ? "success" : "warning"} size="console">
+                      {job.paid ? "Paid" : "Unpaid"}
+                    </StatusPill>
+                  </div>
+                </Link>
+              ))}
+            </Surface>
+          </section>
 
           {/*
             Money moves directly between customer and provider (D6). The platform

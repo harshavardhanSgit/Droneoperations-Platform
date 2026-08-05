@@ -98,14 +98,35 @@ export class SettlementService {
       throw new ResourceNotFoundException('Provider profile', actor.organisationId);
     }
 
-    const totals = await this.settlement.earningsFor(provider.id);
+    const completed = await this.settlement.earningsFor(provider.id);
+
+    const jobs = completed.map((booking) => ({
+      bookingId: booking.id,
+      customerName: booking.customerOrganisation.name,
+      ...(booking.completedAt
+        ? { completedOn: booking.completedAt.toISOString().slice(0, 10) }
+        : {}),
+      // finalAmount is what was actually delivered (BR14). Falling back to the
+      // estimate only covers older rows completed before a final was recorded.
+      amountMinor: booking.finalAmountMinor ?? booking.estimatedTotalMinor ?? 0,
+      paid: booking.payment !== null,
+      ...(booking.payment ? { paidOn: booking.payment.paidOn.toISOString().slice(0, 10) } : {}),
+    }));
+
+    // Unpaid first — that is the question this screen exists to answer. Within
+    // each group the repository's newest-first order is preserved.
+    jobs.sort((a, b) => Number(a.paid) - Number(b.paid));
+
+    const receivedMinor = completed.reduce((sum, b) => sum + (b.payment?.amountMinor ?? 0), 0);
+    const billedMinor = jobs.reduce((sum, job) => sum + job.amountMinor, 0);
 
     return {
-      completedJobs: totals.completedJobs,
-      paidJobs: totals.paidJobs,
-      receivedMinor: totals.receivedMinor,
-      outstandingMinor: Math.max(0, totals.billedMinor - totals.receivedMinor),
+      completedJobs: jobs.length,
+      paidJobs: jobs.filter((job) => job.paid).length,
+      receivedMinor,
+      outstandingMinor: Math.max(0, billedMinor - receivedMinor),
       currency: 'INR',
+      jobs,
     };
   }
 

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, Page, PageHeader } from "@/components/ui/surface";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { Booking, Match } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -31,6 +33,7 @@ const FILTERS = [
  * thing on the screen.
  */
 function AdminBookings() {
+  const toast = useToast();
   const [items, setItems] = useState<Booking[]>([]);
   const [status, setStatus] = useState("UNASSIGNED");
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +88,7 @@ function AdminBookings() {
     setError(null);
     try {
       await admin.forceCancel(id, reason.trim());
+      toast("Booking cancelled", "warning");
       setCancelling(null);
       setReason("");
       await load(status);
@@ -120,6 +124,7 @@ function AdminBookings() {
     setError(null);
     try {
       await admin.reassign(bookingId, offeringId);
+      toast("Placed — the provider has been notified");
       setPlacing(null);
       setCandidates(null);
       await load(status);
@@ -158,7 +163,7 @@ function AdminBookings() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <TableSkeleton />
       ) : items.length === 0 ? (
         <EmptyState
           title="Nothing here"

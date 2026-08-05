@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError, SelectField } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
+import { CardListSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -18,6 +20,7 @@ type Panel = { id: string; kind: "complete" | "propose" | "cancel" } | null;
 const unit = (b: Booking) => b.pricingUnit.replace("PER_", "").toLowerCase();
 
 function Jobs() {
+  const toast = useToast();
   const [items, setItems] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,11 +46,12 @@ function Jobs() {
     void load();
   }, []);
 
-  const run = async (id: string, work: () => Promise<unknown>) => {
+  const run = async (id: string, work: () => Promise<unknown>, done?: string) => {
     setBusy(id);
     setError(null);
     try {
       await work();
+      if (done) toast(done);
       setPanel(null);
       setFinalQuantity("");
       setNote("");
@@ -112,7 +116,7 @@ function Jobs() {
               variant="primary"
               className="flex-1"
               disabled={busy === b.id}
-              onClick={() => void run(b.id, () => bookingApi.confirmSchedule(b.id))}
+              onClick={() => void run(b.id, () => bookingApi.confirmSchedule(b.id), "Date agreed")}
             >
               Agree
             </Button>
@@ -165,8 +169,10 @@ function Jobs() {
               className="flex-1"
               disabled={!finalQuantity || Number(finalQuantity) <= 0 || busy === b.id}
               onClick={() =>
-                void run(b.id, () =>
-                  providerApi.completeBooking(b.id, Number(finalQuantity), note || undefined),
+                void run(
+                  b.id,
+                  () => providerApi.completeBooking(b.id, Number(finalQuantity), note || undefined),
+                  "Marked done — waiting on the customer to confirm",
                 )
               }
             >
@@ -197,7 +203,7 @@ function Jobs() {
               variant="primary"
               className="flex-1"
               disabled={!date || busy === b.id}
-              onClick={() => void run(b.id, () => bookingApi.proposeSchedule(b.id, date, slot))}
+              onClick={() => void run(b.id, () => bookingApi.proposeSchedule(b.id, date, slot), "Date sent to the customer")}
             >
               Send
             </Button>
@@ -220,7 +226,7 @@ function Jobs() {
               variant="danger"
               className="flex-1"
               disabled={reason.trim().length < 3 || busy === b.id}
-              onClick={() => void run(b.id, () => bookingApi.cancelBooking(b.id, reason))}
+              onClick={() => void run(b.id, () => bookingApi.cancelBooking(b.id, reason), "Job cancelled")}
             >
               Cancel job
             </Button>
@@ -265,7 +271,7 @@ function Jobs() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <CardListSkeleton />
       ) : items.length === 0 ? (
         <EmptyState
           title="Nothing on your books yet"

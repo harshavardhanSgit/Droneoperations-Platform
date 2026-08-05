@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Field, FormError, SubmitButton } from "@/components/ui/form";
 import { Page } from "@/components/ui/surface";
+import { RowsSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { ProviderDetail, ProviderDocument } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -23,6 +25,7 @@ const EDITABLE = ["REGISTERED", "PROFILE_COMPLETE", "DOCUMENTS_SUBMITTED", "REJE
 
 function Onboarding() {
   const { account } = useAuth();
+  const toast = useToast();
 
   const [provider, setProvider] = useState<ProviderDetail | null>(null);
   const [documents, setDocuments] = useState<ProviderDocument[]>([]);
@@ -91,6 +94,7 @@ function Onboarding() {
         ...(registrationNumber ? { registrationNumber } : {}),
       });
       await refresh();
+      toast("Business details saved");
     } catch (caught) {
       handle(caught);
     } finally {
@@ -117,6 +121,7 @@ function Onboarding() {
       await providerApi.uploadDocument(String(data.get("kind")), file);
       form.reset();
       await refresh();
+      toast("Document uploaded");
     } catch (caught) {
       handle(caught);
     } finally {
@@ -130,6 +135,7 @@ function Onboarding() {
     try {
       await providerApi.submitForReview();
       await refresh();
+      toast("Submitted — the platform will review your application");
     } catch (caught) {
       handle(caught);
     } finally {
@@ -152,7 +158,7 @@ function Onboarding() {
     return (
       <Page>
         <FormError message={error} />
-        {!error ? <p className="text-sm text-fg-subtle">Loading…</p> : null}
+        {!error ? <RowsSkeleton rows={4} /> : null}
       </Page>
     );
   }

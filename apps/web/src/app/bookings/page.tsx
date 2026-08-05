@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { FormError } from "@/components/ui/form";
+import { RowsSkeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -48,7 +49,7 @@ function Bookings() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <RowsSkeleton />
       ) : items.length === 0 ? (
         <p className="rounded-lg border border-border-strong px-4 py-10 text-center text-sm text-fg-subtle">
           No bookings yet.

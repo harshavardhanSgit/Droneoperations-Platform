@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cardGrid, EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
+import { CardListSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { Ticket } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -19,6 +21,7 @@ import { TICKET_LABEL, TICKET_TONE, whenShort } from "@/features/maintenance/for
  * an engineer standing next to a broken drone is asking.
  */
 function Tickets() {
+  const toast = useToast();
   const [items, setItems] = useState<Ticket[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,11 +62,12 @@ function Tickets() {
     };
   }, []);
 
-  const run = async (id: string, work: () => Promise<unknown>) => {
+  const run = async (id: string, work: () => Promise<unknown>, done?: string) => {
     setBusy(id);
     setError(null);
     try {
       await work();
+      if (done) toast(done);
       setClosing(null);
       setNote("");
       setFile(null);
@@ -83,6 +87,7 @@ function Tickets() {
     await run(ticketId, async () => {
       const documentId = await engineer.uploadReport(ticketId, file);
       await engineer.closeTicket(ticketId, note.trim(), documentId);
+      toast("Ticket closed — the drone is back in service");
     });
   };
 
@@ -96,7 +101,7 @@ function Tickets() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <CardListSkeleton />
       ) : items.length === 0 ? (
         <EmptyState
           title="Nothing assigned to you"
@@ -142,7 +147,7 @@ function Tickets() {
                           variant="primary"
                           full
                           disabled={working}
-                          onClick={() => void run(t.id, () => engineer.startTicket(t.id))}
+                          onClick={() => void run(t.id, () => engineer.startTicket(t.id), "Started — the operator can see it")}
                         >
                           Start work
                         </Button>

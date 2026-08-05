@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form";
 import { EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
 import { StatusPill } from "@/components/ui/status-pill";
+import { RowsSkeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/core/api/client";
 import type { Earnings } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -44,7 +45,7 @@ function EarningsView() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <RowsSkeleton />
       ) : !data ? null : data.completedJobs === 0 ? (
         <EmptyState
           title="No completed jobs yet"

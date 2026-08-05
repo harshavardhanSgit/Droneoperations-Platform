@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError, SelectField } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
+import { RowsSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { Area, ServiceType } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -25,6 +27,7 @@ const unitLabel = (u: string) => u.replace("PER_", "per ").toLowerCase().replace
  * product.
  */
 function Catalogue() {
+  const toast = useToast();
   const [services, setServices] = useState<ServiceType[]>([]);
   const [states, setStates] = useState<Area[]>([]);
   const [districts, setDistricts] = useState<Area[]>([]);
@@ -66,11 +69,12 @@ function Catalogue() {
     };
   }, []);
 
-  const run = async (work: () => Promise<unknown>) => {
+  const run = async (work: () => Promise<unknown>, done?: string) => {
     setBusy(true);
     setError(null);
     try {
       await work();
+      if (done) toast(done);
       setAddingService(false);
       setAddingArea(false);
       setCode("");
@@ -104,7 +108,7 @@ function Catalogue() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <RowsSkeleton />
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <section>
@@ -162,7 +166,7 @@ function Catalogue() {
                             pricingUnit: unit,
                           });
                           await loadServices();
-                        })
+                        }, `${name.trim()} is offerable immediately — no deploy needed`)
                       }
                     >
                       Add
@@ -190,12 +194,17 @@ function Catalogue() {
                       variant="ghost"
                       disabled={busy}
                       onClick={() =>
-                        void run(async () => {
-                          await catalogue.updateServiceType(s.id, {
-                            status: s.status === "ACTIVE" ? "RETIRED" : "ACTIVE",
-                          });
-                          await loadServices();
-                        })
+                        void run(
+                          async () => {
+                            await catalogue.updateServiceType(s.id, {
+                              status: s.status === "ACTIVE" ? "RETIRED" : "ACTIVE",
+                            });
+                            await loadServices();
+                          },
+                          s.status === "ACTIVE"
+                            ? `${s.name} retired — existing bookings are unaffected`
+                            : `${s.name} restored`,
+                        )
                       }
                     >
                       {s.status === "ACTIVE" ? "Retire" : "Restore"}
@@ -243,7 +252,7 @@ function Catalogue() {
                             name: areaName.trim(),
                           });
                           await openDistricts(openState);
-                        })
+                        }, `${areaName.trim()} added to ${openState.name}`)
                       }
                     >
                       Add

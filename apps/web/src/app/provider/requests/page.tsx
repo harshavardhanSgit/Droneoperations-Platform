@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError, SelectField } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, PageHeader, Surface, Page, cardGrid } from "@/components/ui/surface";
+import { CardListSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -26,6 +28,7 @@ function awaitingCustomer(booking: Booking) {
 }
 
 function Requests() {
+  const toast = useToast();
   const [items, setItems] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,11 +55,12 @@ function Requests() {
   // Every action reloads rather than patching local state. A booking is a
   // shared aggregate — the customer may have cancelled it while this screen sat
   // open — so the server's answer is the only trustworthy one.
-  const run = async (id: string, work: () => Promise<unknown>) => {
+  const run = async (id: string, work: () => Promise<unknown>, done?: string) => {
     setBusy(id);
     setError(null);
     try {
       await work();
+      if (done) toast(done);
       setPanel(null);
       setReason("");
       setDate("");
@@ -82,7 +86,7 @@ function Requests() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <CardListSkeleton />
       ) : items.length === 0 ? (
         <EmptyState
           title="No requests right now"
@@ -147,7 +151,7 @@ function Requests() {
                       variant="primary"
                       full
                       disabled={working}
-                      onClick={() => void run(booking.id, () => providerApi.acceptBooking(booking.id))}
+                      onClick={() => void run(booking.id, () => providerApi.acceptBooking(booking.id), "Accepted — the customer has been told")}
                     >
                       Accept
                     </Button>
@@ -197,8 +201,10 @@ function Requests() {
                         className="flex-1"
                         disabled={!date || working}
                         onClick={() =>
-                          void run(booking.id, () =>
-                            bookingApi.proposeSchedule(booking.id, date, slot),
+                          void run(
+                            booking.id,
+                            () => bookingApi.proposeSchedule(booking.id, date, slot),
+                            "Date sent to the customer",
                           )
                         }
                       >
@@ -224,7 +230,7 @@ function Requests() {
                         className="flex-1"
                         disabled={reason.trim().length < 3 || working}
                         onClick={() =>
-                          void run(booking.id, () => providerApi.rejectBooking(booking.id, reason))
+                          void run(booking.id, () => providerApi.rejectBooking(booking.id, reason), "Declined — the job is open for someone else")
                         }
                       >
                         Decline

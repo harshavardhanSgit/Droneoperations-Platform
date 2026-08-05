@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { FormError } from "@/components/ui/form";
+import { RowsSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { BookingDetail, Payment, Review } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
@@ -30,6 +32,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function Detail() {
   const { id } = useParams<{ id: string }>();
+  const toast = useToast();
 
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
@@ -81,11 +84,12 @@ function Detail() {
     };
   }, [id]);
 
-  async function act(key: string, fn: () => Promise<unknown>) {
+  async function act(key: string, fn: () => Promise<unknown>, done?: string) {
     setError(null);
     setBusy(key);
     try {
       await fn();
+      if (done) toast(done);
       await load();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "That did not work");
@@ -98,7 +102,7 @@ function Detail() {
     return (
       <main className="mx-auto w-full max-w-2xl px-6 py-14">
         <FormError message={error} />
-        {!error ? <p className="text-sm text-fg-subtle">Loading…</p> : null}
+        {!error ? <RowsSkeleton rows={6} /> : null}
       </main>
     );
   }
@@ -178,7 +182,7 @@ function Detail() {
           {awaitingMe ? (
             <button
               disabled={busy !== null}
-              onClick={() => void act("confirm", () => bookingApi.confirmSchedule(id))}
+              onClick={() => void act("confirm", () => bookingApi.confirmSchedule(id), "Date agreed")}
               className={primary}
             >
               {busy === "confirm" ? "Confirming…" : "Accept this date"}
@@ -210,7 +214,7 @@ function Detail() {
             </select>
             <button
               disabled={busy !== null}
-              onClick={() => void act("propose", () => bookingApi.proposeSchedule(id, date, window_))}
+              onClick={() => void act("propose", () => bookingApi.proposeSchedule(id, date, window_), "Date sent to the provider")}
               className={secondary}
             >
               {busy === "propose" ? "Proposing…" : "Propose"}
@@ -228,7 +232,7 @@ function Detail() {
           </p>
           <button
             disabled={busy !== null}
-            onClick={() => void act("done", () => bookingApi.confirmCompletion(id))}
+            onClick={() => void act("done", () => bookingApi.confirmCompletion(id), "Work confirmed — you can record the payment now")}
             className={primary}
           >
             {busy === "done" ? "Confirming…" : "Confirm it was done"}
@@ -262,13 +266,16 @@ function Detail() {
                 <button
                   disabled={busy !== null}
                   onClick={() =>
-                    void act("pay", () =>
-                      bookingApi.recordPayment(id, {
-                        method:
-                          (document.getElementById("method") as HTMLSelectElement | null)?.value ??
-                          "UPI",
-                        paidOn: new Date().toISOString().slice(0, 10),
-                      }),
+                    void act(
+                      "pay",
+                      () =>
+                        bookingApi.recordPayment(id, {
+                          method:
+                            (document.getElementById("method") as HTMLSelectElement | null)
+                              ?.value ?? "UPI",
+                          paidOn: new Date().toISOString().slice(0, 10),
+                        }),
+                      "Payment recorded",
                     )
                   }
                   className={primary}
@@ -320,8 +327,10 @@ function Detail() {
           <button
             disabled={busy !== null}
             onClick={() =>
-              void act("review", () =>
-                bookingApi.createReview(id, rating, comment.trim() || undefined),
+              void act(
+                "review",
+                () => bookingApi.createReview(id, rating, comment.trim() || undefined),
+                "Thanks — your review is on their profile",
               )
             }
             className={primary}
@@ -338,7 +347,7 @@ function Detail() {
             onClick={() => {
               const reason = prompt("Why are you cancelling?");
               if (reason && reason.trim().length >= 3) {
-                void act("cancel", () => bookingApi.cancelBooking(id, reason.trim()));
+                void act("cancel", () => bookingApi.cancelBooking(id, reason.trim()), "Booking cancelled");
               }
             }}
             className="text-sm text-danger hover:underline"

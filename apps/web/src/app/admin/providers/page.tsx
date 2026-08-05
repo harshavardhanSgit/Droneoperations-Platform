@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { FormError } from "@/components/ui/form";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { Provider, ProviderDetail, ProviderDocument } from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
@@ -159,6 +160,7 @@ function Detail({
 
 function Queue() {
   const { account } = useAuth();
+  const toast = useToast();
 
   const [stage, setStage] = useState("UNDER_REVIEW");
   const [rows, setRows] = useState<Provider[]>([]);
@@ -229,6 +231,12 @@ function Queue() {
       setOpenId(null);
       setDetail(null);
       await load();
+      toast(
+        action === "activate"
+          ? "Activated — they can receive bookings now"
+          : "Rejected — they can fix the issues and resubmit",
+        action === "activate" ? "success" : "warning",
+      );
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "The action failed");
     } finally {

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { EmptyState, PageHeader, Page } from "@/components/ui/surface";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
 import type { StaffMember, Ticket } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -28,6 +30,7 @@ const FILTERS = [
  * one screen. The same content as cards would be honest and useless.
  */
 function Tickets() {
+  const toast = useToast();
   const [items, setItems] = useState<Ticket[]>([]);
   const [engineers, setEngineers] = useState<StaffMember[]>([]);
   const [status, setStatus] = useState("OPEN");
@@ -70,6 +73,7 @@ function Tickets() {
     setError(null);
     try {
       await admin.assignEngineer(ticketId, engineerUserId);
+      toast("Engineer assigned");
       setAssigning(null);
       await load();
     } catch (caught: unknown) {
@@ -105,7 +109,7 @@ function Tickets() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <TableSkeleton />
       ) : items.length === 0 ? (
         <EmptyState
           title="Nothing here"

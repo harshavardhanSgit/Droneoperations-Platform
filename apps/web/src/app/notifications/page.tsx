@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form";
 import { EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
+import { RowsSkeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/core/api/client";
 import type { Notification } from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
@@ -135,7 +136,7 @@ function Notifications() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <RowsSkeleton />
       ) : visible.length === 0 ? (
         <EmptyState
           title={onlyUnread ? "Nothing unread" : "No notifications yet"}

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { FormError } from "@/components/ui/form";
 import { Page, PageHeader, Surface } from "@/components/ui/surface";
+import { RowsSkeleton } from "@/components/ui/skeleton";
 import { ApiError, apiFetch } from "@/core/api/client";
 import type { Dashboard } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
@@ -74,7 +75,7 @@ function AdminDashboard() {
       <FormError message={error} />
 
       {loading ? (
-        <p className="text-sm text-fg-subtle">Loading…</p>
+        <RowsSkeleton />
       ) : !data ? null : (
         <div className="space-y-8">
           <section>

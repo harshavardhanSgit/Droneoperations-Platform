@@ -47,3 +47,9 @@ export type TicketList = components["schemas"]["TicketListDto"];
 
 export type Notification = components["schemas"]["NotificationDto"];
 export type NotificationList = components["schemas"]["NotificationListDto"];
+
+export type Coverage = components["schemas"]["CoverageDto"];
+export type CoverageTotals = components["schemas"]["CoverageTotalsDto"];
+export type CoverageState = components["schemas"]["CoverageStateDto"];
+export type CoverageDistrict = components["schemas"]["CoverageDistrictDto"];
+export type CoverageProvider = components["schemas"]["CoverageProviderDto"];

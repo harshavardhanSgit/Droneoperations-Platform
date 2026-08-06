@@ -14,6 +14,9 @@ export interface ProviderProfileInput {
   city: string;
   state: string;
   pincode: string;
+  /** Point picked on the map. Sent as a pair, or not at all. */
+  latitude?: number;
+  longitude?: number;
 }
 
 export const getOwnProvider = () => apiFetch<ProviderDetail>("/api/v1/providers/me");

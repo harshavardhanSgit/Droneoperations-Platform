@@ -13,3 +13,9 @@ process.env['NODE_ENV'] = 'test';
 process.env['JWT_ACCESS_SECRET'] ??= 'integration-test-secret-at-least-32-chars-long';
 process.env['API_PUBLIC_URL'] ??= 'http://localhost:3999';
 process.env['STORAGE_LOCAL_DIR'] ??= '.storage-test';
+
+// A tiny budget for the public coverage endpoint, so the 429 contract test
+// stays fast. Forced (not ??=) on purpose: the suite must not depend on what
+// a developer's shell exports. Only /coverage/public reads this, and only the
+// coverage spec exercises that route.
+process.env['COVERAGE_PUBLIC_RATE_LIMIT'] = '3';

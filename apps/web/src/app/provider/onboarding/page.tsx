@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
+import { MapPicker, type PickedLocation } from "@/components/map-picker";
 import { Field, FormError, SubmitButton } from "@/components/ui/form";
 import { Page } from "@/components/ui/surface";
 import { RowsSkeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,29 @@ function Onboarding() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState<string | null>(null);
+
+  /** Picked on the map — submitted with the profile. */
+  const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /**
+   * A map pick fills the address fields in place. The geocoder's names are
+   * best-effort, so they stay editable — this only writes them, it does not
+   * replace the fields with read-only text.
+   */
+  const onPickLocation = useCallback((location: PickedLocation) => {
+    setPickedLocation(location);
+    const form = formRef.current;
+    if (!form) return;
+    const set = (name: string, value: string | undefined) => {
+      const element = form.elements.namedItem(name);
+      if (element instanceof HTMLInputElement && value) element.value = value;
+    };
+    set("addressLine", location.addressLine);
+    set("city", location.city);
+    set("state", location.state);
+    set("pincode", location.pincode);
+  }, []);
 
   const refresh = useCallback(async () => {
     const [detail, docs] = await Promise.all([
@@ -92,6 +116,9 @@ function Onboarding() {
         state: String(form.get("state")),
         pincode: String(form.get("pincode")),
         ...(registrationNumber ? { registrationNumber } : {}),
+        ...(pickedLocation
+          ? { latitude: pickedLocation.latitude, longitude: pickedLocation.longitude }
+          : {}),
       });
       await refresh();
       toast("Business details saved");
@@ -190,10 +217,25 @@ function Onboarding() {
 
       <section className="mt-6 rounded-surface border border-border p-5">
         <h2 className="mb-4 text-sm font-medium">Business details</h2>
-        <form onSubmit={onSaveProfile} className="space-y-4">
+        <form ref={formRef} onSubmit={onSaveProfile} className="space-y-4">
           <Field label="Legal name" name="legalName" required defaultValue={provider.legalName ?? ""} disabled={!editable} error={fieldErrors.legalName?.[0]} />
           <Field label="Registration number (optional)" name="registrationNumber" defaultValue={provider.registrationNumber ?? ""} disabled={!editable} error={fieldErrors.registrationNumber?.[0]} />
           <Field label="Contact phone" name="contactPhone" required defaultValue={provider.contactPhone ?? ""} disabled={!editable} error={fieldErrors.contactPhone?.[0]} />
+
+          <div>
+            <span className="mb-1.5 block text-sm font-medium">Business location</span>
+            <MapPicker
+              initial={
+                provider.latitude != null && provider.longitude != null
+                  ? { latitude: provider.latitude, longitude: provider.longitude }
+                  : undefined
+              }
+              onPick={onPickLocation}
+              onClear={() => setPickedLocation(null)}
+              disabled={!editable}
+            />
+          </div>
+
           <Field label="Address" name="addressLine" required defaultValue={provider.addressLine ?? ""} disabled={!editable} error={fieldErrors.addressLine?.[0]} />
           <div className="grid grid-cols-3 gap-3">
             <Field label="City" name="city" required defaultValue={provider.city ?? ""} disabled={!editable} error={fieldErrors.city?.[0]} />

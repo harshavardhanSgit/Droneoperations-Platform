@@ -2,110 +2,75 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 import { linksFor } from "@/components/app-shell";
+import { CoverageShowcase } from "@/components/coverage-showcase";
+import { Drone3D } from "@/components/drone-3d";
 import { useAuth } from "@/core/auth/auth-context";
-import { useCountUp } from "@/core/hooks/use-count-up";
-import { useInView } from "@/core/hooks/use-in-view";
 import { getLiveness, getReadiness } from "@/features/health/api";
 
-/**
- * Wraps a section and fades it up the first time it scrolls into view.
- *
- * The CSS does the animating; this only decides when. Under reduced motion the
- * .reveal rule in globals.css pins both states to visible, so the observer
- * still runs but changes nothing.
- */
-function Reveal({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const { ref, inView } = useInView<HTMLElement>();
+type RoleKind = "customer" | "provider" | "staff";
 
-  return (
-    <section ref={ref} className={`reveal ${inView ? "reveal-in" : ""} ${className}`}>
-      {children}
-    </section>
-  );
-}
+function RoleIcon({ kind }: { kind: RoleKind }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.5,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+    className: "size-5",
+  } as const;
 
-function StepIcon({ d }: { d: string }) {
+  if (kind === "customer") {
+    return (
+      <svg {...common}>
+        <circle cx="11" cy="11" r="7" />
+        <path d="M21 21l-4.35-4.35" />
+        <path d="M11 8v6M8 11h6" />
+      </svg>
+    );
+  }
+  if (kind === "provider") {
+    return (
+      <svg {...common}>
+        <path d="M6 18L12 12l6 6M6 6l6 6 6-6" />
+        <circle cx="6" cy="6" r="2.2" />
+        <circle cx="18" cy="6" r="2.2" />
+        <circle cx="6" cy="18" r="2.2" />
+        <circle cx="18" cy="18" r="2.2" />
+      </svg>
+    );
+  }
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className="size-5"
-    >
-      <path d={d} />
+    <svg {...common}>
+      <path d="M12 3l7 3v5c0 4.4-2.9 7.9-7 10-4.1-2.1-7-5.6-7-10V6z" />
+      <path d="M9.3 12.2l2 2 3.6-3.8" />
     </svg>
   );
 }
 
-const STEPS = [
+const ROLES: { kind: RoleKind; title: string; body: string }[] = [
   {
-    title: "Say what you need",
-    body: "Service, district, how many acres, when. Prices come back with what is and is not included.",
-    icon: "M9 5h6v3H9zM4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1zM4 13h16",
+    kind: "customer",
+    title: "Customer",
+    body: "Find a provider in your district, compare prices and book.",
   },
   {
-    title: "A provider takes it on",
-    body: "They accept, or propose a date that suits the weather. You agree it before anyone travels.",
-    icon: "M4 13h4l2 3h4l2-3h4M4 13V7a2 2 0 012-2h12a2 2 0 012 2v6l-1 6H5l-1-6z",
+    kind: "provider",
+    title: "Provider",
+    body: "Publish services and prices, accept work, manage your fleet.",
   },
   {
-    title: "Work done, then paid",
-    body: "They record what was actually covered. You confirm it. The bill follows the work, not the estimate.",
-    icon: "M4 12l5 5L20 6",
-  },
-];
-
-const STATS = [
-  { value: 4, suffix: "", label: "service types" },
-  { value: 18, suffix: "", label: "districts covered" },
-  { value: 6, suffix: "", label: "active providers" },
-  { value: 24, suffix: "/7", label: "request any time" },
-];
-
-const ROLES = [
-  {
-    title: "I need work done",
-    body: "Compare providers on price, inclusions and rating. Book without a phone call.",
-    href: "/register",
-    cta: "Create a customer account",
-  },
-  {
-    title: "I own drones",
-    body: "List what you sell, set your own prices and areas, and run your jobs from one screen.",
-    href: "/register",
-    cta: "Register as a provider",
-  },
-  {
-    title: "I run the platform",
-    body: "Approve providers, step in on stuck jobs, dispatch engineers to grounded machines.",
-    href: "/login",
-    cta: "Staff sign in",
+    kind: "staff",
+    title: "Platform staff",
+    body: "Approve providers, oversee bookings, dispatch engineers.",
   },
 ];
 
-function Stat({ value, suffix, label }: { value: number; suffix: string; label: string }) {
-  const { ref, inView } = useInView<HTMLDivElement>("0px");
-  const shown = useCountUp(value, inView);
-
-  return (
-    <div ref={ref} className="text-center">
-      <p className="tabular text-3xl font-semibold tracking-tight">
-        {shown}
-        {suffix}
-      </p>
-      <p className="mt-1 text-sm text-fg-muted">{label}</p>
-    </div>
-  );
-}
-
-/** Slim live strip. The probes moved here from the middle of the page. */
+/** Slim live strip at the very bottom — the health probes live here now. */
 function HealthStrip() {
   const [api, setApi] = useState<boolean | null>(null);
   const [db, setDb] = useState<boolean | null>(null);
@@ -130,8 +95,8 @@ function HealthStrip() {
     ok === null ? "bg-neutral" : ok ? "bg-success" : "bg-danger";
 
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-4 text-xs text-fg-subtle">
+    <footer className="relative z-10 border-t border-border">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3 text-xs text-fg-subtle">
         <span className="flex items-center gap-1.5">
           <span className={`size-1.5 animate-pulse rounded-full ${dot(api)}`} aria-hidden />
           API {api === null ? "checking" : api ? "healthy" : "unavailable"}
@@ -140,7 +105,6 @@ function HealthStrip() {
           <span className={`size-1.5 animate-pulse rounded-full ${dot(db)}`} aria-hidden />
           Database {db === null ? "checking" : db ? "connected" : "unreachable"}
         </span>
-        <span className="ml-auto">Drone Operations Platform</span>
       </div>
     </footer>
   );
@@ -165,158 +129,90 @@ export default function Landing() {
     }
   }, [status, account, router]);
 
-  // Nothing until we know. Rendering the marketing page to someone who is
+  // Nothing until we know. Rendering the landing page to someone who is
   // already signed in, then yanking it away, reads as a bug.
   if (status !== "anonymous") {
     return <div className="min-h-dvh" />;
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <main className="flex-1">
-        <section className="relative overflow-hidden">
-          {/* Decorative only, and aria-hidden: two slow orbs behind the hero. */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-            <div className="orb absolute -left-24 -top-32 size-[28rem] rounded-full bg-info/20 blur-3xl" />
-            <div
-              className="orb absolute -right-32 top-24 size-[32rem] rounded-full bg-success/15 blur-3xl"
-              style={{ animationDelay: "-9s" }}
-            />
+    <div className="relative flex min-h-dvh flex-col overflow-hidden">
+      {/* Backdrop: faint field-map grid, then a readability veil over the text side. */}
+      <div aria-hidden className="field-grid absolute inset-0" />
+      <div aria-hidden className="hero-veil absolute inset-0" />
+
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-8">
+        <p className="font-medium tracking-tight">Drone Operations Platform</p>
+        <Link href="/login" className="text-sm text-fg-muted hover:text-fg">
+          Sign in
+        </Link>
+      </header>
+
+      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 pb-16 pt-12 sm:pt-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_.98fr]">
+          <div className="fade-up max-w-xl">
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+              Drone services for agriculture, on demand.
+            </h1>
+            <p className="fade-up mt-4 text-lg text-fg-muted" style={{ animationDelay: "90ms" }}>
+              Find a provider in your district, see the price upfront, and book the job — no phone
+              calls.
+            </p>
           </div>
 
-          <div className="mx-auto grid w-full max-w-5xl gap-10 px-6 py-20 sm:py-28 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
-            <div>
-              <p
-                className="fade-up text-sm font-medium text-fg-muted"
-                style={{ animationDelay: "0ms" }}
-              >
-                Agricultural spraying · Telangana, Andhra Pradesh, Maharashtra
-              </p>
-
-              <h1
-                className="fade-up mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl"
-                style={{ animationDelay: "80ms" }}
-              >
-                Hire a drone the way you would hire any professional.
-              </h1>
-
-              <p
-                className="fade-up mt-4 max-w-xl text-lg text-fg-muted"
-                style={{ animationDelay: "160ms" }}
-              >
-                Today this is arranged by phone call and guesswork. Here you can see who covers your
-                district, what they charge, what the price includes — and keep a record of the job
-                afterwards.
-              </p>
+          <div className="fade-up" style={{ animationDelay: "180ms" }}>
+            <div className="drone-drift relative mx-auto h-[380px] w-full max-w-[560px] lg:h-[520px]">
+              <Drone3D />
 
               <div
-                className="fade-up mt-8 flex flex-wrap gap-3"
-                style={{ animationDelay: "240ms" }}
+                aria-hidden
+                className="chip-float absolute left-2 top-8 hidden rounded-control border border-border bg-bg/80 px-2.5 py-1.5 text-xs text-fg-muted backdrop-blur lg:block"
               >
-                <Link
-                  href="/search"
-                  className="inline-flex h-11 items-center rounded-control bg-accent px-5 text-[15px] font-medium text-accent-fg hover:opacity-90"
-                >
-                  Find a provider
-                </Link>
-                <Link
-                  href="/register"
-                  className="inline-flex h-11 items-center rounded-control border border-border-strong px-5 text-[15px] font-medium hover:bg-neutral-bg"
-                >
-                  Create account
-                </Link>
+                On-demand aerial work
+              </div>
+              <div
+                aria-hidden
+                className="chip-float-2 absolute bottom-14 right-2 hidden rounded-control border border-border bg-bg/80 px-2.5 py-1.5 text-xs text-fg-muted backdrop-blur lg:block"
+              >
+                Prices upfront, always
               </div>
             </div>
+          </div>
+        </div>
 
-            {/*
-              A CTA card, not an embedded search form.
-              service-types, areas and discovery/matches all sit behind the API's
-              global auth guard — an anonymous visitor would get three empty
-              dropdowns and a 401. A form that looks usable and is not is worse
-              than an honest invitation.
-            */}
+        <div className="mt-14 grid gap-4 sm:grid-cols-3">
+          {ROLES.map((role, index) => (
             <div
-              className="fade-up rounded-surface border border-border bg-bg-raised p-6"
-              style={{ animationDelay: "320ms" }}
+              key={role.kind}
+              className="fade-up flex flex-col rounded-surface border border-border bg-bg p-5 text-left transition-[transform,border-color] hover:-translate-y-0.5 hover:border-border-strong"
+              style={{ animationDelay: `${280 + index * 80}ms` }}
             >
-              <h2 className="text-sm font-medium">Get a price</h2>
-              <p className="mt-1 text-sm text-fg-muted">
-                Tell us the service, the district and how many acres. You will see every provider
-                who covers it, with their price and what it includes.
-              </p>
-
-              <ul className="mt-4 space-y-2 text-sm text-fg-muted">
-                {["Prices before you commit", "What is not included, stated plainly", "No fee to use"].map(
-                  (item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-success" aria-hidden />
-                      {item}
-                    </li>
-                  ),
-                )}
-              </ul>
-
+              <div className="flex size-9 items-center justify-center rounded-control bg-neutral-bg">
+                <RoleIcon kind={role.kind} />
+              </div>
+              <h2 className="mt-3 font-medium">{role.title}</h2>
+              <p className="mt-1 flex-1 text-sm text-fg-muted">{role.body}</p>
               <Link
-                href="/search"
-                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-control bg-accent text-[15px] font-medium text-accent-fg hover:opacity-90"
+                href="/login"
+                className="group mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-control bg-accent px-3 text-sm font-medium text-accent-fg hover:opacity-90"
               >
-                Get a quote
+                Sign in
+                <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+                  →
+                </span>
               </Link>
-              <p className="mt-2 text-center text-xs text-fg-subtle">
-                Takes a minute · sign in to see prices
-              </p>
+              {role.kind !== "staff" && (
+                <Link href="/register" className="mt-2 text-xs text-fg-subtle hover:text-fg">
+                  New here? Create an account
+                </Link>
+              )}
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
 
-        <Reveal className="border-t border-border">
-          <div className="mx-auto w-full max-w-5xl px-6 py-16">
-            <h2 className="text-xl font-semibold tracking-tight">How it works</h2>
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <div key={step.title}>
-                  <div className="flex size-9 items-center justify-center rounded-control bg-neutral-bg text-fg">
-                    <StepIcon d={step.icon} />
-                  </div>
-                  <p className="tabular mt-3 text-xs text-fg-subtle">Step {index + 1}</p>
-                  <h3 className="mt-1 font-medium">{step.title}</h3>
-                  <p className="mt-1 text-sm text-fg-muted">{step.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal className="border-t border-border bg-bg-raised">
-          <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-8 px-6 py-14 md:grid-cols-4">
-            {STATS.map((stat) => (
-              <Stat key={stat.label} {...stat} />
-            ))}
-          </div>
-        </Reveal>
-
-        <Reveal className="border-t border-border">
-          <div className="mx-auto w-full max-w-5xl px-6 py-16">
-            <h2 className="text-xl font-semibold tracking-tight">Which one are you?</h2>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              {ROLES.map((role) => (
-                <div
-                  key={role.title}
-                  className="flex flex-col rounded-surface border border-border p-5"
-                >
-                  <h3 className="font-medium">{role.title}</h3>
-                  <p className="mt-1 flex-1 text-sm text-fg-muted">{role.body}</p>
-                  <Link
-                    href={role.href}
-                    className="mt-4 inline-flex h-9 items-center justify-center rounded-control border border-border-strong px-3 text-sm font-medium hover:bg-neutral-bg"
-                  >
-                    {role.cta}
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
+        {/* The business, told through real data — the same aggregation the
+            admin screen shows, served anonymously and TTL-cached. */}
+        <CoverageShowcase />
       </main>
 
       <HealthStrip />

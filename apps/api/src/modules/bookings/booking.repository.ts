@@ -62,6 +62,8 @@ export class BookingRepository {
       areaId: string;
       quantity: number;
       locationNote?: string | undefined;
+      latitude?: number | undefined;
+      longitude?: number | undefined;
       pricingUnit: PricingUnit;
       preferredDate: Date;
       preferredWindow: TimeWindow;

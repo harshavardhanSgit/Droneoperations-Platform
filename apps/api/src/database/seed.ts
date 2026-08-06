@@ -4,6 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { argon2id, hash } from 'argon2';
 
 import { PrismaClient } from '../generated/prisma/client';
+import { generateHistory } from './generate-history';
 
 /**
  * Creates the PLATFORM organisation and its first ADMIN.
@@ -76,6 +77,11 @@ async function main(): Promise<void> {
   await seedCatalogue();
   await seedStaff(ENGINEER_EMAIL, ENGINEER_PASSWORD, 'Field Engineer', 'SERVICE_ENGINEER');
   await seedMarketplace();
+
+  // The landing page claims real numbers, so the database needs a believable
+  // operating history — driven through the REAL booking services so every
+  // state-machine transition is genuine. See generate-history.ts.
+  await generateHistory();
 
   const existing = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
 
@@ -157,13 +163,31 @@ const DEMO_PROVIDERS = [
     price: 52000, min: 10, inclusions: ['WATER', 'TRANSPORT', 'CHEMICAL'] as const,
     notes: 'Chemical supplied at cost. Certified for CIB&RC-approved formulations.' },
   { org: 'Deccan Sky Works', email: 'deccan@demo.local', owner: 'Farhana Begum',
-    city: 'Nizamabad', state: 'Telangana', districts: ['Nizamabad', 'Medak'],
+    city: 'Nizamabad', state: 'Telangana', districts: ['Nizamabad', 'Medak', 'Nalgonda'],
     price: 39000, min: 3, inclusions: ['WATER'] as const,
     notes: 'Smallholder friendly — no minimum acreage penalty.' },
   { org: 'Krishna Delta Sprayers', email: 'krishna@demo.local', owner: 'Venkat Naidu',
     city: 'Guntur', state: 'Andhra Pradesh', districts: ['Guntur', 'Krishna'],
     price: 48000, min: 5, inclusions: ['WATER', 'LABOUR'] as const,
     notes: 'Chilli and cotton specialists.' },
+  // The southern and western belts: these are what make the coverage story
+  // multi-state rather than a two-district demo.
+  { org: 'Rayalaseema Agri Wings', email: 'rayalaseema@demo.local', owner: 'Chandrasekhar Reddy',
+    city: 'Kurnool', state: 'Andhra Pradesh', districts: ['Kurnool', 'Anantapur'],
+    price: 47000, min: 5, inclusions: ['WATER', 'TRANSPORT'] as const,
+    notes: 'Groundnut and cotton belt. Long-range machines.' },
+  { org: 'Konaseema Crop Care', email: 'konaseema@demo.local', owner: 'Satyanarayana Murthy',
+    city: 'Kakinada', state: 'Andhra Pradesh', districts: ['West Godavari'],
+    price: 50000, min: 5, inclusions: ['WATER', 'LABOUR'] as const,
+    notes: 'Paddy delta — morning slots across the command area.' },
+  { org: 'Sahyadri Spray Solutions', email: 'sahyadri@demo.local', owner: 'Amol Kulkarni',
+    city: 'Nashik', state: 'Maharashtra', districts: ['Nashik', 'Ahmednagar'],
+    price: 44000, min: 5, inclusions: ['WATER', 'TRANSPORT'] as const,
+    notes: 'Grape and onion belts. Evening spray windows.' },
+  { org: 'Khandesh Agri Air', email: 'khandesh@demo.local', owner: 'Pravin Patil',
+    city: 'Jalgaon', state: 'Maharashtra', districts: ['Jalgaon', 'Solapur'],
+    price: 42000, min: 3, inclusions: ['WATER'] as const,
+    notes: 'Banana and cotton. Bulk-acreage discounts.' },
 ];
 
 const DEMO_CUSTOMERS = [
@@ -271,17 +295,52 @@ async function seedMarketplace(): Promise<void> {
         });
       }
 
-      await tx.drone.create({
-        data: {
-          providerId: provider.id,
-          model: 'Marut AG365',
-          registrationNumber: `UIN-${seed.city.slice(0, 3).toUpperCase()}-${seed.price}`,
-          capacityLitres: 10,
-        },
-      });
+      // A real fleet, not a single machine: three serviceable airframes per
+      // provider makes the coverage fleet count mean something.
+      const DRONE_MODELS = ['Marut AG365', 'Marut AG365N', 'Skyfarm SF-60'] as const;
+      for (let i = 0; i < DRONE_MODELS.length; i += 1) {
+        await tx.drone.create({
+          data: {
+            providerId: provider.id,
+            model: DRONE_MODELS[i]!,
+            registrationNumber: `UIN-${seed.city.slice(0, 3).toUpperCase()}-${seed.price}-${i + 1}`,
+            capacityLitres: 10,
+          },
+        });
+      }
     });
 
     console.log(`  provider: ${seed.email} — ${seed.org}, Rs${seed.price / 100}/acre`);
+  }
+
+  // Convergence: a provider that predates a districts change keeps its old
+  // footprint. The seed is the source of truth for the demo marketplace, so
+  // existing providers converge onto the current definition on re-runs.
+  for (const seed of DEMO_PROVIDERS) {
+    if (!(await prisma.user.findUnique({ where: { email: seed.email } }))) continue;
+
+    const offering = await prisma.offering.findFirst({
+      where: { provider: { organisation: { memberships: { some: { user: { email: seed.email } } } } } },
+      select: { id: true },
+    });
+    if (!offering) continue;
+
+    const areas = await prisma.area.findMany({
+      where: { name: { in: seed.districts }, level: 'DISTRICT' },
+    });
+    const linked = await prisma.offeringArea.findMany({
+      where: { offeringId: offering.id },
+      select: { areaId: true },
+    });
+    const linkedIds = new Set(linked.map((link) => link.areaId));
+    const missing = areas.filter((area) => !linkedIds.has(area.id));
+
+    if (missing.length) {
+      await prisma.offeringArea.createMany({
+        data: missing.map((area) => ({ offeringId: offering.id, areaId: area.id })),
+      });
+      console.log(`  converged offering areas: ${seed.org} (+${missing.length} districts)`);
+    }
   }
 }
 

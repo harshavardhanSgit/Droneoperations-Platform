@@ -54,6 +54,11 @@ export class ProviderService {
       city: dto.city.trim(),
       state: dto.state.trim(),
       pincode: dto.pincode.trim(),
+      // undefined is passed through untouched: Prisma treats it as "leave the
+      // column alone", so a profile save without coordinates never wipes a
+      // previously picked point.
+      latitude: dto.latitude,
+      longitude: dto.longitude,
     });
 
     if (provider.stage !== 'PROFILE_COMPLETE') {
@@ -265,6 +270,12 @@ export class ProviderService {
       ...(provider.city ? { city: provider.city } : {}),
       ...(provider.state ? { state: provider.state } : {}),
       ...(provider.pincode ? { pincode: provider.pincode } : {}),
+      ...(provider.latitude !== null && provider.latitude !== undefined
+        ? { latitude: provider.latitude }
+        : {}),
+      ...(provider.longitude !== null && provider.longitude !== undefined
+        ? { longitude: provider.longitude }
+        : {}),
       ...(provider.rejectionReason ? { rejectionReason: provider.rejectionReason } : {}),
     };
   }

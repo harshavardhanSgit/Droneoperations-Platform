@@ -1318,6 +1318,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform coverage (staff)
+         * @description Derived, never stored: acres and jobs from completed bookings, provider footprint from active offerings, fleet from serviceable drones.
+         */
+        get: operations["CoverageController_overview_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coverage/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform coverage (public landing)
+         * @description The same real aggregation as the staff endpoint, served to anonymous visitors. TTL-cached and rate-limited so the landing page cannot abuse the database. No illustrative data — these numbers are what the database proves.
+         */
+        get: operations["CoverageController_publicOverview_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1500,6 +1540,10 @@ export interface components {
             city?: string;
             state?: string;
             pincode?: string;
+            /** @example 17.9689 */
+            latitude?: number;
+            /** @example 79.5941 */
+            longitude?: number;
             rejectionReason?: string;
             history: components["schemas"]["ProviderStageEventDto"][];
         };
@@ -1526,6 +1570,10 @@ export interface components {
             city?: string;
             state?: string;
             pincode?: string;
+            /** @example 17.9689 */
+            latitude?: number;
+            /** @example 79.5941 */
+            longitude?: number;
             rejectionReason?: string;
         };
         UpdateProviderProfileDto: {
@@ -1543,6 +1591,16 @@ export interface components {
             state: string;
             /** @example 506002 */
             pincode: string;
+            /**
+             * @description Latitude of the business location
+             * @example 17.9689
+             */
+            latitude?: number;
+            /**
+             * @description Longitude of the business location
+             * @example 79.5941
+             */
+            longitude?: number;
         };
         UploadTicketDto: {
             /** Format: uuid */
@@ -1896,6 +1954,16 @@ export interface components {
             pricingUnit: string;
             /** @example Field behind the water tank */
             locationNote?: string;
+            /**
+             * @description Latitude of the work site
+             * @example 17.9689
+             */
+            latitude?: number;
+            /**
+             * @description Longitude of the work site
+             * @example 79.5941
+             */
+            longitude?: number;
             /** @example 2026-08-14 */
             preferredDate: string;
             /** @enum {string} */
@@ -1957,6 +2025,16 @@ export interface components {
             /** @example Field behind the water tank, Kothapally village */
             locationNote?: string;
             /**
+             * @description Latitude of the work site
+             * @example 17.9689
+             */
+            latitude?: number;
+            /**
+             * @description Longitude of the work site
+             * @example 79.5941
+             */
+            longitude?: number;
+            /**
              * Format: uuid
              * @description Offering to assign immediately
              */
@@ -1981,6 +2059,16 @@ export interface components {
             pricingUnit: string;
             /** @example Field behind the water tank */
             locationNote?: string;
+            /**
+             * @description Latitude of the work site
+             * @example 17.9689
+             */
+            latitude?: number;
+            /**
+             * @description Longitude of the work site
+             * @example 79.5941
+             */
+            longitude?: number;
             /** @example 2026-08-14 */
             preferredDate: string;
             /** @enum {string} */
@@ -2403,6 +2491,90 @@ export interface components {
              * @example 2
              */
             ticketsInProgress: number;
+        };
+        CoverageTotalsDto: {
+            /**
+             * @description Acres delivered on completed jobs
+             * @example 1240
+             */
+            acresCovered: number;
+            /**
+             * @description Completed jobs
+             * @example 42
+             */
+            jobsCompleted: number;
+            /**
+             * @description Providers who can currently receive bookings
+             * @example 6
+             */
+            providersActive: number;
+            /**
+             * @description Serviceable drones across all providers
+             * @example 12
+             */
+            dronesServiceable: number;
+            /**
+             * @description States with an active offering or a completed job
+             * @example 3
+             */
+            statesCovered: number;
+            /**
+             * @description Districts with an active offering or a completed job
+             * @example 8
+             */
+            districtsCovered: number;
+        };
+        CoverageStateDto: {
+            /** @example Telangana */
+            name: string;
+            /** @example 540 */
+            acresCovered: number;
+            /** @example 12 */
+            jobs: number;
+            /**
+             * @description Distinct providers serving this state
+             * @example 3
+             */
+            providers: number;
+        };
+        CoverageDistrictDto: {
+            /** @example 4b8f... */
+            id: string;
+            /** @example Warangal */
+            name: string;
+            /** @example Telangana */
+            state: string;
+            /** @example 320 */
+            acresCovered: number;
+            /** @example 8 */
+            jobs: number;
+            /**
+             * @description Distinct providers covering this district
+             * @example 2
+             */
+            providers: number;
+        };
+        CoverageProviderDto: {
+            /** @example Kisan Aerial Services */
+            name: string;
+            /** @example 260 */
+            acresCovered: number;
+            /** @example 9 */
+            jobs: number;
+            /** @example 2 */
+            drones: number;
+        };
+        CoverageDto: {
+            totals: components["schemas"]["CoverageTotalsDto"];
+            states: components["schemas"]["CoverageStateDto"][];
+            districts: components["schemas"]["CoverageDistrictDto"][];
+            /** @description Named providers. Staff only — never served to the public endpoint. */
+            providers: components["schemas"]["CoverageProviderDto"][];
+        };
+        PublicCoverageDto: {
+            totals: components["schemas"]["CoverageTotalsDto"];
+            states: components["schemas"]["CoverageStateDto"][];
+            districts: components["schemas"]["CoverageDistrictDto"][];
         };
     };
     responses: never;
@@ -4646,6 +4818,75 @@ export interface operations {
             };
             /** @description Role does not permit this action */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CoverageController_overview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CoverageDto"];
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description Role does not permit this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CoverageController_publicOverview_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PublicCoverageDto"];
+                    };
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

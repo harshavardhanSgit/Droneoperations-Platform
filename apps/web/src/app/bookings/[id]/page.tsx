@@ -12,7 +12,7 @@ import type { BookingDetail, Payment, Review } from "@/core/api/types";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
 import { StatusPill } from "@/components/ui/status-pill";
-import { rupees, STATUS_LABEL, STATUS_TONE, WINDOWS } from "@/features/bookings/format";
+import { mapLink, rupees, STATUS_LABEL, STATUS_TONE, WINDOWS } from "@/features/bookings/format";
 
 const field =
   "rounded-md border border-border-strong bg-bg px-3 py-2 text-sm";
@@ -128,6 +128,16 @@ function Detail() {
             {booking.areaName}
             {booking.locationNote ? ` · ${booking.locationNote}` : ""}
           </p>
+          {booking.latitude != null && booking.longitude != null ? (
+            <a
+              href={mapLink(booking.latitude, booking.longitude)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-sm text-accent hover:underline"
+            >
+              View the field on a map ↗
+            </a>
+          ) : null}
         </div>
         <StatusPill tone={STATUS_TONE[booking.status] ?? "neutral"}>
           {STATUS_LABEL[booking.status] ?? booking.status}
@@ -149,6 +159,12 @@ function Detail() {
               : `${booking.preferredDate} ${booking.preferredWindow.toLowerCase()} (not agreed)`
           }
         />
+        {booking.latitude != null && booking.longitude != null ? (
+          <Row
+            label="Field location"
+            value={`${booking.latitude.toFixed(5)}, ${booking.longitude.toFixed(5)}`}
+          />
+        ) : null}
         <Row label="Quoted" value={rupees(booking.estimatedTotalMinor)} />
         {booking.finalQuantity ? (
           <Row

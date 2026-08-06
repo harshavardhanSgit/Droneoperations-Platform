@@ -8,6 +8,8 @@ export interface CreateBookingInput {
   preferredDate: string;
   preferredWindow: string;
   locationNote?: string;
+  latitude?: number;
+  longitude?: number;
   offeringId?: string;
 }
 

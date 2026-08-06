@@ -21,8 +21,17 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 
-# Test output
-coverage/
+# Test output.
+#
+# ANCHORED on purpose. A bare `coverage/` matches a directory of that name at
+# any depth, which silently swallowed src/modules/coverage/, app/coverage/ and
+# features/coverage/ — source that the build imports. The repo compiled locally
+# and could not compile from a clone.
+#
+# Jest writes to apps/<workspace>/coverage (jest.config.js sets
+# coverageDirectory: '../coverage' against rootDir: 'src').
+/coverage/
+apps/*/coverage/
 
 # Desktop tool state — not part of the project
 .freebuff/

@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Drone Operations Platform",
-  description: "Enterprise platform for commercial drone service operations",
+  description: "Drone services for agriculture, on demand — compare providers, see the price upfront, and book the job.",
 };
 
 export default function RootLayout({

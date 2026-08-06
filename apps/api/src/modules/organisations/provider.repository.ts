@@ -15,6 +15,8 @@ export interface ProviderProfileInput {
   city: string;
   state: string;
   pincode: string;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
 }
 
 @Injectable()

@@ -63,6 +63,8 @@ export class BookingService {
           areaId: dto.areaId,
           quantity: dto.quantity,
           locationNote: dto.locationNote?.trim(),
+          latitude: dto.latitude,
+          longitude: dto.longitude,
           pricingUnit: offering?.versions[0]?.pricingUnit ?? 'PER_ACRE',
           preferredDate: new Date(dto.preferredDate),
           preferredWindow: dto.preferredWindow,
@@ -836,6 +838,9 @@ export class BookingService {
       quantity: booking.quantity,
       pricingUnit: booking.pricingUnit,
       ...(booking.locationNote ? { locationNote: booking.locationNote } : {}),
+      ...(booking.latitude !== null && booking.longitude !== null
+        ? { latitude: booking.latitude, longitude: booking.longitude }
+        : {}),
       preferredDate: booking.preferredDate.toISOString().slice(0, 10),
       preferredWindow: booking.preferredWindow,
       ...(booking.unitPriceMinor !== null ? { unitPriceMinor: booking.unitPriceMinor } : {}),

@@ -30,6 +30,7 @@ const PATHS: Record<string, string> = {
   // Shared
   "/notifications": "M18 9a6 6 0 10-12 0c0 6-2 6-2 8h16c0-2-2-2-2-8M10.5 20a2 2 0 003 0",
   "/dashboard": "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21v-1a8 8 0 0116 0v1",
+  "/coverage": "M12 21s-7-5.6-7-11a7 7 0 1114 0c0 5.4-7 11-7 11zM12 13a3 3 0 100-6 3 3 0 000 6z",
 };
 
 const FALLBACK = "M12 20a8 8 0 100-16 8 8 0 000 16z";

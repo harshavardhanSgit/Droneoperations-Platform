@@ -16,6 +16,7 @@ import { AssetsModule } from './modules/assets/assets.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { FieldServiceModule } from './modules/field-service/field-service.module';
 import { CatalogueModule } from './modules/catalogue/catalogue.module';
+import { CoverageModule } from './modules/coverage/coverage.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { OfferingsModule } from './modules/offerings/offerings.module';
@@ -49,6 +50,7 @@ import { SettlementModule } from './modules/settlement/settlement.module';
     AssetsModule,
     FieldServiceModule,
     AdminModule,
+    CoverageModule,
   ],
   providers: [
     // Registered as providers rather than via app.useGlobalFilters() so they

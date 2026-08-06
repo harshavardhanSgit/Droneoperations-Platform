@@ -35,6 +35,12 @@ const envSchema = z.object({
 
   /** Hard ceiling on any single upload. */
   UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+
+  /** Requests per window for the public coverage endpoint, per client IP. */
+  COVERAGE_PUBLIC_RATE_LIMIT: z.coerce.number().int().positive().default(120),
+
+  /** How long the public coverage aggregation may be served from cache. */
+  COVERAGE_PUBLIC_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 });
 
 export type Env = z.infer<typeof envSchema>;

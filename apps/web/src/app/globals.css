@@ -33,6 +33,15 @@
   --info-bg: rgba(29, 78, 216, 0.1);
   --neutral: rgba(0, 0, 0, 0.55);
   --neutral-bg: rgba(0, 0, 0, 0.06);
+
+  /* Gunmetal for the CSS-3D drone — RGB triplets so faces can add an alpha. */
+    --metal-hi: 68, 70, 76;
+    --metal: 48, 50, 55;
+    --metal-mid: 40, 42, 46;
+    --metal-lo: 34, 36, 40;
+    --metal-lo2: 29, 31, 35;
+    --metal-dark: 22, 23, 26;
+  --halo: rgba(0, 0, 0, 0.07);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -61,6 +70,15 @@
     --info-bg: rgba(96, 165, 250, 0.14);
     --neutral: rgba(255, 255, 255, 0.6);
     --neutral-bg: rgba(255, 255, 255, 0.08);
+
+    /* Light metal for dark mode. */
+    --metal-hi: 240, 242, 244;
+    --metal: 218, 220, 224;
+    --metal-mid: 200, 202, 207;
+    --metal-lo: 184, 186, 191;
+    --metal-lo2: 172, 174, 179;
+    --metal-dark: 152, 154, 159;
+    --halo: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -124,16 +142,6 @@ body {
  * identically with all of it switched off, which is exactly what the
  * reduced-motion block at the bottom does.
  */
-@keyframes drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(4%, -6%, 0) scale(1.1);
-  }
-}
-
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -145,48 +153,268 @@ body {
   }
 }
 
-/* Background orbs. Slow enough not to catch the eye while reading. */
-.orb {
-  animation: drift 26s ease-in-out infinite;
-}
-
 /* Hero entrance. Callers stagger it with an inline animation-delay. */
 .fade-up {
   animation: fade-up 0.6s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
-/* Scroll reveal, driven by an IntersectionObserver adding .reveal-in. */
-.reveal {
-  opacity: 0;
-  transform: translateY(16px);
-  transition:
-    opacity 0.5s ease,
-    transform 0.5s ease;
+/* --------------------------------------------------------------- landing
+ * Landing-hero backdrop. The drone bobs gently and its rotors spin; the grid
+ * behind it is a faint field-map. All decorative — the page reads identically
+ * with every rule here switched off.
+ */
+@keyframes hover-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
 }
 
-.reveal-in {
-  opacity: 1;
-  transform: none;
+@keyframes prop-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.drone-drift {
+  animation: hover-bob 8s ease-in-out infinite;
+}
+
+.prop {
+  animation: prop-spin 3.5s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ---------------------------------------------------------------- drone3d
+ * The hero drone, assembled from CSS-3D boxes. The scene applies perspective;
+ * the tilt element is the camera (rotated by cursor parallax via CSS vars);
+ * the spin element is the turntable. Every intermediate wrapper keeps
+ * transform-style: preserve-3d, and faces are the only leaves with
+ * backface-visibility, so nothing accidentally flattens the chain.
+ */
+@keyframes drone-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes rotor-spin {
+  from {
+    transform: rotateZ(0deg);
+  }
+  to {
+    transform: rotateZ(360deg);
+  }
+}
+
+@keyframes chip-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.drone3d-scene {
+  position: absolute;
+  inset: 0;
+  perspective: 1200px;
+}
+
+.drone3d-tilt {
+  position: absolute;
+  inset: 0;
+  --tilt-x: -10deg;
+  --tilt-y: 0deg;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.drone3d-spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  animation: drone-spin 32s linear infinite;
+}
+
+.drone3d-box,
+.drone3d-arm,
+.drone3d-part {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-style: preserve-3d;
+}
+
+/* Only the positioning wrappers are zero-sized; a box carries its own
+ * width/height inline and must never collapse. */
+.drone3d-arm,
+.drone3d-part {
+  width: 0;
+  height: 0;
+}
+
+.face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.face-top {
+  background: rgb(var(--metal-hi));
+}
+.face-front {
+  background: rgb(var(--metal));
+}
+.face-back {
+  background: rgb(var(--metal-mid));
+}
+.face-left {
+  background: rgb(var(--metal-lo));
+}
+.face-right {
+  background: rgb(var(--metal-lo2));
+}
+.face-bottom {
+  background: rgb(var(--metal-dark));
+}
+
+.drone3d-rotor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-style: preserve-3d;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--metal), 0.4);
+  background: radial-gradient(circle, transparent 58%, rgba(var(--metal), 0.1) 72%);
+}
+
+.drone3d-rotor-blades {
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(var(--metal-lo2), 0.9) 0deg 10deg,
+    transparent 10deg 90deg
+  );
+  animation: rotor-spin 0.9s linear infinite;
+}
+
+/* Soft light pool behind the drone so it pops off the page. */
+.drone-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(58%, 400px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--halo), transparent 72%);
+}
+
+/* Floating spec chips around the drone, offset so their bobs interleave. */
+.chip-float {
+  animation: chip-float 5.5s ease-in-out infinite;
+}
+
+.chip-float-2 {
+  animation: chip-float 6.5s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+/* Faint field-map grid, fading at the edges so it never competes with text. */
+.field-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 42%, #000 20%, transparent 74%);
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 42%, #000 20%, transparent 74%);
+}
+
+/* Readability veil behind the hero text: the drone stays visible but never
+ * fights the words sitting on top of it. */
+.hero-veil {
+  background: radial-gradient(ellipse 55% 62% at 33% 36%, var(--bg) 0%, transparent 70%);
 }
 
 /*
  * One switch for all of it.
  *
- * Skeletons pulse, orbs drift, sections rise on scroll and figures count up.
- * For anyone with a vestibular disorder or a migraine trigger that is actively
- * unpleasant, so every animation stops here and anything that animates INTO
- * view is pinned to its final state rather than left invisible.
+ * Skeletons pulse, orbs drift, the drone bobs, rotors spin and sections rise
+ * on scroll. For anyone with a vestibular disorder or a migraine trigger that
+ * is actively unpleasant, so every animation stops here and anything that
+ * animates INTO view is pinned to its final state rather than left invisible.
  */
 @media (prefers-reduced-motion: reduce) {
-  .animate-pulse,
-  .orb,
-  .fade-up {
-    animation: none;
-  }
-
-  .reveal {
-    opacity: 1;
-    transform: none;
+  /* The tilt follows the cursor via a transition rather than a keyframe, so
+     it needs disabling separately or the drone still swings on mouse move. */
+  .drone3d-tilt {
     transition: none;
   }
+
+  .animate-pulse,
+  .fade-up,
+  .drone-drift,
+  .prop,
+  .drone3d-spin,
+  .drone3d-rotor-blades,
+  .chip-float,
+  .chip-float-2 {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Map picker (provider onboarding). The Leaflet zoom control is moved to the
+ * bottom-left corner (out from under the full-width search bar) and restyled
+ * to match the dark chrome instead of Leaflet's default white buttons.
+ * ------------------------------------------------------------------------- */
+.map-picker .leaflet-control-zoom {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  margin: 0 0 12px 12px;
+}
+
+.map-picker .leaflet-control-zoom a {
+  background: var(--bg-raised);
+  color: var(--fg);
+  width: 34px;
+  height: 34px;
+  line-height: 32px;
+  font-size: 17px;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 120ms ease;
+}
+
+.map-picker .leaflet-control-zoom a:hover {
+  background: var(--neutral-bg);
+}
+
+.map-picker .leaflet-control-zoom a:last-child {
+  border-bottom: 0;
+}
+
+.map-picker .leaflet-control-zoom a.leaflet-disabled {
+  color: var(--fg-subtle);
 }

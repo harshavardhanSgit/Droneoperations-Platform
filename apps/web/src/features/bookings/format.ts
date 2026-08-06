@@ -47,3 +47,10 @@ export const shortDate = (iso: string) => {
 
 export const windowLabel = (w: string) => w.charAt(0) + w.slice(1).toLowerCase();
 
+/**
+ * OpenStreetMap's share link for a picked point — no API key, works
+ * everywhere, and opens the field's exact spot for the provider to navigate to.
+ */
+export const mapLink = (latitude: number, longitude: number) =>
+  `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}`;
+

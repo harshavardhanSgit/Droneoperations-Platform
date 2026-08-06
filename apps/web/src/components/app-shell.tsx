@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/core/auth/auth-context";
@@ -23,6 +23,7 @@ type Link = { href: string; label: string };
  */
 const NOTIFICATIONS: Link = { href: "/notifications", label: "Notifications" };
 const ACCOUNT: Link = { href: "/dashboard", label: "Account" };
+const COVERAGE: Link = { href: "/coverage", label: "Coverage" };
 
 const NAV: Record<string, Record<string, Link[]>> = {
   CUSTOMER: {
@@ -52,6 +53,7 @@ const NAV: Record<string, Record<string, Link[]>> = {
       { href: "/admin/providers", label: "Providers" },
       { href: "/admin/tickets", label: "Maintenance" },
       { href: "/admin/catalogue", label: "Catalogue" },
+      COVERAGE,
       NOTIFICATIONS,
       ACCOUNT,
     ],
@@ -132,7 +134,6 @@ function NavLink({
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { status, account, signOut } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
 
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
@@ -187,7 +188,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const onSignOut = async () => {
     await signOut();
-    router.push("/login");
+
+    // A hard navigation, deliberately not router.replace(). The moment status
+    // flips to anonymous, RequireAuth (still mounted beneath us for one render)
+    // redirects to /login, and the navigation itself re-triggers that effect
+    // via a new router identity — so a client-side navigation home races it and
+    // loses. location.replace() loads a fresh document, which nothing in this
+    // page can supersede. Home, not the login form: a signed-out visitor lands
+    // on the landing page and chooses their path. replace() semantics keep the
+    // authenticated screen out of the back history.
+    window.location.replace("/");
   };
 
   const sidebar = (inDrawer: boolean) => {

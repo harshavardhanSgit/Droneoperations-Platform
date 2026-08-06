@@ -4,12 +4,14 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 import { BookingStatus, TimeWindow } from '../../../generated/prisma/client';
@@ -47,6 +49,32 @@ export class CreateBookingDto {
   @IsString()
   @Length(2, 500)
   locationNote?: string;
+
+  /**
+   * The field's exact spot, picked on a map. Latitude and longitude are a
+   * pair: sending one without the other is rejected by the ValidateIf rules
+   * below, so a booking cannot be created with a missing axis. The district
+   * (areaId) stays the market scope; these are the delivery coordinates.
+   *
+   * NOTE — do NOT add @IsOptional to either field. The pair rule depends on
+   * ValidateIf short-circuiting the @IsNumber check when the OTHER field is
+   * absent: with only longitude sent, latitude's IsNumber sees `undefined` and
+   * fails the request. @IsOptional would short-circuit that failure and let a
+   * half-pair through. booking.dto.spec.ts pins this behaviour.
+   */
+  @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the work site' })
+  @ValidateIf((o) => o.longitude !== undefined)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 79.5941, description: 'Longitude of the work site' })
+  @ValidateIf((o) => o.latitude !== undefined)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
   /**
    * Chosen from Discovery results. Optional so a booking can be created
@@ -160,6 +188,9 @@ export class BookingDto {
   @ApiProperty({ example: 20 }) quantity: number;
   @ApiProperty({ example: 'PER_ACRE' }) pricingUnit: string;
   @ApiPropertyOptional({ example: 'Field behind the water tank' }) locationNote?: string;
+
+  @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the work site' }) latitude?: number;
+  @ApiPropertyOptional({ example: 79.5941, description: 'Longitude of the work site' }) longitude?: number;
 
   @ApiProperty({ example: '2026-08-14' }) preferredDate: string;
   @ApiProperty({ enum: Object.values(TimeWindow) }) preferredWindow: string;

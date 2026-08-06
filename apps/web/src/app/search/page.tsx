@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { FormError } from "@/components/ui/form";
+import { MapPicker, type PickedLocation } from "@/components/map-picker";
 import { Page } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
 import type {
@@ -30,6 +31,21 @@ function tomorrow(): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * A Nominatim display_name is a full postal address ("Mandi Bazar Rd,
+ * Subedari, Hanamkonda, Warangal, Telangana, 506002, India") — too long for a
+ * note the provider reads in a list. The first few parts are enough to be
+ * useful; the exact pin is in the coordinates, which travel with the booking.
+ */
+function shortLabel(label: string): string {
+  return label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
+}
+
 function Search() {
   const router = useRouter();
   const { account } = useAuth();
@@ -45,6 +61,20 @@ function Search() {
   const [date, setDate] = useState(tomorrow());
   const [window_, setWindow] = useState("DAWN");
   const [locationNote, setLocationNote] = useState("");
+  // The field's exact spot, picked on the map. Sent with the booking; shown to
+  // the provider as a pin they can open in OpenStreetMap.
+  const [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null);
+  // Whether the customer has typed their own words into the note. Auto-fill
+  // from a picked place must not overwrite those — and must keep updating as
+  // they re-pick a different spot on the map while the note is untouched.
+  const noteEdited = useRef(false);
+  // The state/district the pin auto-selected, so "Clear location" can undo
+  // exactly that — a select the customer then changed by hand is left alone.
+  const pickFilled = useRef<{ stateId?: string; areaId?: string }>({});
+  // Picks resolve asynchronously (districts load after the state is known).
+  // A sequence number lets a newer pick supersede an older one's in-flight
+  // district load instead of both racing to the selects.
+  const pickSeq = useRef(0);
 
   const [sort, setSort] = useState<discoveryApi.MatchSort>("PRICE_ASC");
   const [openReviews, setOpenReviews] = useState<string | null>(null);
@@ -70,11 +100,55 @@ function Search() {
   }, []);
 
   // Cascading select: districts load only when a state is chosen. The API
-  // returns one level at a time on purpose — no whole-tree fetch.
+  // returns one level at a time on purpose — no whole-tree fetch. Returns the
+  // list so the pin auto-fill can match against it without a second fetch.
   const loadDistricts = useCallback(async (parent: string) => {
     setAreaId("");
-    setDistricts(parent ? await catalogueApi.listAreas(parent) : []);
+    const districts = parent ? await catalogueApi.listAreas(parent) : [];
+    setDistricts(districts);
+    return districts;
   }, []);
+
+  /**
+   * The geocoder names a place in its own words; the selects run on catalogue
+   * ids. Match by normalized name, tolerating the suffix variations the two
+   * sources use for the same district ("Warangal Urban" vs "Warangal").
+   */
+  const nameMatches = useCallback((areaName: string, candidate?: string) => {
+    if (!candidate) return false;
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const a = norm(areaName);
+    const b = norm(candidate);
+    if (!a || !b) return false;
+    if (a === b) return true;
+    return a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a));
+  }, []);
+
+  /**
+   * A picked pin is a precise answer — carry it into the State and District
+   * selects so the customer does not re-type what the map already knows.
+   * Best-effort: when the geocoder's names do not line up with the catalogue,
+   * the selects are left for the customer to choose, exactly as before.
+   */
+  const fillFromPin = useCallback(
+    async (location: PickedLocation) => {
+      const seq = ++pickSeq.current;
+      const state = states.find((s) => nameMatches(s.name, location.state));
+      if (!state) return; // outside the catalogue — leave the selects as they are
+
+      setStateId(state.id);
+
+      const districts = await loadDistricts(state.id);
+      if (seq !== pickSeq.current) return; // superseded by a newer pick or a manual change
+
+      const district =
+        districts.find((d) => nameMatches(d.name, location.district)) ??
+        districts.find((d) => nameMatches(d.name, location.city));
+      pickFilled.current = district ? { stateId: state.id, areaId: district.id } : { stateId: state.id };
+      if (district) setAreaId(district.id);
+    },
+    [loadDistricts, nameMatches, states],
+  );
 
   async function onSearch(event: FormEvent) {
     event.preventDefault();
@@ -126,6 +200,21 @@ function Search() {
     }
   }
 
+  /**
+   * The API envelope carries per-field reasons ("longitude must have no more
+   * than 7 decimal places") under details.fields, but its top-level message is
+   * the bare "Validation failed". The customer needs the why, not the label:
+   * join the field reasons into the message instead of hiding them.
+   */
+  function validationDetail(caught: ApiError): string | null {
+    const fields = caught.details?.fields as Record<string, string[]> | undefined;
+    if (!fields) return null;
+    const reasons = Object.entries(fields).flatMap(([field, messages]) =>
+      messages.map((message) => `${field}: ${message}`),
+    );
+    return reasons.length ? reasons.join("; ") : null;
+  }
+
   async function book(match: Match) {
     setError(null);
     setBusy(match.offeringId);
@@ -139,10 +228,18 @@ function Search() {
         preferredWindow: window_,
         offeringId: match.offeringId,
         ...(locationNote.trim() ? { locationNote: locationNote.trim() } : {}),
+        ...(point ? { latitude: point.latitude, longitude: point.longitude } : {}),
       });
       router.push(`/bookings/${booking.id}`);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Could not create the booking");
+      const detail = caught instanceof ApiError ? validationDetail(caught) : null;
+      setError(
+        caught instanceof ApiError
+          ? detail
+            ? `${caught.message}: ${detail}`
+            : caught.message
+          : "Could not create the booking",
+      );
       setBusy(null);
     }
   }
@@ -188,6 +285,9 @@ function Search() {
               className={field}
               value={stateId}
               onChange={(e) => {
+                // A hand-chosen state must win over an in-flight pin fill,
+                // so a still-loading district response cannot clobber it.
+                pickSeq.current++;
                 setStateId(e.target.value);
                 void loadDistricts(e.target.value);
               }}
@@ -251,15 +351,49 @@ function Search() {
           </label>
         </div>
 
-        <label className="block">
+        <div>
           <span className="mb-1.5 block text-sm font-medium">Where exactly (optional)</span>
-          <input
-            className={field}
-            placeholder="Field behind the water tank, Kothapally village"
-            value={locationNote}
-            onChange={(e) => setLocationNote(e.target.value)}
+          <MapPicker
+            onPick={(location: PickedLocation) => {
+              setPoint({ latitude: location.latitude, longitude: location.longitude });
+              // The pin is the precise answer; the note stays human. Fill it
+              // from the place name only when the customer has not written
+              // their own words ("field behind the water tank" beats
+              // "Mandi Bazar Rd, Warangal").
+              // Never overwrite words the customer typed; re-pick while the
+              // note is untouched updates it to the new spot.
+              if (!noteEdited.current) {
+                setLocationNote(shortLabel(location.label));
+              }
+              void fillFromPin(location);
+            }}
+            onClear={() => {
+              // Removing the pin also removes the coordinates from the booking
+              // — and the note it auto-filled, unless the customer replaced it
+              // with their own words. A state/district the pin filled is
+              // undone too — but a select the customer changed by hand stays.
+              pickSeq.current++; // a stale district load must not re-fill
+              setPoint(null);
+              if (!noteEdited.current) setLocationNote("");
+              const filled = pickFilled.current;
+              if (filled.stateId && stateId === filled.stateId) {
+                setStateId("");
+                setDistricts([]);
+              }
+              if (filled.areaId && areaId === filled.areaId) setAreaId("");
+              pickFilled.current = {};
+            }}
           />
-        </label>
+          <input
+            className={`${field} mt-3`}
+            placeholder="Add a landmark or directions to help them find it"
+            value={locationNote}
+            onChange={(e) => {
+              noteEdited.current = true;
+              setLocationNote(e.target.value);
+            }}
+          />
+        </div>
 
         <button
           type="submit"

@@ -87,6 +87,19 @@ describe('permission map', () => {
     });
   });
 
+  describe('platform-wide data visibility', () => {
+    it('only a PLATFORM ADMIN holds booking:read-any — the coverage gate', () => {
+      expect(actorHasPermission(actor('PLATFORM', 'ADMIN'), 'booking:read-any')).toBe(true);
+      // The admin sees the whole market; a provider and a customer see only
+      // their own numbers, and an engineer works tickets, not dashboards.
+      expect(actorHasPermission(actor('PLATFORM', 'SERVICE_ENGINEER'), 'booking:read-any')).toBe(
+        false,
+      );
+      expect(actorHasPermission(actor('PROVIDER', 'OWNER'), 'booking:read-any')).toBe(false);
+      expect(actorHasPermission(actor('CUSTOMER', 'OWNER'), 'booking:read-any')).toBe(false);
+    });
+  });
+
   describe('unassigned combinations', () => {
     it('grant nothing — the map is deny by default', () => {
       expect(permissionsFor(actor('PLATFORM', 'OWNER'))).toEqual([]);

@@ -77,3 +77,14 @@ export class DependencyUnavailableException extends AppException {
     );
   }
 }
+
+/**
+ * The error envelope has always documented a 429; now there is a limiter that
+ * can actually raise it. Public analytics endpoints are where this matters —
+ * they are the only routes reachable by a hostile client without a token.
+ */
+export class TooManyRequestsException extends AppException {
+  constructor(message = 'Too many requests. Please slow down and try again shortly.') {
+    super('RATE_LIMITED', message, HttpStatus.TOO_MANY_REQUESTS);
+  }
+}

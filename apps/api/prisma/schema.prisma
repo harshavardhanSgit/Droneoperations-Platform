@@ -225,6 +225,13 @@ model Provider {
   state              String?
   pincode            String?
 
+  /// Where the business actually operates, picked on a map during onboarding.
+  /// Kept as plain doubles: this is a pin on a map, not a survey-grade datum —
+  /// a float needs no decimal type. Both set together, or neither (the DTO
+  /// enforces the pair).
+  latitude  Float? @map("latitude")
+  longitude Float? @map("longitude")
+
   stage ProviderStage @default(REGISTERED)
 
   /// Denormalised so "time in current stage" is a subtraction rather than a
@@ -585,6 +592,12 @@ model Booking {
 
   quantity     Int
   locationNote String? @map("location_note")
+
+  /// Where the field actually is, picked on a map. The district (areaId) is the
+  /// service-market scope; these coordinates are the delivery point. Optional
+  /// because a booking created without a pin is still valid.
+  latitude  Float? @map("latitude")
+  longitude Float? @map("longitude")
 
   /// F3. The quote. Points at an IMMUTABLE offering version, so the agreed
   /// price cannot change when the provider reprices. This is what replaces the

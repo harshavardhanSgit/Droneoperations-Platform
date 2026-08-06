@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  Max,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 import { DocumentStatus, ProviderDocumentKind, ProviderStage } from '../../../generated/prisma/client';
 
@@ -44,6 +55,31 @@ export class UpdateProviderProfileDto {
   @ApiProperty({ example: '506002' })
   @Matches(/^[1-9][0-9]{5}$/, { message: 'pincode must be 6 digits and not start with 0' })
   pincode: string;
+
+  /**
+   * Where the business operates, picked on a map. Latitude and longitude are a
+   * pair: sending one without the other is rejected by the ValidateIf rules
+   * below, so a provider cannot save a point with a missing axis.
+   *
+   * NOTE — do NOT add @IsOptional to either field. The pair rule depends on
+   * ValidateIf short-circuiting the @IsNumber check when the OTHER field is
+   * absent: with only longitude sent, latitude's IsNumber sees `undefined` and
+   * fails the request. @IsOptional would short-circuit that failure and let a
+   * half-pair through. provider.dto.spec.ts pins this behaviour.
+   */
+  @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the business location' })
+  @ValidateIf((o) => o.longitude !== undefined)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 79.5941, description: 'Longitude of the business location' })
+  @ValidateIf((o) => o.latitude !== undefined)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 }
 
 export class RejectProviderDto {
@@ -93,6 +129,8 @@ export class ProviderDto {
   @ApiPropertyOptional() city?: string;
   @ApiPropertyOptional() state?: string;
   @ApiPropertyOptional() pincode?: string;
+  @ApiPropertyOptional({ example: 17.9689 }) latitude?: number;
+  @ApiPropertyOptional({ example: 79.5941 }) longitude?: number;
   @ApiPropertyOptional() rejectionReason?: string;
 }
 

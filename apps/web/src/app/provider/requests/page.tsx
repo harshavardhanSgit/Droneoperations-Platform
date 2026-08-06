@@ -12,7 +12,7 @@ import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
-import { rupees, shortDate, WINDOWS, windowLabel } from "@/features/bookings/format";
+import { mapLink, rupees, shortDate, WINDOWS, windowLabel } from "@/features/bookings/format";
 import * as providerApi from "@/features/provider/bookings-api";
 
 type Panel = { id: string; kind: "decline" | "propose" } | null;
@@ -133,10 +133,26 @@ function Requests() {
                       {windowLabel(booking.pendingSchedule?.window ?? booking.preferredWindow)}
                     </dd>
                   </div>
-                  {booking.locationNote ? (
+                  {booking.locationNote ||
+                  (booking.latitude != null && booking.longitude != null) ? (
                     <div className="col-span-2">
                       <dt className="text-xs text-fg-subtle">Where</dt>
-                      <dd>{booking.locationNote}</dd>
+                      <dd>
+                        {booking.locationNote ??
+                          `${booking.latitude!.toFixed(5)}, ${booking.longitude!.toFixed(5)}`}
+                      </dd>
+                      {booking.latitude != null && booking.longitude != null ? (
+                        <dd className="mt-0.5">
+                          <a
+                            href={mapLink(booking.latitude, booking.longitude)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-accent hover:underline"
+                          >
+                            Open in map ↗
+                          </a>
+                        </dd>
+                      ) : null}
                     </div>
                   ) : null}
                 </dl>

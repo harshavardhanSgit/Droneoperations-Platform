@@ -17,6 +17,12 @@ export interface ProviderProfileInput {
   /** Point picked on the map. Sent as a pair, or not at all. */
   latitude?: number;
   longitude?: number;
+  /**
+   * How far this business travels from that point, in km. Omitted means "leave
+   * it as it is"; the API rejects a radius when there is no base to measure
+   * from.
+   */
+  serviceRadiusKm?: number;
 }
 
 export const getOwnProvider = () => apiFetch<ProviderDetail>("/api/v1/providers/me");

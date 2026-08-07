@@ -12,7 +12,14 @@ import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
-import { mapLink, rupees, shortDate, WINDOWS, windowLabel } from "@/features/bookings/format";
+import {
+  distanceLabel,
+  mapLink,
+  rupees,
+  shortDate,
+  WINDOWS,
+  windowLabel,
+} from "@/features/bookings/format";
 import * as providerApi from "@/features/provider/bookings-api";
 
 type Panel = { id: string; kind: "decline" | "propose" } | null;
@@ -124,6 +131,20 @@ function Requests() {
                       {booking.quantity} {booking.pricingUnit.replace("PER_", "").toLowerCase()}
                     </dd>
                   </div>
+                  {/*
+                    Travel is a real cost and often the reason a job is
+                    declined, so it belongs next to the size of the work — not
+                    buried under the location note.
+                  */}
+                  {booking.distanceKm !== undefined ? (
+                    <div>
+                      <dt className="text-xs text-fg-subtle">From your base</dt>
+                      <dd className="tabular">
+                        {distanceLabel(booking.distanceKm)}{" "}
+                        <span className="text-xs text-fg-subtle">straight line</span>
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt className="text-xs text-fg-subtle">
                       {booking.pendingSchedule ? "Proposed date" : "Preferred date"}

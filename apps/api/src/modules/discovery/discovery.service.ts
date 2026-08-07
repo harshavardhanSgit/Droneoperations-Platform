@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 import { OfferingInclusion } from '../../generated/prisma/client';
+import { BusinessRuleException } from '../../common/errors/app.exception';
+import { distanceBetween, type GeoPoint } from '../../common/geo/distance';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { ReputationService } from '../reputation/reputation.service';
 import { DiscoveryRepository, type MatchCandidate } from './discovery.repository';
@@ -17,9 +19,16 @@ const ALL_INCLUSIONS = Object.values(OfferingInclusion);
  */
 export interface MatchRequirement {
   serviceTypeId: string;
-  areaId: string;
   quantity: number;
+
+  /** Where the work is. Required — coverage is measured from this point. */
+  latitude: number;
+  longitude: number;
+
   sort?: MatchSort;
+
+  /** Carried through for the booking that follows; not a filter. */
+  areaId?: string;
 }
 
 @Injectable()
@@ -31,17 +40,25 @@ export class DiscoveryService {
   ) {}
 
   async findMatches(requirement: MatchRequirement): Promise<MatchResultsDto> {
-    // Validate the requirement against the catalogue first. A retired service
-    // or area should say so, not silently return zero matches — "nothing
-    // available" and "you asked for something that no longer exists" are
-    // different answers.
+    const sort = requirement.sort ?? MatchSort.PRICE_ASC;
+    const origin = { latitude: requirement.latitude, longitude: requirement.longitude };
+
+    // Validate the requirement against the catalogue. A retired service should
+    // say so, not silently return zero matches — "nothing available" and "you
+    // asked for something that no longer exists" are different answers. The
+    // area is checked only when supplied: it no longer gates matching, and a
+    // pin outside the catalogue must still return providers who can reach it.
     const serviceType = await this.catalogue.requireActiveServiceType(requirement.serviceTypeId);
-    await this.catalogue.requireActiveArea(requirement.areaId);
+
+    if (requirement.areaId) {
+      await this.catalogue.requireActiveArea(requirement.areaId);
+    }
 
     const candidates = await this.discovery.findCandidates({
       serviceTypeId: requirement.serviceTypeId,
-      areaId: requirement.areaId,
       quantity: requirement.quantity,
+      latitude: requirement.latitude,
+      longitude: requirement.longitude,
     });
 
     // One batched call for every candidate's rating. Reputation owns the
@@ -52,10 +69,14 @@ export class DiscoveryService {
     );
 
     const matches = candidates
-      .map((candidate) => this.toMatch(candidate, requirement.quantity, ratings))
+      // The exact cut. The repository's bounding box is deliberately generous,
+      // so a candidate 400 km away can survive it; only the great-circle
+      // distance against THIS provider's own declared range decides.
+      .filter((candidate) => this.reaches(candidate, origin))
+      .map((candidate) => this.toMatch(candidate, requirement.quantity, ratings, origin))
       .filter((match): match is MatchDto => match !== null);
 
-    this.sort(matches, requirement.sort ?? MatchSort.PRICE_ASC);
+    this.sort(matches, sort);
 
     return {
       quantity: requirement.quantity,
@@ -66,23 +87,51 @@ export class DiscoveryService {
     };
   }
 
+  /**
+   * Can this provider reach the customer's pin?
+   *
+   * BR13, restated: coverage is a base plus a declared range, not a list of
+   * districts. Everything the provider chose is respected — they set the
+   * number — and a provider missing either half has declared no coverage and
+   * matches nothing.
+   */
+  private reaches(candidate: MatchCandidate, origin: GeoPoint): boolean {
+    const radius = candidate.provider.serviceRadiusKm;
+
+    if (radius == null) return false;
+
+    const distance = distanceBetween(origin, candidate.provider);
+
+    return distance !== null && distance <= radius;
+  }
+
   private toMatch(
     candidate: MatchCandidate,
     quantity: number,
     ratings: Map<string, { average: number | null; count: number }>,
+    origin: GeoPoint | null,
   ): MatchDto | null {
     const version = candidate.versions[0];
-    const area = candidate.areas[0]?.area;
 
-    // Defensive: the query guarantees both, but a null here would mean an
-    // offering with no current price, which is a data bug rather than a match.
-    if (!version || !area) {
+    // Defensive: the query guarantees a current version, and its absence would
+    // mean an offering with no price — a data bug rather than a match.
+    //
+    // Note what is NOT checked any more: a declared area. Under radius coverage
+    // a provider need not list districts at all, and gating on one here would
+    // silently drop exactly the providers who adopted the new model.
+    if (!version) {
       return null;
     }
 
     const included = version.inclusions;
     const city = candidate.provider.city;
     const rating = ratings.get(candidate.provider.id);
+
+    // Rounded to one decimal here, not at the edge: the number that leaves this
+    // service IS the published figure, so the ordering and the label can never
+    // disagree about which of two providers is nearer.
+    const distance = distanceBetween(origin, candidate.provider);
+    const distanceKm = distance === null ? null : Math.round(distance * 10) / 10;
 
     return {
       offeringId: candidate.id,
@@ -95,6 +144,7 @@ export class DiscoveryService {
         // the UI can say "new" rather than implying a rating of zero.
         ...(rating?.average != null ? { rating: rating.average } : {}),
         ratingCount: rating?.count ?? 0,
+        ...(distanceKm !== null ? { distanceKm } : {}),
       },
       price: {
         unitPriceMinor: version.unitPriceMinor,
@@ -111,7 +161,6 @@ export class DiscoveryService {
       notIncluded: ALL_INCLUSIONS.filter((item) => !included.includes(item)),
       ...(version.minQuantity !== null ? { minQuantity: version.minQuantity } : {}),
       ...(version.notes ? { notes: version.notes } : {}),
-      matchedArea: area.name,
     };
   }
 
@@ -126,6 +175,18 @@ export class DiscoveryService {
    * synchronisation burden to solve a problem this system does not have.
    */
   private sort(matches: MatchDto[], sort: MatchSort): void {
+    if (sort === MatchSort.DISTANCE_ASC) {
+      // Providers with no location sort last, exactly as unrated ones do under
+      // RATING_DESC. Treating "unknown" as 0 km would put every provider who
+      // never opened a map at the top of a nearest-first list.
+      matches.sort((a, b) => {
+        const ad = a.provider.distanceKm ?? Number.POSITIVE_INFINITY;
+        const bd = b.provider.distanceKm ?? Number.POSITIVE_INFINITY;
+        return ad - bd || a.price.unitPriceMinor - b.price.unitPriceMinor;
+      });
+      return;
+    }
+
     if (sort === MatchSort.RATING_DESC) {
       // Unrated providers sort last rather than as zero. A new business is an
       // unknown, not a bad one, and ranking it below a single one-star review

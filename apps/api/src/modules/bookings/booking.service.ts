@@ -9,6 +9,7 @@ import {
 } from '../../common/errors/app.exception';
 import { Prisma } from '../../generated/prisma/client';
 import type { BookingStatus, SchedulePartyRole, TimeWindow } from '../../generated/prisma/client';
+import { distanceBetween } from '../../common/geo/distance';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { ActorContext } from '../identity/actor-context';
 import { OfferingRepository } from '../offerings/offering.repository';
@@ -586,7 +587,9 @@ export class BookingService {
       assignmentStatus as never,
     );
 
-    return { items: items.map((item) => this.toDto(item)), total };
+    // The provider row is already loaded for the ownership check, so measuring
+    // from their base costs nothing extra.
+    return { items: items.map((item) => this.toDto(item, provider)), total };
   }
 
   async findOne(actor: ActorContext, bookingId: string): Promise<BookingDetailDto> {
@@ -821,7 +824,29 @@ export class BookingService {
     void providerId;
   }
 
-  private toDto(booking: BookingWithDetail): BookingDto {
+  /**
+   * Spread into the DTO so the key is absent — not null, not zero — whenever
+   * there is nothing to measure. Rounded to one decimal, matching Discovery,
+   * so the two surfaces never disagree about the same pair of points.
+   */
+  private distanceFrom(
+    from: { latitude: number | null; longitude: number | null } | null | undefined,
+    booking: { latitude: number | null; longitude: number | null },
+  ): { distanceKm?: number } {
+    const km = distanceBetween(from, booking);
+
+    return km === null ? {} : { distanceKm: Math.round(km * 10) / 10 };
+  }
+
+  /**
+   * @param from Optional origin to measure the job from. Supplied only on the
+   *   provider's own lists, where their registered base is the natural anchor;
+   *   omitted everywhere else, so the customer's view is unchanged.
+   */
+  private toDto(
+    booking: BookingWithDetail,
+    from?: { latitude: number | null; longitude: number | null } | null,
+  ): BookingDto {
     const active = booking.assignments.find(
       (a) => a.status === 'PENDING' || a.status === 'ACCEPTED',
     );
@@ -841,6 +866,7 @@ export class BookingService {
       ...(booking.latitude !== null && booking.longitude !== null
         ? { latitude: booking.latitude, longitude: booking.longitude }
         : {}),
+      ...this.distanceFrom(from, booking),
       preferredDate: booking.preferredDate.toISOString().slice(0, 10),
       preferredWindow: booking.preferredWindow,
       ...(booking.unitPriceMinor !== null ? { unitPriceMinor: booking.unitPriceMinor } : {}),

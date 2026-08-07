@@ -80,6 +80,30 @@ export class UpdateProviderProfileDto {
   @Min(-180)
   @Max(180)
   longitude?: number;
+
+  /**
+   * How far the business will travel from that base. This IS their coverage —
+   * discovery matches a customer's pin against base + radius.
+   *
+   * Capped at 500 km because beyond that the straight-line measure stops being
+   * a useful proxy for a day's drive with a machine on a trailer, and a radius
+   * that large is really "anywhere", which is not a claim this platform should
+   * help anyone make.
+   *
+   * A radius is only meaningful from a point, so it is rejected unless the
+   * provider has also given coordinates. That check needs the persisted row and
+   * therefore lives in the service, not here — a DTO cannot see whether a
+   * latitude was saved on an earlier request.
+   */
+  @ApiPropertyOptional({
+    example: 60,
+    description: 'Kilometres this provider will travel from their base. Requires coordinates.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  serviceRadiusKm?: number;
 }
 
 export class RejectProviderDto {
@@ -131,6 +155,8 @@ export class ProviderDto {
   @ApiPropertyOptional() pincode?: string;
   @ApiPropertyOptional({ example: 17.9689 }) latitude?: number;
   @ApiPropertyOptional({ example: 79.5941 }) longitude?: number;
+  @ApiPropertyOptional({ example: 60, description: 'Kilometres they will travel from that base' })
+  serviceRadiusKm?: number;
   @ApiPropertyOptional() rejectionReason?: string;
 }
 

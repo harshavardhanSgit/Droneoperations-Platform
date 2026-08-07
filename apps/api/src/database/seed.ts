@@ -153,39 +153,59 @@ async function seedStaff(email: string, password: string, fullName: string, role
 
 const DEMO_PASSWORD = process.env['SEED_DEMO_PASSWORD'] ?? 'demo-passphrase-2026';
 
+/**
+ * City centres for the demo providers' registered bases.
+ *
+ * Real coordinates, because distance is now a visible number: inventing them
+ * would put "Nashik" 400 km from Nashik and make every distance on the search
+ * page a lie. A provider whose city is not listed simply gets no coordinates —
+ * the same state as a real provider who has not opened the map yet, which is
+ * worth keeping in the demo so the "distance unknown" path is exercised.
+ */
+const CITY_COORDINATES: Record<string, { latitude: number; longitude: number }> = {
+  Warangal: { latitude: 17.9689, longitude: 79.5941 },
+  Khammam: { latitude: 17.2473, longitude: 80.1514 },
+  Nizamabad: { latitude: 18.6725, longitude: 78.0941 },
+  Guntur: { latitude: 16.3067, longitude: 80.4365 },
+  Kurnool: { latitude: 15.8281, longitude: 78.0373 },
+  Kakinada: { latitude: 16.9891, longitude: 82.2475 },
+  Nashik: { latitude: 19.9975, longitude: 73.7898 },
+  Jalgaon: { latitude: 21.0077, longitude: 75.5626 },
+};
+
 const DEMO_PROVIDERS = [
   { org: 'Kisan Aerial Services', email: 'kisan@demo.local', owner: 'Anil Reddy',
-    city: 'Warangal', state: 'Telangana', districts: ['Warangal', 'Karimnagar'],
+    city: 'Warangal', state: 'Telangana', districts: ['Warangal', 'Karimnagar'], radiusKm: 60,
     price: 45000, min: 5, inclusions: ['WATER', 'TRANSPORT'] as const,
     notes: 'Dawn slots only. Two machines, 30 acres a day.' },
   { org: 'Godavari Agri Drones', email: 'godavari@demo.local', owner: 'Sreenivas Rao',
-    city: 'Khammam', state: 'Telangana', districts: ['Khammam', 'Warangal'],
+    city: 'Khammam', state: 'Telangana', districts: ['Khammam', 'Warangal'], radiusKm: 90,
     price: 52000, min: 10, inclusions: ['WATER', 'TRANSPORT', 'CHEMICAL'] as const,
     notes: 'Chemical supplied at cost. Certified for CIB&RC-approved formulations.' },
   { org: 'Deccan Sky Works', email: 'deccan@demo.local', owner: 'Farhana Begum',
-    city: 'Nizamabad', state: 'Telangana', districts: ['Nizamabad', 'Medak', 'Nalgonda'],
+    city: 'Nizamabad', state: 'Telangana', districts: ['Nizamabad', 'Medak', 'Nalgonda'], radiusKm: 45,
     price: 39000, min: 3, inclusions: ['WATER'] as const,
     notes: 'Smallholder friendly — no minimum acreage penalty.' },
   { org: 'Krishna Delta Sprayers', email: 'krishna@demo.local', owner: 'Venkat Naidu',
-    city: 'Guntur', state: 'Andhra Pradesh', districts: ['Guntur', 'Krishna'],
+    city: 'Guntur', state: 'Andhra Pradesh', districts: ['Guntur', 'Krishna'], radiusKm: 70,
     price: 48000, min: 5, inclusions: ['WATER', 'LABOUR'] as const,
     notes: 'Chilli and cotton specialists.' },
   // The southern and western belts: these are what make the coverage story
   // multi-state rather than a two-district demo.
   { org: 'Rayalaseema Agri Wings', email: 'rayalaseema@demo.local', owner: 'Chandrasekhar Reddy',
-    city: 'Kurnool', state: 'Andhra Pradesh', districts: ['Kurnool', 'Anantapur'],
+    city: 'Kurnool', state: 'Andhra Pradesh', districts: ['Kurnool', 'Anantapur'], radiusKm: 120,
     price: 47000, min: 5, inclusions: ['WATER', 'TRANSPORT'] as const,
     notes: 'Groundnut and cotton belt. Long-range machines.' },
   { org: 'Konaseema Crop Care', email: 'konaseema@demo.local', owner: 'Satyanarayana Murthy',
-    city: 'Kakinada', state: 'Andhra Pradesh', districts: ['West Godavari'],
+    city: 'Kakinada', state: 'Andhra Pradesh', districts: ['West Godavari'], radiusKm: 50,
     price: 50000, min: 5, inclusions: ['WATER', 'LABOUR'] as const,
     notes: 'Paddy delta — morning slots across the command area.' },
   { org: 'Sahyadri Spray Solutions', email: 'sahyadri@demo.local', owner: 'Amol Kulkarni',
-    city: 'Nashik', state: 'Maharashtra', districts: ['Nashik', 'Ahmednagar'],
+    city: 'Nashik', state: 'Maharashtra', districts: ['Nashik', 'Ahmednagar'], radiusKm: 80,
     price: 44000, min: 5, inclusions: ['WATER', 'TRANSPORT'] as const,
     notes: 'Grape and onion belts. Evening spray windows.' },
   { org: 'Khandesh Agri Air', email: 'khandesh@demo.local', owner: 'Pravin Patil',
-    city: 'Jalgaon', state: 'Maharashtra', districts: ['Jalgaon', 'Solapur'],
+    city: 'Jalgaon', state: 'Maharashtra', districts: ['Jalgaon', 'Solapur'], radiusKm: 100,
     price: 42000, min: 3, inclusions: ['WATER'] as const,
     notes: 'Banana and cotton. Bulk-acreage discounts.' },
 ];
@@ -252,6 +272,11 @@ async function seedMarketplace(): Promise<void> {
           city: seed.city,
           state: seed.state,
           pincode: '500001',
+          ...(CITY_COORDINATES[seed.city] ?? {}),
+          // How far this business travels. Deliberately varied 45–120 km so a
+          // single pin produces different supply depending on where it lands —
+          // a demo where everyone declares the same range proves nothing.
+          serviceRadiusKm: seed.radiusKm,
           stage: 'ACTIVATED',
           activatedAt: new Date(),
         },
@@ -341,6 +366,48 @@ async function seedMarketplace(): Promise<void> {
       });
       console.log(`  converged offering areas: ${seed.org} (+${missing.length} districts)`);
     }
+
+    /**
+     * Backfill the base coordinate.
+     *
+     * Providers seeded before latitude/longitude existed are skipped by the
+     * `continue` in the creation loop, so a re-run alone would never give them
+     * a location and every distance on the search page would read "unknown".
+     *
+     * Guarded on latitude being null, so a provider who has since moved their
+     * own pin is never overwritten by the seed.
+     */
+    const point = CITY_COORDINATES[seed.city];
+
+    if (point) {
+      const { count } = await prisma.provider.updateMany({
+        where: {
+          organisation: { memberships: { some: { user: { email: seed.email } } } },
+          latitude: null,
+        },
+        data: point,
+      });
+
+      if (count) console.log(`  located: ${seed.org} (${seed.city})`);
+    }
+
+    /**
+     * Backfill the travel radius, on its own guard.
+     *
+     * Separate from the coordinate backfill on purpose: a provider seeded
+     * before this column existed already HAS a latitude, so folding it into
+     * the block above would skip every one of them and leave the whole demo
+     * fleet unmatchable — a radius of null means invisible in search.
+     */
+    const { count: ranged } = await prisma.provider.updateMany({
+      where: {
+        organisation: { memberships: { some: { user: { email: seed.email } } } },
+        serviceRadiusKm: null,
+      },
+      data: { serviceRadiusKm: seed.radiusKm },
+    });
+
+    if (ranged) console.log(`  range set: ${seed.org} (${seed.radiusKm} km)`);
   }
 }
 

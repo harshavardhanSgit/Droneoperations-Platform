@@ -17,7 +17,7 @@ import type {
 import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
-import { rupees, WINDOWS } from "@/features/bookings/format";
+import { distanceLabel, rupees, WINDOWS } from "@/features/bookings/format";
 import * as catalogueApi from "@/features/catalogue/api";
 import * as discoveryApi from "@/features/discovery/api";
 import { getProviderRating } from "@/features/discovery/reviews-api";
@@ -152,12 +152,23 @@ function Search() {
 
   async function onSearch(event: FormEvent) {
     event.preventDefault();
+    if (!point) return; // the submit button is disabled without one
+
     setError(null);
     setResults(null);
     setBusy("search");
 
     try {
-      setResults(await discoveryApi.findMatches({ serviceTypeId, areaId, quantity, sort }));
+      setResults(
+        await discoveryApi.findMatches({
+          serviceTypeId,
+          quantity,
+          sort,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          ...(areaId ? { areaId } : {}),
+        }),
+      );
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Search failed");
     } finally {
@@ -188,11 +199,20 @@ function Search() {
   // place, and duplicating it here is how two sort orders start to disagree.
   async function resort(next: discoveryApi.MatchSort) {
     setSort(next);
-    if (!results) return;
+    if (!results || !point) return;
 
     setBusy("search");
     try {
-      setResults(await discoveryApi.findMatches({ serviceTypeId, areaId, quantity, sort: next }));
+      setResults(
+        await discoveryApi.findMatches({
+          serviceTypeId,
+          quantity,
+          sort: next,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          ...(areaId ? { areaId } : {}),
+        }),
+      );
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Could not re-sort");
     } finally {
@@ -278,47 +298,6 @@ function Search() {
           </select>
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium">State</span>
-            <select
-              className={field}
-              value={stateId}
-              onChange={(e) => {
-                // A hand-chosen state must win over an in-flight pin fill,
-                // so a still-loading district response cannot clobber it.
-                pickSeq.current++;
-                setStateId(e.target.value);
-                void loadDistricts(e.target.value);
-              }}
-            >
-              <option value="">Choose…</option>
-              {states.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium">District</span>
-            <select
-              className={field}
-              value={areaId}
-              onChange={(e) => setAreaId(e.target.value)}
-              disabled={!districts.length}
-            >
-              <option value="">Choose…</option>
-              {districts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium">Quantity</span>
@@ -352,7 +331,11 @@ function Search() {
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium">Where exactly (optional)</span>
+          <span className="mb-1.5 block text-sm font-medium">Where is the field?</span>
+          <p className="mb-2 text-xs text-fg-subtle">
+            Drop a pin on the field. Providers are matched by how far each one travels from
+            their own base, so this is what decides who can do the job.
+          </p>
           <MapPicker
             onPick={(location: PickedLocation) => {
               setPoint({ latitude: location.latitude, longitude: location.longitude });
@@ -374,6 +357,10 @@ function Search() {
               // undone too — but a select the customer changed by hand stays.
               pickSeq.current++; // a stale district load must not re-fill
               setPoint(null);
+              // "Nearest first" has nothing to measure from once the pin is
+              // gone, and the API refuses that combination. Fall back to the
+              // default rather than let the next search fail on a stale choice.
+              setSort((current) => (current === "DISTANCE_ASC" ? "PRICE_ASC" : current));
               if (!noteEdited.current) setLocationNote("");
               const filled = pickFilled.current;
               if (filled.stateId && stateId === filled.stateId) {
@@ -395,12 +382,65 @@ function Search() {
           />
         </div>
 
+        {/*
+          Not a search filter any more. The pin decides who appears; this pair
+          only names the district the booking record needs, and the pin fills
+          it in. Shown after the map because that is the order it is answered.
+        */}
+        <div>
+          <span className="mb-1.5 block text-sm font-medium">District</span>
+          <p className="mb-2 text-xs text-fg-subtle">
+            Filled in from your pin. It does not change who is shown — it is what the booking
+            is filed under.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="sr-only">State</span>
+              <select
+                className={field}
+                value={stateId}
+                onChange={(e) => {
+                  // A hand-chosen state must win over an in-flight pin fill,
+                  // so a still-loading district response cannot clobber it.
+                  pickSeq.current++;
+                  setStateId(e.target.value);
+                  void loadDistricts(e.target.value);
+                }}
+              >
+                <option value="">State…</option>
+                {states.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="sr-only">District</span>
+              <select
+                className={field}
+                value={areaId}
+                onChange={(e) => setAreaId(e.target.value)}
+                disabled={!districts.length}
+              >
+                <option value="">District…</option>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
         <button
           type="submit"
-          disabled={!serviceTypeId || !areaId || busy === "search"}
+          disabled={!serviceTypeId || !point || busy === "search"}
           className="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
         >
-          {busy === "search" ? "Searching…" : "Find providers"}
+          {busy === "search" ? "Searching…" : point ? "Find providers" : "Drop a pin to search"}
         </button>
       </form>
 
@@ -428,6 +468,12 @@ function Search() {
                   <option value="PRICE_ASC">Cheapest first</option>
                   <option value="PRICE_DESC">Most expensive first</option>
                   <option value="RATING_DESC">Best rated first</option>
+                  {/*
+                    Only offered once a pin exists — the API refuses this sort
+                    without coordinates, and an option that always errors is
+                    worse than one that is not there.
+                  */}
+                  {point ? <option value="DISTANCE_ASC">Nearest first</option> : null}
                 </select>
               </label>
             ) : null}
@@ -435,7 +481,8 @@ function Search() {
 
           {results.total === 0 ? (
             <p className="rounded-surface border border-dashed border-border px-4 py-8 text-center text-sm text-fg-muted">
-              Nobody covers this area for that quantity yet.
+              No provider travels this far for a job that size yet. Try moving the pin, or come
+              back — coverage grows as providers join.
             </p>
           ) : (
             <ul className="space-y-3">
@@ -468,10 +515,30 @@ function Search() {
                         ) : (
                           <span className="text-fg-subtle">New — no reviews yet</span>
                         )}
+
+                        {/*
+                          Absent when the customer dropped no pin, or when this
+                          provider has never set a base. "Straight line" is said
+                          plainly — the API measures point to point, and the
+                          road is always longer.
+                        */}
+                        {match.provider.distanceKm !== undefined ? (
+                          <span className="text-fg-subtle">
+                            {" · "}
+                            <span className="tabular text-fg-muted">
+                              {distanceLabel(match.provider.distanceKm)}
+                            </span>{" "}
+                            away, straight line
+                          </span>
+                        ) : null}
                       </p>
+                      {/*
+                        The provider's own town, not a coverage claim — they
+                        appear here because their declared range reaches the
+                        pin, which the distance above already says.
+                      */}
                       <p className="mt-0.5 text-xs text-fg-subtle">
-                        {match.provider.city ? `${match.provider.city} · ` : ""}
-                        serves {match.matchedArea}
+                        {match.provider.city ? `Based in ${match.provider.city}` : "Base not set"}
                         {match.minQuantity ? ` · minimum ${match.minQuantity}` : ""}
                       </p>
                     </div>
@@ -535,13 +602,26 @@ function Search() {
                     </div>
                   ) : null}
 
+                  {/*
+                    Discovery works anywhere; a BOOKING still needs a catalogue
+                    district, because Booking.areaId is a required FK. Rather
+                    than let the submit fail on a validation error, say so here
+                    — the customer can pick the district by hand, and staff can
+                    add one that is genuinely missing.
+                  */}
                   <button
                     onClick={() => void book(match)}
-                    disabled={busy !== null}
+                    disabled={busy !== null || !areaId}
                     className="mt-4 h-11 w-full rounded-control bg-accent px-3 text-[15px] font-medium text-accent-fg disabled:opacity-45"
                   >
                     {busy === match.offeringId ? "Booking…" : "Book this provider"}
                   </button>
+                  {!areaId ? (
+                    <p className="mt-2 text-center text-xs text-warning">
+                      We could not match your pin to a district we cover yet. Choose one above to
+                      book, or contact us to have yours added.
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>

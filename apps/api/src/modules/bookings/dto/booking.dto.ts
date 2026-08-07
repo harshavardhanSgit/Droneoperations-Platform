@@ -192,6 +192,23 @@ export class BookingDto {
   @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the work site' }) latitude?: number;
   @ApiPropertyOptional({ example: 79.5941, description: 'Longitude of the work site' }) longitude?: number;
 
+  /**
+   * How far this job is from the READING provider's registered base.
+   *
+   * Present only on the provider's own lists, because only there is there a
+   * second point to measure from — a customer reading their booking has no
+   * "base", and the field is absent rather than zero. Also absent when either
+   * the provider or the booking has no coordinates.
+   *
+   * Straight line, not road distance; the UI must say so.
+   */
+  @ApiPropertyOptional({
+    example: 8.4,
+    description:
+      "Straight-line km from the reading provider's base. Provider lists only; absent for customers and when either point is unset.",
+  })
+  distanceKm?: number;
+
   @ApiProperty({ example: '2026-08-14' }) preferredDate: string;
   @ApiProperty({ enum: Object.values(TimeWindow) }) preferredWindow: string;
 

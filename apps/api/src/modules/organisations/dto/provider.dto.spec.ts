@@ -58,3 +58,39 @@ describe('UpdateProviderProfileDto location pair', () => {
     expect(errors.some((error) => error.property === 'latitude')).toBe(true);
   });
 });
+
+/**
+ * The travel radius. Range only — whether a radius may exist AT ALL depends on
+ * whether a base was saved on some earlier request, and a DTO cannot see the
+ * database. That rule lives in ProviderService and is tested there.
+ */
+describe('UpdateProviderProfileDto serviceRadiusKm', () => {
+  const propertiesFor = async (patch: Record<string, unknown>) =>
+    (await errorsFor(patch)).map((error) => error.property);
+
+  it('accepts a profile that declares no radius', async () => {
+    // "Not stated yet" is a legitimate state: it means invisible in search,
+    // not invalid.
+    expect(await errorsFor()).toHaveLength(0);
+  });
+
+  it('accepts a plausible radius', async () => {
+    expect(await errorsFor({ serviceRadiusKm: 60, latitude: 17.9689, longitude: 79.5941 })).toHaveLength(0);
+  });
+
+  it.each([
+    ['zero — a business that travels nowhere is not a business', 0],
+    ['negative', -10],
+    ['beyond the cap the bounding-box prefilter assumes', 501],
+    ['fractional — the column is an integer', 60.5],
+  ])('rejects %s', async (_label, serviceRadiusKm) => {
+    expect(await propertiesFor({ serviceRadiusKm })).toContain('serviceRadiusKm');
+  });
+
+  it('caps at exactly the prefilter’s assumption', async () => {
+    // MAX_SERVICE_RADIUS_KM in discovery.repository.ts is 500 and the box is
+    // built from it. If this cap ever rises without that constant, providers
+    // beyond the box would be silently dropped before the exact distance runs.
+    expect(await errorsFor({ serviceRadiusKm: 500 })).toHaveLength(0);
+  });
+});

@@ -103,14 +103,25 @@ function AdminBookings() {
   // practice: one matching implementation, two callers. V2's auto-assignment
   // becomes a third caller of this exact query.
   const findProviders = async (b: Booking) => {
+    // Matching is by distance now, so a booking with no pin has nothing to
+    // measure from. Older bookings predate the map, hence the guard rather
+    // than an assumption. `canPlace` keeps the button off in that case; this
+    // is the belt to its braces.
+    if (b.latitude === undefined || b.longitude === undefined) {
+      setError("That booking has no map pin, so nearby providers cannot be worked out.");
+      return;
+    }
+
     setPlacing(b.id);
     setCandidates(null);
     setError(null);
     try {
       const results = await discoveryApi.findMatches({
         serviceTypeId: b.serviceTypeId,
-        areaId: b.areaId,
         quantity: b.quantity,
+        latitude: b.latitude,
+        longitude: b.longitude,
+        areaId: b.areaId,
       });
       setCandidates(results.matches);
     } catch (caught: unknown) {
@@ -239,9 +250,13 @@ function AdminBookings() {
                     ) : (
                       <div className="flex items-center justify-end gap-2">
                         {b.status === "UNASSIGNED" ? (
-                          <Button size="console" onClick={() => void findProviders(b)}>
-                            Find a provider
-                          </Button>
+                          b.latitude !== undefined && b.longitude !== undefined ? (
+                            <Button size="console" onClick={() => void findProviders(b)}>
+                              Find a provider
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-fg-subtle">No pin — cannot match</span>
+                          )
                         ) : null}
                         <Button
                           size="console"

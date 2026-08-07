@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
-import { AccessDeniedException, ResourceNotFoundException } from '../../common/errors/app.exception';
+import {
+  AccessDeniedException,
+  BusinessRuleException,
+  ResourceNotFoundException,
+} from '../../common/errors/app.exception';
 import type { ProviderDocumentKind, ProviderStage } from '../../generated/prisma/client';
 import { DocumentService, type DocumentDescriptor } from '../documents/document.service';
 import type { ActorContext } from '../identity/actor-context';
@@ -46,6 +50,24 @@ export class ProviderService {
 
     assertEditable(provider.stage);
 
+    /**
+     * A radius is a distance FROM somewhere. Without a base there is nothing to
+     * measure from, and discovery would silently never match this provider —
+     * they would set a range, see it saved, and quietly receive no work.
+     *
+     * Checked here rather than in the DTO because the base may have been saved
+     * on an earlier request: the rule is about the resulting row, not the
+     * payload, and a DTO cannot see the database.
+     */
+    const willHaveBase = (dto.latitude ?? provider.latitude) != null;
+
+    if (dto.serviceRadiusKm !== undefined && !willHaveBase) {
+      throw new BusinessRuleException(
+        'LOCATION_REQUIRED',
+        'Pick your base on the map before setting how far you will travel',
+      );
+    }
+
     await this.providers.updateProfile(provider.id, {
       legalName: dto.legalName.trim(),
       registrationNumber: dto.registrationNumber?.trim(),
@@ -59,6 +81,7 @@ export class ProviderService {
       // previously picked point.
       latitude: dto.latitude,
       longitude: dto.longitude,
+      serviceRadiusKm: dto.serviceRadiusKm,
     });
 
     if (provider.stage !== 'PROFILE_COMPLETE') {
@@ -275,6 +298,9 @@ export class ProviderService {
         : {}),
       ...(provider.longitude !== null && provider.longitude !== undefined
         ? { longitude: provider.longitude }
+        : {}),
+      ...(provider.serviceRadiusKm !== null && provider.serviceRadiusKm !== undefined
+        ? { serviceRadiusKm: provider.serviceRadiusKm }
         : {}),
       ...(provider.rejectionReason ? { rejectionReason: provider.rejectionReason } : {}),
     };

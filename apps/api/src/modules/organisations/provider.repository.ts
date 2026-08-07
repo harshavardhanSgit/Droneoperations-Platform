@@ -17,6 +17,7 @@ export interface ProviderProfileInput {
   pincode: string;
   latitude?: number | undefined;
   longitude?: number | undefined;
+  serviceRadiusKm?: number | undefined;
 }
 
 @Injectable()

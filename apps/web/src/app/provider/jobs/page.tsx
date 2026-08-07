@@ -12,7 +12,14 @@ import { ApiError } from "@/core/api/client";
 import type { Booking } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
-import { mapLink, rupees, shortDate, WINDOWS, windowLabel } from "@/features/bookings/format";
+import {
+  distanceLabel,
+  mapLink,
+  rupees,
+  shortDate,
+  WINDOWS,
+  windowLabel,
+} from "@/features/bookings/format";
 import * as providerApi from "@/features/provider/bookings-api";
 
 type Panel = { id: string; kind: "complete" | "propose" | "cancel" } | null;
@@ -95,6 +102,16 @@ function Jobs() {
             {b.quantity} {unit(b)}
           </dd>
         </div>
+        {/* Absent when either the provider or the field has no pin. */}
+        {b.distanceKm !== undefined ? (
+          <div>
+            <dt className="text-xs text-fg-subtle">From your base</dt>
+            <dd className="tabular">
+              {distanceLabel(b.distanceKm)}{" "}
+              <span className="text-xs text-fg-subtle">straight line</span>
+            </dd>
+          </div>
+        ) : null}
         {b.locationNote || (b.latitude != null && b.longitude != null) ? (
           <div className="col-span-2">
             <dt className="text-xs text-fg-subtle">Where</dt>

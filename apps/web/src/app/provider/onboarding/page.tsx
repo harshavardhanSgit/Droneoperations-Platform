@@ -36,6 +36,14 @@ function Onboarding() {
 
   /** Picked on the map — submitted with the profile. */
   const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(null);
+  /**
+   * How far this business will travel from its base, in km.
+   *
+   * Held as a string because that is what a range input gives back, and an
+   * empty string is the meaningful "not declared yet" state — which is not the
+   * same as zero, and must not be sent as one.
+   */
+  const [radius, setRadius] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   /**
@@ -64,6 +72,7 @@ function Onboarding() {
     ]);
     setProvider(detail);
     setDocuments(docs);
+    setRadius(detail.serviceRadiusKm != null ? String(detail.serviceRadiusKm) : "");
   }, []);
 
   // The effect owns its own fetch rather than calling refresh(): every setState
@@ -77,6 +86,7 @@ function Onboarding() {
         if (cancelled) return;
         setProvider(detail);
         setDocuments(docs);
+        setRadius(detail.serviceRadiusKm != null ? String(detail.serviceRadiusKm) : "");
       })
       .catch((caught: unknown) => {
         if (cancelled) return;
@@ -119,6 +129,10 @@ function Onboarding() {
         ...(pickedLocation
           ? { latitude: pickedLocation.latitude, longitude: pickedLocation.longitude }
           : {}),
+        // Omitted entirely when blank, not sent as 0: the API treats undefined
+        // as "leave it alone", and a radius of zero would mean this business
+        // travels nowhere.
+        ...(radius ? { serviceRadiusKm: Number(radius) } : {}),
       });
       await refresh();
       toast("Business details saved");
@@ -191,6 +205,10 @@ function Onboarding() {
   }
 
   const editable = EDITABLE.includes(provider.stage);
+  // A radius without a base is meaningless, and the API rejects it. Either the
+  // saved point or one picked in this session counts — the pick is submitted
+  // alongside the radius, so waiting for a round trip would be wrong.
+  const hasBase = pickedLocation !== null || (provider.latitude != null && provider.longitude != null);
 
   return (
     <Page>
@@ -234,6 +252,42 @@ function Onboarding() {
               onClear={() => setPickedLocation(null)}
               disabled={!editable}
             />
+          </div>
+
+          {/*
+            Coverage, stated once. The pin is where you are; this is how far
+            you will go. Together they decide every search you appear in — so
+            the copy says the consequence out loud rather than labelling a
+            slider "radius" and leaving the provider to guess.
+          */}
+          <div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-medium">How far will you travel?</span>
+              <span className="tabular text-sm text-fg-muted">
+                {radius ? `${radius} km` : "Not set"}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={5}
+              max={300}
+              step={5}
+              className="mt-2 w-full accent-[var(--accent)] disabled:opacity-45"
+              value={radius || "60"}
+              onChange={(e) => setRadius(e.target.value)}
+              disabled={!editable || !hasBase}
+              aria-label="Travel radius in kilometres"
+            />
+            <p className="mt-1 text-xs text-fg-subtle">
+              {!hasBase
+                ? "Pick your base on the map first — a distance needs somewhere to measure from."
+                : radius
+                  ? `Customers with a field within ${radius} km of your base will see you. Nobody further away will.`
+                  : "Until you set this, you will not appear in any customer's search."}
+            </p>
+            {fieldErrors.serviceRadiusKm?.[0] ? (
+              <p className="mt-1 text-xs text-danger">{fieldErrors.serviceRadiusKm[0]}</p>
+            ) : null}
           </div>
 
           <Field label="Address" name="addressLine" required defaultValue={provider.addressLine ?? ""} disabled={!editable} error={fieldErrors.addressLine?.[0]} />

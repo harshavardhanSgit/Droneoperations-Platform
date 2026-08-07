@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsUUID, Max, Min, ValidateIf } from 'class-validator';
 
 import { OfferingInclusion } from '../../../generated/prisma/client';
 
@@ -8,6 +8,8 @@ export enum MatchSort {
   PRICE_ASC = 'PRICE_ASC',
   PRICE_DESC = 'PRICE_DESC',
   RATING_DESC = 'RATING_DESC',
+  /** Requires latitude and longitude on the query — rejected without them. */
+  DISTANCE_ASC = 'DISTANCE_ASC',
 }
 
 /**
@@ -20,9 +22,19 @@ export class MatchQueryDto {
   @IsUUID()
   serviceTypeId: string;
 
-  @ApiProperty({ format: 'uuid', description: 'Where the work is' })
+  /**
+   * The district, kept only because a BOOKING needs one — Booking.areaId is a
+   * required FK. It no longer decides who appears: a provider's coverage is
+   * their base plus their travel radius, so matching is done on distance.
+   *
+   * Optional here so a customer can see who can reach a pin that falls outside
+   * the 17 districts the catalogue currently knows. They will not be able to
+   * book there until staff add the district, and the UI says so.
+   */
+  @ApiPropertyOptional({ format: 'uuid', description: 'District, for the booking that follows' })
+  @IsOptional()
   @IsUUID()
-  areaId: string;
+  areaId?: string;
 
   @ApiProperty({ example: 20, description: 'How many pricing units — e.g. acres' })
   @Type(() => Number)
@@ -30,6 +42,28 @@ export class MatchQueryDto {
   @Min(1)
   @Max(1_000_000)
   quantity: number;
+
+  /**
+   * Where the work is. REQUIRED — this is what discovery matches on.
+   *
+   * Coverage is now a provider's base plus how far they travel, so without a
+   * point there is nothing to compare against. No @IsOptional and no
+   * ValidateIf: both are mandatory, so the pair rule is simply "both present",
+   * which the plain validators already enforce.
+   */
+  @ApiProperty({ example: 17.9689 })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-90)
+  @Max(90)
+  latitude: number;
+
+  @ApiProperty({ example: 79.5941 })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-180)
+  @Max(180)
+  longitude: number;
 
   @ApiPropertyOptional({ enum: Object.values(MatchSort), default: MatchSort.PRICE_ASC })
   @IsOptional()
@@ -50,6 +84,22 @@ export class MatchProviderDto {
 
   @ApiProperty({ example: 12, description: 'How many reviews the average is based on' })
   ratingCount: number;
+
+  /**
+   * Straight-line kilometres from the point the customer supplied.
+   *
+   * A DISTANCE, never the provider's coordinates. Shipping every provider's
+   * exact base to every searcher is a bigger disclosure than "12 km away", and
+   * nothing on the customer's side needs the raw point.
+   *
+   * Absent when the customer gave no location, or when this provider has not
+   * set one — which is not zero, and must not be rendered as "0 km".
+   */
+  @ApiPropertyOptional({
+    example: 12.4,
+    description: 'Straight-line km from the requested point. Absent if either side has no location.',
+  })
+  distanceKm?: number;
 }
 
 export class MatchPriceDto {
@@ -89,8 +139,19 @@ export class MatchDto {
   @ApiPropertyOptional({ example: 5 }) minQuantity?: number;
   @ApiPropertyOptional() notes?: string;
 
-  @ApiProperty({ example: 'Warangal', description: 'Which served area matched' })
-  matchedArea: string;
+  /*
+   * There is deliberately no area field here.
+   *
+   * `matchedArea` used to name the district that satisfied the join. Nothing
+   * matches an area any more — the radius decides — so the field could only
+   * have been a lie about how the result was produced.
+   *
+   * A list of the provider's declared districts was tried in its place and
+   * removed: providers stop maintaining that list once it gates nothing, and
+   * showing "serves Karimnagar, Warangal" beside a pin in neither reads as a
+   * contradiction. What the customer needs is here already — who they are,
+   * where they are based, and how far away that is.
+   */
 }
 
 export class MatchResultsDto {

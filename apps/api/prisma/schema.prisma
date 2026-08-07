@@ -232,6 +232,17 @@ model Provider {
   latitude  Float? @map("latitude")
   longitude Float? @map("longitude")
 
+  /// How far this business will travel from that base, in kilometres.
+  ///
+  /// This IS their coverage. Discovery matches a customer's pin against
+  /// base + radius, so a provider decides their own market rather than ticking
+  /// districts whose far edges they would never drive to (BR13).
+  ///
+  /// Null means "not declared yet", which means invisible in search — an
+  /// unstated range cannot be honoured, and guessing one on a provider's
+  /// behalf would send them work they never agreed to.
+  serviceRadiusKm Int? @map("service_radius_km")
+
   stage ProviderStage @default(REGISTERED)
 
   /// Denormalised so "time in current stage" is a subtraction rather than a

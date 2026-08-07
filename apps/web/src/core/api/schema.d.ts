@@ -433,7 +433,7 @@ export interface paths {
         };
         /**
          * Who can do this job, and for how much
-         * @description Takes a requirement (service, area, quantity) and returns priced matches — not a provider directory. Only ACTIVATED providers appear (BR1).
+         * @description Takes a requirement (service, area, quantity) and returns priced matches — not a provider directory. Only ACTIVATED providers appear (BR1). Supplying latitude and longitude adds a straight-line distanceKm to each match and unlocks sort=DISTANCE_ASC. The response carries the DISTANCE, never a provider’s coordinates.
          */
         get: operations["DiscoveryController_findMatches_v1"];
         put?: never;
@@ -1544,6 +1544,11 @@ export interface components {
             latitude?: number;
             /** @example 79.5941 */
             longitude?: number;
+            /**
+             * @description Kilometres they will travel from that base
+             * @example 60
+             */
+            serviceRadiusKm?: number;
             rejectionReason?: string;
             history: components["schemas"]["ProviderStageEventDto"][];
         };
@@ -1574,6 +1579,11 @@ export interface components {
             latitude?: number;
             /** @example 79.5941 */
             longitude?: number;
+            /**
+             * @description Kilometres they will travel from that base
+             * @example 60
+             */
+            serviceRadiusKm?: number;
             rejectionReason?: string;
         };
         UpdateProviderProfileDto: {
@@ -1601,6 +1611,11 @@ export interface components {
              * @example 79.5941
              */
             longitude?: number;
+            /**
+             * @description Kilometres this provider will travel from their base. Requires coordinates.
+             * @example 60
+             */
+            serviceRadiusKm?: number;
         };
         UploadTicketDto: {
             /** Format: uuid */
@@ -1814,6 +1829,11 @@ export interface components {
              * @example 12
              */
             ratingCount: number;
+            /**
+             * @description Straight-line km from the requested point. Absent if either side has no location.
+             * @example 12.4
+             */
+            distanceKm?: number;
         };
         MatchPriceDto: {
             /**
@@ -1850,11 +1870,6 @@ export interface components {
             /** @example 5 */
             minQuantity?: number;
             notes?: string;
-            /**
-             * @description Which served area matched
-             * @example Warangal
-             */
-            matchedArea: string;
         };
         MatchResultsDto: {
             /** @example 20 */
@@ -1964,6 +1979,11 @@ export interface components {
              * @example 79.5941
              */
             longitude?: number;
+            /**
+             * @description Straight-line km from the reading provider's base. Provider lists only; absent for customers and when either point is unset.
+             * @example 8.4
+             */
+            distanceKm?: number;
             /** @example 2026-08-14 */
             preferredDate: string;
             /** @enum {string} */
@@ -2069,6 +2089,11 @@ export interface components {
              * @example 79.5941
              */
             longitude?: number;
+            /**
+             * @description Straight-line km from the reading provider's base. Provider lists only; absent for customers and when either point is unset.
+             * @example 8.4
+             */
+            distanceKm?: number;
             /** @example 2026-08-14 */
             preferredDate: string;
             /** @enum {string} */
@@ -3276,11 +3301,13 @@ export interface operations {
         parameters: {
             query: {
                 serviceTypeId: string;
-                /** @description Where the work is */
-                areaId: string;
+                /** @description District, for the booking that follows */
+                areaId?: string;
                 /** @description How many pricing units — e.g. acres */
                 quantity: number;
-                sort?: "PRICE_ASC" | "PRICE_DESC" | "RATING_DESC";
+                latitude: number;
+                longitude: number;
+                sort?: "PRICE_ASC" | "PRICE_DESC" | "RATING_DESC" | "DISTANCE_ASC";
             };
             header?: never;
             path?: never;
@@ -3300,6 +3327,15 @@ export interface operations {
             };
             /** @description Retired service type or area */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description sort=DISTANCE_ASC without a latitude and longitude */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

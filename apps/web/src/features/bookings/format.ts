@@ -54,3 +54,17 @@ export const windowLabel = (w: string) => w.charAt(0) + w.slice(1).toLowerCase()
 export const mapLink = (latitude: number, longitude: number) =>
   `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}`;
 
+/**
+ * A distance as a person would say it.
+ *
+ * Straight line, never a drive — the API measures point to point, and a farmer
+ * told "8 km" who then drives 14 km around a river was misled by the product.
+ * Callers pair this with a "straight line" qualifier.
+ *
+ * Under a kilometre reads as "under 1 km" rather than "0.4 km": at that range
+ * the number is precision the coordinates do not really carry, and "0 km" —
+ * which naive rounding would produce — reads as an error.
+ */
+export const distanceLabel = (km: number): string =>
+  km < 1 ? "under 1 km" : `${Math.round(km)} km`;
+

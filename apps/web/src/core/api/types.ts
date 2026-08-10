@@ -13,6 +13,9 @@ export type LoginResponse = components["schemas"]["LoginResponseDto"];
 export type RegisterResponse = components["schemas"]["RegisterResponseDto"];
 export type CurrentAccount = components["schemas"]["MeResponseDto"];
 export type Organisation = components["schemas"]["RegisteredOrganisationDto"];
+/** What GET/PATCH /organisations/me returns — fuller than the one nested in
+ *  the register response, which carries only what the caller just created. */
+export type OwnOrganisation = components["schemas"]["OrganisationDto"];
 
 export type Provider = components["schemas"]["ProviderDto"];
 export type ProviderDetail = components["schemas"]["ProviderDetailDto"];

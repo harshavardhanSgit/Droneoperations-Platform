@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { CookieOptions, Request, Response } from 'express';
@@ -8,6 +8,7 @@ import type { Env } from '../../config/env.validation';
 import type { ActorContext } from './actor-context';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { ChangePasswordDto, UpdateAccountDto } from './dto/account.dto';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -123,6 +124,51 @@ export class AuthController {
   @ApiErrorEnvelope(HttpStatus.UNAUTHORIZED, 'Missing, invalid or expired access token')
   me(@CurrentUser() actor: ActorContext): Promise<MeResponseDto> {
     return this.auth.me(actor);
+  }
+
+  /**
+   * No @RequirePermissions. Every authenticated account may edit its OWN name
+   * and phone regardless of which side of the marketplace it sits on — there
+   * is no id in the path, so there is nothing to be authorised against beyond
+   * holding a valid token.
+   */
+  @Patch('me')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Edit your own name and phone',
+    description:
+      'Email is not editable here: it is the login identity, so changing it needs a verification flow.',
+  })
+  @ApiEnvelope(MeResponseDto, { description: 'The updated account' })
+  @ApiErrorEnvelope(HttpStatus.UNAUTHORIZED, 'Missing, invalid or expired access token')
+  updateMe(
+    @CurrentUser() actor: ActorContext,
+    @Body() dto: UpdateAccountDto,
+  ): Promise<MeResponseDto> {
+    return this.auth.updateAccount(actor, dto);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Change your password',
+    description:
+      'Requires the current password. Revokes every refresh token for this user, so all other devices are signed out — including this one on its next refresh.',
+  })
+  @ApiErrorEnvelope(HttpStatus.UNAUTHORIZED, 'Current password is incorrect')
+  @ApiErrorEnvelope(HttpStatus.CONFLICT, 'The new password matches the current one')
+  async changePassword(
+    @CurrentUser() actor: ActorContext,
+    @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.auth.changePassword(actor, dto);
+
+    // The cookie this browser holds was just revoked server-side. Clearing it
+    // keeps the two in step — otherwise the next refresh presents a token the
+    // server has already killed, which the reuse detector reads as theft.
+    res.clearCookie(REFRESH_COOKIE, { ...this.refreshCookieOptions(), maxAge: undefined });
   }
 
   private refreshCookieOptions(): CookieOptions {

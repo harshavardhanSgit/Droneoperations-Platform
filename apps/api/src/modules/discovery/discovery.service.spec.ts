@@ -1,5 +1,7 @@
 import { Test } from '@nestjs/testing';
 
+import { GRID_KM } from '../../common/geo/coarsen';
+import { distanceKm } from '../../common/geo/distance';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { ReputationService } from '../reputation/reputation.service';
 import { DiscoveryRepository, type MatchCandidate } from './discovery.repository';
@@ -137,15 +139,44 @@ describe('DiscoveryService — radius coverage', () => {
     expect(distance).toBeCloseTo(Math.round((distance ?? 0) * 10) / 10, 10);
   });
 
-  it('never leaks the provider’s own coordinates', async () => {
-    // "100 km away" is a far smaller disclosure than a business's exact base,
-    // and nothing on the customer's side needs the raw point.
+  it('never leaks the provider’s exact coordinates', async () => {
+    // The map gets a coarsened point; the registered base does not leave the
+    // API. A regression here is silent — the map would look identical.
     await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 120 })]);
 
     const payload = JSON.stringify((await search()).matches);
 
     expect(payload).not.toContain(String(KHAMMAM.latitude));
     expect(payload).not.toContain(String(KHAMMAM.longitude));
+  });
+
+  it('publishes an approximate base for the map, off the real one', async () => {
+    await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 120 })]);
+
+    const p = (await search()).matches[0]?.provider;
+
+    expect(p?.approxLatitude).toBeDefined();
+    expect(p?.approxLongitude).toBeDefined();
+    // Coarse enough to be worth calling approximate...
+    expect(p?.approxLatitude).not.toBe(KHAMMAM.latitude);
+    expect(p?.approxLongitude).not.toBe(KHAMMAM.longitude);
+    // ...and close enough that the marker is not simply wrong. Half a cell
+    // diagonal is the worst case the grid can produce.
+    expect(
+      distanceKm({ latitude: p!.approxLatitude!, longitude: p!.approxLongitude! }, KHAMMAM),
+    ).toBeLessThanOrEqual((Math.SQRT2 / 2) * GRID_KM);
+  });
+
+  it('puts the same provider on the same spot every search', async () => {
+    // A marker that wandered between searches would read as broken data, and
+    // re-rolled offsets average out to the true position when sampled.
+    await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 120 })]);
+
+    const first = (await search()).matches[0]?.provider;
+    const second = (await search({ sort: MatchSort.RATING_DESC })).matches[0]?.provider;
+
+    expect(first?.approxLatitude).toBe(second?.approxLatitude);
+    expect(first?.approxLongitude).toBe(second?.approxLongitude);
   });
 
   it('sorts nearest first, cheapest breaking the tie', async () => {

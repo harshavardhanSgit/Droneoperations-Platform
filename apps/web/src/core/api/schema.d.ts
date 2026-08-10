@@ -141,6 +141,30 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Edit your own name and phone
+         * @description Email is not editable here: it is the login identity, so changing it needs a verification flow.
+         */
+        patch: operations["AuthController_updateMe_v1"];
+        trace?: never;
+    };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your password
+         * @description Requires the current password. Revokes every refresh token for this user, so all other devices are signed out — including this one on its next refresh.
+         */
+        post: operations["AuthController_changePassword_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -1490,6 +1514,21 @@ export interface components {
             /** @enum {string} */
             role: "OWNER" | "MEMBER" | "ADMIN" | "SERVICE_ENGINEER";
         };
+        UpdateAccountDto: {
+            /** @example Ramesh Kumar */
+            fullName?: string;
+            /**
+             * @description Empty string clears it. Omit the field to leave it unchanged.
+             * @example +919876543210
+             */
+            phone?: string;
+        };
+        ChangePasswordDto: {
+            /** @example the passphrase you use today */
+            currentPassword: string;
+            /** @example a long passphrase works best */
+            newPassword: string;
+        };
         OrganisationDto: {
             /** Format: uuid */
             id: string;
@@ -1834,6 +1873,16 @@ export interface components {
              * @example 12.4
              */
             distanceKm?: number;
+            /**
+             * @description Approximate base, snapped to a ~5 km grid. NOT the exact location.
+             * @example 17.9707
+             */
+            approxLatitude?: number;
+            /**
+             * @description Approximate base, snapped to a ~5 km grid. NOT the exact location.
+             * @example 79.6081
+             */
+            approxLongitude?: number;
         };
         MatchPriceDto: {
             /**
@@ -2821,6 +2870,74 @@ export interface operations {
             };
             /** @description Missing, invalid or expired access token */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AuthController_updateMe_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountDto"];
+            };
+        };
+        responses: {
+            /** @description The updated account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MeResponseDto"];
+                    };
+                };
+            };
+            /** @description Missing, invalid or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AuthController_changePassword_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordDto"];
+            };
+        };
+        responses: {
+            /** @description Current password is incorrect */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description The new password matches the current one */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -123,6 +123,21 @@ export async function apiFetch<T>(
     );
   }
 
+  /**
+   * A successful response with no body.
+   *
+   * 204 No Content carries nothing to unwrap, so `body` is null and reaching
+   * for `.data` throws a TypeError — on a request that SUCCEEDED. The caller
+   * then reports failure for something the server did.
+   *
+   * This hid for a long time because logout() was the only 204 caller and it
+   * wraps everything in `.catch(() => null)`. change-password is the second,
+   * and it surfaced immediately.
+   */
+  if (response.status === 204 || body === null) {
+    return undefined as T;
+  }
+
   return (body as { data: T }).data;
 }
 

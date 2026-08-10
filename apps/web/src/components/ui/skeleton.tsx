@@ -26,11 +26,24 @@ function Region({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Matches a Surface card: title, subtitle, a divider and a body. */
-export function CardListSkeleton({ count = 4 }: { count?: number }) {
+/**
+ * Matches a Surface card: title, subtitle, a divider and a body.
+ *
+ * `layout` exists because the whole point is to occupy the EVENTUAL space, and
+ * that is not always a two-up grid — the search results list is a single
+ * column beside a map, so a 2-up skeleton would reserve the wrong shape and
+ * the page would still jump.
+ */
+export function CardListSkeleton({
+  count = 4,
+  layout = cardGrid,
+}: {
+  count?: number;
+  layout?: string;
+}) {
   return (
     <Region>
-      <ul className={cardGrid}>
+      <ul className={layout}>
         {Array.from({ length: count }, (_, i) => (
           <li key={i} className="rounded-surface border border-border bg-bg-raised p-4">
             <div className="flex items-start justify-between gap-3">

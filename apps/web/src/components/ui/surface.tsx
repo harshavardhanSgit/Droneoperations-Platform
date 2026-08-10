@@ -10,13 +10,18 @@ export function Surface({
   children,
   className = "",
   as: Tag = "div",
+  ...props
 }: {
   children: React.ReactNode;
   className?: string;
   as?: "div" | "section" | "li" | "article";
-}) {
+} & React.HTMLAttributes<HTMLElement>) {
   return (
-    <Tag className={`rounded-surface border border-border bg-bg-raised ${className}`}>
+    // Extra props are forwarded so a card can carry an id or pointer handlers
+    // without its caller abandoning the primitive and hand-rolling the border,
+    // radius and background — which is exactly how the search results cards
+    // ended up as the only ones in the app missing bg-bg-raised.
+    <Tag className={`rounded-surface border border-border bg-bg-raised ${className}`} {...props}>
       {children}
     </Tag>
   );

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { OfferingInclusion } from '../../generated/prisma/client';
 import { BusinessRuleException } from '../../common/errors/app.exception';
+import { coarsenOrNull } from '../../common/geo/coarsen';
 import { distanceBetween, type GeoPoint } from '../../common/geo/distance';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { ReputationService } from '../reputation/reputation.service';
@@ -133,6 +134,11 @@ export class DiscoveryService {
     const distance = distanceBetween(origin, candidate.provider);
     const distanceKm = distance === null ? null : Math.round(distance * 10) / 10;
 
+    // Where the map may draw them. Coarsened here, at the only point where a
+    // provider's position crosses into a customer-facing payload — so there is
+    // one place to audit, and no route by which the exact base escapes.
+    const approx = coarsenOrNull(candidate.provider);
+
     return {
       offeringId: candidate.id,
       offeringVersionNumber: version.versionNumber,
@@ -145,6 +151,7 @@ export class DiscoveryService {
         ...(rating?.average != null ? { rating: rating.average } : {}),
         ratingCount: rating?.count ?? 0,
         ...(distanceKm !== null ? { distanceKm } : {}),
+        ...(approx ? { approxLatitude: approx.latitude, approxLongitude: approx.longitude } : {}),
       },
       price: {
         unitPriceMinor: version.unitPriceMinor,

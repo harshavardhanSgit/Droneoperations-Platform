@@ -11,6 +11,7 @@ import {
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { ActorContext } from './actor-context';
+import type { ChangePasswordDto, UpdateAccountDto } from './dto/account.dto';
 import type { MeResponseDto } from './dto/me-response.dto';
 import type { RefreshResponseDto } from './dto/refresh-response.dto';
 import type { LoginDto } from './dto/login.dto';
@@ -322,6 +323,72 @@ export class AuthService {
       },
       role: membership.role,
     };
+  }
+
+  /**
+   * Edit your own name and phone.
+   *
+   * The id comes from the access token, never from the request body — there is
+   * no path by which one user can edit another, so no ownership check is
+   * needed or possible.
+   */
+  async updateAccount(actor: ActorContext, dto: UpdateAccountDto): Promise<MeResponseDto> {
+    const fullName = dto.fullName?.trim();
+
+    await this.users.updateProfile(actor.userId, {
+      ...(fullName ? { fullName } : {}),
+      // "" means clear it, which reaches Prisma as null; undefined means leave
+      // the column alone. Collapsing the two would make a phone number
+      // impossible to delete once entered.
+      ...(dto.phone !== undefined ? { phone: dto.phone === '' ? null : dto.phone.trim() } : {}),
+    });
+
+    return this.me(actor);
+  }
+
+  /**
+   * Change your password, and end every other session.
+   *
+   * Two things make this safe rather than decorative:
+   *
+   * 1. The CURRENT password is required. Without it, a stolen access token —
+   *    which lives in memory for 15 minutes and needs no cookie — would be
+   *    enough to take permanent ownership of the account.
+   *
+   * 2. Every refresh token is revoked. Someone changing their password is
+   *    usually responding to a suspicion that another device is signed in, and
+   *    a refresh token keeps minting access tokens no matter what the password
+   *    says. Leaving them alive would make the change theatre.
+   */
+  async changePassword(actor: ActorContext, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.users.findById(actor.userId);
+
+    if (!user) {
+      throw new UnauthenticatedException('Account no longer exists');
+    }
+
+    if (!(await this.passwords.verify(user.passwordHash, dto.currentPassword))) {
+      // Deliberately NOT "wrong current password" vs "no such account": this
+      // route is already authenticated, so the only information to protect is
+      // whether the guess was right.
+      throw new UnauthenticatedException('Current password is incorrect');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new ResourceConflictException(
+        'PASSWORD_UNCHANGED',
+        'The new password must be different from the current one',
+      );
+    }
+
+    const passwordHash = await this.passwords.hash(dto.newPassword);
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.users.updatePassword(user.id, passwordHash, tx);
+      await this.refreshTokens.revokeAllForUser(user.id, tx);
+    });
+
+    this.logger.log({ userId: user.id }, 'password changed; all sessions revoked');
   }
 
   private async getDummyHash(): Promise<string> {

@@ -54,4 +54,24 @@ export class UserRepository {
   ): Promise<UserModel> {
     return this.db(tx).user.create({ data });
   }
+
+  /**
+   * The user's own editable details.
+   *
+   * Email is absent on purpose: it is the login identity, so changing it is a
+   * re-verification flow (prove the new address, keep the old one working
+   * until then), not a profile edit. Letting it be PATCHed here would let
+   * anyone with a stolen access token lock the owner out of their account.
+   */
+  updateProfile(
+    id: string,
+    data: { fullName?: string; phone?: string | null },
+    tx?: Tx,
+  ): Promise<UserModel> {
+    return this.db(tx).user.update({ where: { id }, data });
+  }
+
+  updatePassword(id: string, passwordHash: string, tx?: Tx): Promise<UserModel> {
+    return this.db(tx).user.update({ where: { id }, data: { passwordHash } });
+  }
 }

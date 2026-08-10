@@ -22,7 +22,7 @@ type Link = { href: string; label: string };
  * — hiding a link protects nobody, the API's guard is the boundary.
  */
 const NOTIFICATIONS: Link = { href: "/notifications", label: "Notifications" };
-const ACCOUNT: Link = { href: "/dashboard", label: "Account" };
+const ACCOUNT: Link = { href: "/account", label: "Account" };
 const COVERAGE: Link = { href: "/coverage", label: "Coverage" };
 
 const NAV: Record<string, Record<string, Link[]>> = {

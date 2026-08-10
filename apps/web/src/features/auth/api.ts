@@ -26,5 +26,29 @@ export const register = (input: RegisterInput) =>
 
 export const getCurrentAccount = () => apiFetch<CurrentAccount>("/api/v1/auth/me");
 
+/**
+ * Edit your own name and phone. No email — it is the login identity, so
+ * changing it needs a verification flow the API deliberately does not expose
+ * here.
+ *
+ * `phone: ""` clears the number; omitting the key leaves it untouched.
+ */
+export const updateAccount = (input: { fullName?: string; phone?: string }) =>
+  apiFetch<CurrentAccount>("/api/v1/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+
+/**
+ * Returns 204 and revokes EVERY session for this user, including this one —
+ * the caller must send the user back to /login rather than pretend they are
+ * still signed in.
+ */
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  apiFetch<null>("/api/v1/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
 export const logout = () =>
   apiFetch<null>("/api/v1/auth/logout", { method: "POST" }).catch(() => null);

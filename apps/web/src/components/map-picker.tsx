@@ -6,14 +6,10 @@
 // shrinks each 256px tile. leaflet.css restores both.
 import "leaflet/dist/leaflet.css";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+
+import { ANCHOR, escapeHtml, markerHtml, pinHtml } from "@/components/map/markers";
+import { INDIA_CENTER, TILE_ATTRIBUTION, TILE_URL, useMapMounted } from "@/components/map/tiles";
 
 /**
  * A point picked on the map, plus whatever the reverse geocoder could name it.
@@ -32,6 +28,31 @@ export interface PickedLocation {
   pincode?: string;
 }
 
+/**
+ * A point drawn on the map alongside the picked pin.
+ *
+ * Deliberately generic: this component knows nothing about providers, matches
+ * or the discovery API, and must not learn. Callers map their own rows onto
+ * this shape.
+ */
+export interface MapMarker {
+  /** Stable across renders — the diff key, and what comes back on click. */
+  id: string;
+  latitude: number;
+  longitude: number;
+  /** Short text under the disc. Plain text; escaped before it reaches innerHTML. */
+  label: string;
+  /** Hover tooltip. Plain text; escaped. */
+  title?: string;
+}
+
+/**
+ * A stable empty default. `markers = []` in the signature would allocate a
+ * fresh array on every render, so the sync effect would re-run on every
+ * keystroke in a parent's form instead of comparing equal and skipping.
+ */
+const NO_MARKERS: MapMarker[] = [];
+
 interface MapPickerProps {
   initial?: { latitude: number; longitude: number };
   onPick: (location: PickedLocation) => void;
@@ -39,34 +60,38 @@ interface MapPickerProps {
    *  its own fields (the coordinate state it filled from onPick). */
   onClear?: () => void;
   disabled?: boolean;
+
+  /**
+   * Tailwind height class for the map box.
+   *
+   * MUST be a literal string at the call site. Tailwind v4 scans source text,
+   * so a computed `h-[${n}px]` compiles to no CSS at all and the map collapses
+   * to zero height.
+   */
+  heightClass?: string;
+
+  /** Points to draw beside the pin. Empty means this is a plain picker. */
+  markers?: MapMarker[];
+  /** Which marker is emphasised — usually the row the pointer is over. */
+  highlightedMarkerId?: string | null;
+  onMarkerClick?: (id: string) => void;
+  /** True while the CALLER's own work is in flight; the pin sweeps a radar. */
+  pending?: boolean;
+  /** Frame the pin and all markers when the marker set changes. */
+  fitToMarkers?: boolean;
 }
 
 /**
- * Map source. OpenStreetMap's public tiles need no API key and cover India
- * well, so the default stack costs nothing and works immediately. A premium
- * provider can be dropped in without code changes:
- *
- *   NEXT_PUBLIC_MAPBOX_TOKEN=sk…  → Mapbox Streets (billing required)
- *   NEXT_PUBLIC_MAP_TILE_URL=…    → any XYZ tile server
- *
  * Geocoding (search + reverse) uses Nominatim, OpenStreetMap's public API —
  * free, CORS-enabled, and fine at debounced human typing rates. For
  * production, proxy these calls through the API instead: public instances
  * rate-limit and expect a real Referer, and CORS is a dev convenience that
  * should not be assumed.
+ *
+ * Tile configuration lives in components/map/tiles — shared with the search
+ * results map, so a tile provider is swapped in one place.
  */
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-const TILE_URL =
-  process.env.NEXT_PUBLIC_MAP_TILE_URL ??
-  (MAPBOX_TOKEN
-    ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`
-    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png");
-const TILE_ATTRIBUTION = MAPBOX_TOKEN
-  ? '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
 const NOMINATIM = "https://nominatim.openstreetmap.org";
-const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
 
 interface GeocodeAddress {
   house_number?: string;
@@ -121,7 +146,6 @@ async function reverseGeocode(latitude: number, longitude: number): Promise<
   return fromAddress(body.display_name, body.address);
 }
 
-const PIN_HTML = `<span style="display:block;width:26px;height:26px;transform:translate(-13px,-26px);filter:drop-shadow(0 2px 3px rgb(0 0 0 / 0.35))"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C7.6 2 4 5.6 4 10c0 5.4 8 12 8 12s8-6.6 8-12c0-4.4-3.6-8-8-8z" fill="var(--color-accent, #2563eb)"/><circle cx="12" cy="10" r="3" fill="#fff"/></svg></span>`;
 
 /**
  * The typed query highlighted inside a suggestion, case-insensitive. Built from
@@ -159,20 +183,53 @@ interface MapHandle {
   map: import("leaflet").Map;
   L: LeafletNamespace;
   marker: import("leaflet").Marker | null;
+  /** Result markers live here, separate from the pin, so one can be cleared
+   *  without disturbing the other. */
+  layer: import("leaflet").LayerGroup;
 }
 
+/** A live marker plus the values its DOM was last built from, for diffing. */
+type LiveMarker = MapMarker & { marker: import("leaflet").Marker };
+
 /**
- * A Leaflet map for picking a single point. Imperatively managed — no react
- * wrapper dependency — and the `window`-touching leaflet module is imported
- * dynamically after mount, so it never runs during SSR.
+ * A Leaflet map for picking a point — and, optionally, for showing what was
+ * found near it. Imperatively managed (no react wrapper dependency), and the
+ * `window`-touching leaflet module is imported dynamically after mount so it
+ * never runs during SSR.
  */
-export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps) {
+export function MapPicker({
+  initial,
+  onPick,
+  onClear,
+  disabled,
+  heightClass = "h-72",
+  markers = NO_MARKERS,
+  highlightedMarkerId = null,
+  onMarkerClick,
+  pending = false,
+  fitToMarkers = false,
+}: MapPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<MapHandle | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const aliveRef = useRef(true);
   const onPickRef = useRef(onPick);
   const onClearRef = useRef(onClear);
+  const onMarkerClickRef = useRef(onMarkerClick);
+  const initialRef = useRef(initial);
+  /** id → live marker. Lets the sync effect diff instead of rebuilding. */
+  const markersRef = useRef(new Map<string, LiveMarker>());
+  /**
+   * True when something other than the picker owns the viewport.
+   *
+   * Read from async callbacks (map click, geocode, geolocation) to suppress
+   * the pick's flyTo — otherwise a pick made while results are on screen
+   * starts an animation that fitBounds kills one frame later, which reads as a
+   * stutter. Better not to start it.
+   */
+  const framingRef = useRef(false);
+  /** The initial point already applied, so a late arrival flies exactly once. */
+  const appliedInitialRef = useRef<string>("");
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   // Holds the label of the suggestion just picked. The input then contains a
@@ -192,19 +249,34 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
     };
   }, []);
 
-  // Keep the latest callbacks without updating refs during render.
+  // Keep the latest callbacks and flags without updating refs during render.
+  // NO dependency array on purpose: this must run on every commit, and it is
+  // declared before every drawing effect so those all read this render's
+  // values rather than the previous one's.
   useEffect(() => {
     onPickRef.current = onPick;
     onClearRef.current = onClear;
+    onMarkerClickRef.current = onMarkerClick;
+    initialRef.current = initial;
+    framingRef.current = fitToMarkers && markers.length > 0;
   });
 
-  // True after the first client render, false on the server — Leaflet only
-  // exists in a browser, so the map is created in an effect keyed on this.
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
+  const mounted = useMapMounted();
+
+  /**
+   * Flipped once the Leaflet map exists.
+   *
+   * This has to be STATE, not a ref. The map is created inside an async
+   * `import("leaflet")`, so every drawing effect below runs first, finds a null
+   * handle and bails. A ref would not re-render, so nothing would ever run them
+   * again — tiles, and nothing drawn on them, forever.
+   *
+   * The picker had exactly this bug before the merge: its "initial arrived
+   * late" effect could bail on a null handle and never re-fire, silently
+   * dropping a provider's saved pin whenever the API resolved before the
+   * Leaflet chunk did.
+   */
+  const [ready, setReady] = useState(false);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ label: string; latitude: number; longitude: number }[]>([]);
@@ -231,13 +303,31 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
   const [picked, setPicked] = useState<PickedLocation | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
 
-  /** Move the pin. One owner — every pick path goes through this. */
+  /**
+   * Move the pin. One owner — every pick path goes through this.
+   *
+   * Moves an existing marker rather than destroying and recreating it, so a
+   * running radar animation does not restart on every re-pick.
+   */
   const placeMarker = useCallback((latitude: number, longitude: number) => {
     const handle = handleRef.current;
     if (!handle) return;
-    handle.marker?.remove();
+
+    if (handle.marker) {
+      handle.marker.setLatLng([latitude, longitude]);
+      return;
+    }
+
     handle.marker = handle.L.marker([latitude, longitude], {
-      icon: handle.L.divIcon({ className: "", html: PIN_HTML }),
+      // ANCHOR, not Leaflet's default: DivIcon defaults to iconSize [12,12]
+      // and anchors at its centre, so without this the pin's tip renders 6px
+      // up and left of the point the user actually clicked.
+      icon: handle.L.divIcon({ className: "", html: pinHtml(false), ...ANCHOR }),
+      // The customer's own point must never sit under a result marker.
+      zIndexOffset: 1000,
+      // Leaflet makes every marker a tabIndex=0 role="button" with no
+      // accessible name and no Enter binding — a focus trap that does nothing.
+      keyboard: false,
     }).addTo(handle.map);
   }, []);
 
@@ -279,7 +369,10 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
       };
       setPicked(rounded);
       placeMarker(rounded.latitude, rounded.longitude);
-      if (options?.fly) {
+      // Only fly when nothing else owns the viewport. With results on screen,
+      // fitBounds is about to reframe around this very point anyway, and two
+      // competing animations produce a visible stutter.
+      if (options?.fly && !framingRef.current) {
         handleRef.current?.map.flyTo([rounded.latitude, rounded.longitude], 14);
       }
       onPickRef.current(rounded);
@@ -293,13 +386,23 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
 
     let disposed = false;
     let created = false;
+    // Captured for the cleanup. The lint rule cannot tell that this ref holds a
+    // Map that is only ever mutated, never reassigned, so `.current` at teardown
+    // is the same object — but binding it here is free and silences the warning
+    // honestly rather than with a blanket disable.
+    const liveMarkers = markersRef.current;
 
     void import("leaflet").then((L) => {
       if (disposed || !containerRef.current) return;
 
+      // From the ref, not the closure: this callback was created on the first
+      // render, and `initial` often only arrives once the API responds. Reading
+      // the stale closure is how the saved pin used to go missing.
+      const start = initialRef.current;
+
       const map = L.map(containerRef.current, {
-        center: initial ? [initial.latitude, initial.longitude] : INDIA_CENTER,
-        zoom: initial ? 13 : 5,
+        center: start ? [start.latitude, start.longitude] : INDIA_CENTER,
+        zoom: start ? 13 : 5,
         // Wheel zoom starts off so the page scrolls normally over the map; the
         // first interaction with the map turns it on (see the click handler),
         // so the map never feels dead after the user has engaged with it.
@@ -311,7 +414,7 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
       });
       L.control.zoom({ position: "bottomleft" }).addTo(map);
       L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION }).addTo(map);
-      handleRef.current = { map, L, marker: null };
+      handleRef.current = { map, L, marker: null, layer: L.layerGroup().addTo(map) };
 
       if (!disabled) {
         map.on("click", () => {
@@ -319,8 +422,12 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
         });
       }
 
-      if (initial) placeMarker(initial.latitude, initial.longitude);
+      if (start) {
+        placeMarker(start.latitude, start.longitude);
+        appliedInitialRef.current = `${start.latitude},${start.longitude}`;
+      }
       created = true;
+      setReady(true);
 
       if (!disabled) {
         map.on("click", (event: import("leaflet").LeafletMouseEvent) => {
@@ -339,19 +446,207 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
       disposed = true;
       if (created && handleRef.current) handleRef.current.map.remove();
       handleRef.current = null;
+      // MUST be cleared with the map. StrictMode remounts in dev, and a stale
+      // id set would make the sync effect skip creating markers that live on a
+      // destroyed map — leaving the new one showing tiles and nothing else.
+      liveMarkers.clear();
+      appliedInitialRef.current = "";
+      setReady(false);
     };
     // The map is created once. `initial` arriving late (after the provider
     // loads) is handled below, not by recreating the map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
-  /** When the provider's saved point arrives, centre the map on it. */
+  /**
+   * When a saved point arrives after the map was built, centre on it.
+   *
+   * Guarded by `appliedInitialRef` so this cannot fly again for a point the
+   * create effect already applied — otherwise every `ready` flip would replay
+   * a pointless animation from the middle of India.
+   */
+  const initialKey = initial ? `${initial.latitude},${initial.longitude}` : "";
+
   useEffect(() => {
-    if (!mounted || !handleRef.current || !initial) return;
-    handleRef.current.map.flyTo([initial.latitude, initial.longitude], 13);
+    const handle = handleRef.current;
+    if (!ready || !handle || !initial || appliedInitialRef.current === initialKey) return;
+
+    appliedInitialRef.current = initialKey;
     placeMarker(initial.latitude, initial.longitude);
+    if (!framingRef.current) handle.map.flyTo([initial.latitude, initial.longitude], 13);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial?.latitude, initial?.longitude, mounted, placeMarker]);
+  }, [ready, initialKey, placeMarker]);
+
+  /** The pin's radar, on while the caller's own work is in flight. */
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!ready || !handle?.marker) return;
+
+    handle.marker.setIcon(handle.L.divIcon({ className: "", html: pinHtml(pending), ...ANCHOR }));
+  }, [ready, pending, picked]);
+
+  /**
+   * Sync result markers by DIFFING, never by rebuilding.
+   *
+   * Rebuilding would drop the highlight class, restart tooltips, and churn the
+   * layer tree on every parent render.
+   */
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!ready || !handle) return;
+
+    const { L, layer } = handle;
+    const live = markersRef.current;
+    const seen = new Set<string>();
+
+    for (const next of markers) {
+      seen.add(next.id);
+      const existing = live.get(next.id);
+
+      if (!existing) {
+        const marker = L.marker([next.latitude, next.longitude], {
+          icon: L.divIcon({ className: "provider-marker", html: markerHtml(next.label), ...ANCHOR }),
+          // Not a tab stop: Leaflet would give it role="button" with no
+          // accessible name and no Enter binding. The result cards are the
+          // real controls; the map is a redundant view of them.
+          keyboard: false,
+        });
+
+        if (next.title) marker.bindTooltip(escapeHtml(next.title), { direction: "top" });
+
+        marker.on("click", (event) => {
+          // Marker.bubblingMouseEvents already defaults to false, so this
+          // cannot reach the map's own click handler and move the pin. Kept
+          // explicit because that default is the ONLY thing standing between a
+          // marker click and relocating the customer's field.
+          L.DomEvent.stopPropagation(event.originalEvent);
+          // Read at call time: markers outlive the render that created them,
+          // so capturing the prop directly would go stale.
+          onMarkerClickRef.current?.(next.id);
+        });
+
+        marker.addTo(layer);
+        live.set(next.id, { ...next, marker });
+        continue;
+      }
+
+      if (existing.latitude !== next.latitude || existing.longitude !== next.longitude) {
+        existing.marker.setLatLng([next.latitude, next.longitude]);
+      }
+      if (existing.label !== next.label) {
+        existing.marker.setIcon(
+          L.divIcon({ className: "provider-marker", html: markerHtml(next.label), ...ANCHOR }),
+        );
+      }
+      if (existing.title !== next.title) {
+        existing.marker.setTooltipContent(escapeHtml(next.title ?? ""));
+      }
+      live.set(next.id, { ...next, marker: existing.marker });
+    }
+
+    for (const [id, entry] of live) {
+      if (!seen.has(id)) {
+        entry.marker.remove();
+        live.delete(id);
+      }
+    }
+  }, [ready, markers]);
+
+  /**
+   * Emphasis. DECLARED AFTER the sync effect on purpose.
+   *
+   * Leaflet's _setIconStyles ASSIGNS className rather than adding to it, so any
+   * setIcon above wipes `is-highlighted`. Running afterwards — and depending on
+   * `markers` — reapplies it within the same commit.
+   *
+   * A stateless sweep over every live marker rather than tracking which two
+   * changed: nothing is created, removed or re-projected, so at this scale the
+   * whole loop is microseconds and it cannot drift out of sync.
+   */
+  useEffect(() => {
+    if (!ready) return;
+
+    for (const [id, { marker }] of markersRef.current) {
+      const on = id === highlightedMarkerId;
+      marker.getElement()?.classList.toggle("is-highlighted", on);
+      // Z-order must go through Leaflet: it writes an inline z-index on every
+      // reposition, which a stylesheet rule would lose to. Below the pin's 1000.
+      marker.setZIndexOffset(on ? 500 : 0);
+    }
+  }, [ready, highlightedMarkerId, markers]);
+
+  /**
+   * Frame the pin and everything found.
+   *
+   * The signature is computed during render and is what this depends on, so
+   * array identity churn in the parent cannot trigger a re-frame. Note what it
+   * EXCLUDES — label, pending, highlightedMarkerId — so hovering a card or
+   * starting a search never moves the viewport.
+   */
+  const pin = picked ?? initial ?? null;
+  const fitSignature = fitToMarkers
+    ? `${pin ? `${pin.latitude},${pin.longitude}` : ""}#${markers
+        .map((m) => `${m.id}@${m.latitude},${m.longitude}`)
+        .join("|")}`
+    : "";
+
+  useEffect(() => {
+    const handle = handleRef.current;
+    // Returning on an empty marker set is what keeps this component a plain
+    // picker for callers that never pass markers — a setView fallback here
+    // would yank the onboarding map on every mount.
+    if (!ready || !handle || !fitToMarkers || markers.length === 0) return;
+
+    const { L, map } = handle;
+    const points: [number, number][] = [
+      ...(pin ? ([[pin.latitude, pin.longitude]] as [number, number][]) : []),
+      ...markers.map((m) => [m.latitude, m.longitude] as [number, number]),
+    ];
+
+    const bounds = L.latLngBounds(points);
+
+    // Cancel any flyTo still running, or the two animations fight.
+    map.stop();
+
+    if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+      // Every point coincides. fitBounds on a zero-sized box snaps to zoom 19,
+      // so a provider whose grid-snapped position lands on the pin would blow
+      // the map up to street level.
+      map.setView(bounds.getCenter(), 12, { animate: true });
+      return;
+    }
+
+    // Pixel padding, not a geographic .pad(): a fractional pad over-pads a
+    // spread-out set and under-pads a tight one, and cannot know that a search
+    // bar sits over the top of the tiles and a button over the bottom.
+    map.fitBounds(bounds, {
+      animate: true,
+      maxZoom: 13,
+      paddingTopLeft: [24, 64],
+      paddingBottomRight: [24, 64],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, fitSignature, fitToMarkers]);
+
+  /**
+   * The map's box changes width when the page switches to two columns, and
+   * Leaflet caches its size — without this the tile grid tears. Neither map
+   * ever resized before the merge, so this is new.
+   */
+  useEffect(() => {
+    const handle = handleRef.current;
+    const element = containerRef.current;
+    if (!ready || !handle || !element || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      // Next frame: the observer fires mid-layout, and invalidateSize reads
+      // offsetWidth.
+      requestAnimationFrame(() => handleRef.current?.map.invalidateSize());
+    });
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [ready]);
 
   /**
    * Live recommendations as the user types. Two characters is enough to match
@@ -497,7 +792,9 @@ export function MapPicker({ initial, onPick, onClear, disabled }: MapPickerProps
 
   return (
     <div className={`map-picker ${disabled ? "pointer-events-none opacity-70" : ""}`}>
-      <div className="relative h-72 overflow-hidden rounded-control border border-border-strong">
+      <div
+        className={`relative ${heightClass} overflow-hidden rounded-control border border-border-strong`}
+      >
         {/* No aria-hidden here: Leaflet's zoom controls are interactive
             elements inside this container, and hiding them from assistive
             tech hides working buttons. The tile images themselves carry

@@ -44,8 +44,21 @@
   --halo: rgba(0, 0, 0, 0.07);
 }
 
+/**
+ * Dark mode, defined once and applied through two selectors.
+ *
+ * There are THREE states, not two: explicit light, explicit dark, and "follow
+ * the OS" — which is the default and stamps no attribute at all. That is why
+ * the media query is guarded with :not([data-theme="light"]): without it, a
+ * user on a dark OS who deliberately chose light would still get dark, because
+ * the media query would keep winning.
+ *
+ * The [data-theme="dark"] block repeats the same values so an explicit dark
+ * choice wins on a light OS. Every colour has its light value on bare :root,
+ * so no token is ever defined ONLY inside a conditional block.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0a0a0a;
     --bg-raised: #141414;
     --bg-sunken: #000000;
@@ -80,6 +93,59 @@
     --metal-dark: 152, 154, 159;
     --halo: rgba(255, 255, 255, 0.08);
   }
+}
+
+/* Explicit dark, so the choice wins on a light OS too. Same values; the
+   duplication is the price of supporting three states with plain CSS. */
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --bg-raised: #141414;
+  --bg-sunken: #000000;
+
+  --fg: #ededed;
+  --fg-muted: rgba(255, 255, 255, 0.62);
+  --fg-subtle: rgba(255, 255, 255, 0.44);
+
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.28);
+
+  --accent: #ededed;
+  --accent-fg: #0a0a0a;
+
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.14);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.14);
+  --info: #60a5fa;
+  --info-bg: rgba(96, 165, 250, 0.14);
+  --neutral: rgba(255, 255, 255, 0.6);
+  --neutral-bg: rgba(255, 255, 255, 0.08);
+
+  --metal-hi: 240, 242, 244;
+  --metal: 218, 220, 224;
+  --metal-mid: 200, 202, 207;
+  --metal-lo: 184, 186, 191;
+  --metal-lo2: 172, 174, 179;
+  --metal-dark: 152, 154, 159;
+  --halo: rgba(255, 255, 255, 0.08);
+}
+
+/* The browser's own widgets — form controls, scrollbars — follow this, not our
+   variables. Without it a dark page renders white select dropdowns. */
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -381,6 +447,20 @@ body {
   .chip-float-2 {
     animation: none;
   }
+
+  /* The radar sweep is decorative — the pin, the markers and the result count
+     all say the same thing without it. Hidden rather than merely stopped: a
+     frozen ring mid-expansion looks like a rendering artefact. */
+  .radar-sweep {
+    display: none;
+  }
+
+  /* The marker still grows on highlight — that is information, not decoration
+     — but it does so instantly rather than easing. */
+  .provider-marker-dot,
+  .provider-marker-label {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -417,4 +497,178 @@ body {
 
 .map-picker .leaflet-control-zoom a.leaflet-disabled {
   color: var(--fg-subtle);
+}
+
+/* ---------------------------------------------------------------------------
+ * Search results map — the radar sweep under the customer's pin.
+ *
+ * Rings expand and fade from the pin while a search is in flight. Two elements
+ * share one animation with staggered delays (set inline), so one is always
+ * mid-sweep and the pulse never visibly stalls.
+ *
+ * Pure CSS on a Leaflet divIcon, deliberately: animating a real L.circle's
+ * radius would re-project and repaint the geometry on every frame. This costs
+ * nothing and never touches the map's layer tree.
+ *
+ * pointer-events: none matters — the rings sit over the tiles, and without it
+ * they would swallow the clicks that enable scroll-wheel zoom.
+ * ------------------------------------------------------------------------- */
+@keyframes radar-sweep {
+  from {
+    width: 26px;
+    height: 26px;
+    opacity: 0.55;
+  }
+  to {
+    width: 260px;
+    height: 260px;
+    opacity: 0;
+  }
+}
+
+.radar-sweep {
+  position: absolute;
+  /* (0,0) of the icon box IS the coordinate — the divIcon is zero-sized and
+     zero-anchored for exactly this reason — so centring here puts the rings
+     concentric with the pin's tip. */
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  /* --map-you, not --accent: this is drawn on the tiles, and a near-white ring
+     over pale map imagery is invisible. */
+  border: 2px solid var(--map-you);
+  background: color-mix(in srgb, var(--map-you) 14%, transparent);
+  pointer-events: none;
+  animation: radar-sweep 2.2s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * Map marker colours.
+ *
+ * DELIBERATELY NOT THEME TOKENS, and deliberately not inside the dark-mode
+ * block. Everything else in this file flips with the app's theme; map tiles do
+ * not. OpenStreetMap serves the same light imagery at 3am as at noon, so a
+ * marker painted in var(--accent) turned near-white in dark mode and vanished
+ * against a pale map — which is exactly what happened.
+ *
+ * Anything drawn ON the tiles is therefore fixed, chosen for contrast against
+ * beige land, green forest and pale blue water rather than against our own
+ * background.
+ *
+ * ON THE COLOUR RULE: this file's header says colour encodes status and
+ * nothing else. That governs UI chrome, where colour was being spent on
+ * decoration. A map is the one place where colour is legitimately CATEGORICAL —
+ * it says which kind of thing a point is. It is also never the sole carrier
+ * here: the shapes differ (teardrop vs disc) and a legend sits under the map.
+ *
+ * Blue and orange specifically, because that pair stays distinguishable under
+ * every common form of colour blindness — unlike red and green.
+ * ------------------------------------------------------------------------- */
+:root {
+  --map-you: #1d4ed8;
+  --map-provider: #ea580c;
+  /* The halo that lifts a marker off dark forest and water. */
+  --map-outline: #ffffff;
+}
+
+/* The pin's own box and glyph. Zero-sized: the divIcon is zero-anchored, so
+   (0,0) here is the coordinate itself and children position against it. */
+.map-pin-box {
+  display: block;
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.map-pin-glyph {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Result markers.
+ *
+ * NOTHING here may move to an inline style on the element. The highlight below
+ * is a class selector, and an inline declaration would beat it on specificity —
+ * producing a highlight that silently does nothing.
+ *
+ * Emphasis is size and weight only. The disc is var(--accent) in both states,
+ * because colour in this system encodes status and "your pointer is here" is
+ * not a status.
+ * ------------------------------------------------------------------------- */
+.provider-marker-box {
+  display: block;
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+/* A finger-sized target over a 14px dot. Transparent, deliberately unstyled. */
+.provider-marker-hit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+}
+
+.provider-marker-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: var(--map-provider);
+  /* A hard white ring first, then a soft tint. The ring is what makes the dot
+     readable over dark green forest; the tint gives it presence at a glance. */
+  box-shadow:
+    0 0 0 2px var(--map-outline),
+    0 0 0 6px color-mix(in srgb, var(--map-provider) 28%, transparent),
+    0 1px 3px rgb(0 0 0 / 0.35);
+  /* The hit box above owns the pointer; the dot must not steal it. */
+  pointer-events: none;
+  transition:
+    width 120ms ease,
+    height 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.provider-marker-label {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border-radius: 5px;
+  /* Fixed, like the markers: a dark chip in dark mode over pale tiles read as
+     a hole punched in the map. White chip, dark text, always. */
+  background: #ffffff;
+  color: #171717;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  pointer-events: none;
+  transition:
+    top 120ms ease,
+    font-weight 120ms ease;
+}
+
+.provider-marker.is-highlighted .provider-marker-dot {
+  width: 20px;
+  height: 20px;
+  box-shadow:
+    0 0 0 2px var(--map-outline),
+    0 0 0 10px color-mix(in srgb, var(--map-provider) 32%, transparent),
+    0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+.provider-marker.is-highlighted .provider-marker-label {
+  top: 14px;
+  font-weight: 600;
 }

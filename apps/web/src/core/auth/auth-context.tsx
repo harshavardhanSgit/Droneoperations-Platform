@@ -22,6 +22,14 @@ interface AuthState {
   account: CurrentAccount | null;
   signIn: (email: string, password: string) => Promise<CurrentAccount>;
   signOut: () => Promise<void>;
+  /**
+   * Adopt an account the caller already fetched.
+   *
+   * Editing your profile changes the name shown in the sidebar footer, and the
+   * PATCH response already carries the updated account — so this takes the
+   * object rather than issuing a second GET /auth/me for data we hold.
+   */
+  setAccount: (account: CurrentAccount) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -105,9 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("anonymous");
   }, []);
 
+  const adoptAccount = useCallback((next: CurrentAccount) => setAccount(next), []);
+
   const value = useMemo<AuthState>(
-    () => ({ status, account, signIn, signOut }),
-    [status, account, signIn, signOut],
+    () => ({ status, account, signIn, signOut, setAccount: adoptAccount }),
+    [status, account, signIn, signOut, adoptAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

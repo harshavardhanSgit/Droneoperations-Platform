@@ -100,6 +100,30 @@ export class MatchProviderDto {
     description: 'Straight-line km from the requested point. Absent if either side has no location.',
   })
   distanceKm?: number;
+
+  /**
+   * Where to draw this provider on the map — APPROXIMATE, on purpose.
+   *
+   * The exact registered base is never sent: a rival could read a whole
+   * fleet's footprint off a public search. This is the centre of the ~5 km
+   * grid cell the base falls in, so the marker says "this neighbourhood",
+   * not "this address". See common/geo/coarsen.ts for what that does and
+   * does not protect against.
+   *
+   * Deliberately named `approx…`: a field called `latitude` would be treated
+   * as exact by the next person to read it.
+   */
+  @ApiPropertyOptional({
+    example: 17.9707,
+    description: 'Approximate base, snapped to a ~5 km grid. NOT the exact location.',
+  })
+  approxLatitude?: number;
+
+  @ApiPropertyOptional({
+    example: 79.6081,
+    description: 'Approximate base, snapped to a ~5 km grid. NOT the exact location.',
+  })
+  approxLongitude?: number;
 }
 
 export class MatchPriceDto {

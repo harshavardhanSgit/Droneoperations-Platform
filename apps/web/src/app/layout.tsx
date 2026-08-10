@@ -4,6 +4,8 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { ToastProvider } from "@/components/ui/toast";
 import { AuthProvider } from "@/core/auth/auth-context";
+import { ThemeProvider } from "@/core/theme/theme-context";
+import { THEME_SCRIPT } from "@/core/theme/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,13 +31,28 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/*
+          Blocking, inline, and before anything else paints. A deferred script
+          or a React effect runs only after the first paint, so a dark-mode
+          user would see a white flash on every navigation.
+
+          suppressHydrationWarning on <html> above is required: this script
+          mutates the very attribute React is about to reconcile, which React
+          would otherwise report as a server/client mismatch.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          <ToastProvider>
-            <AppShell>{children}</AppShell>
-          </ToastProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <AppShell>{children}</AppShell>
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

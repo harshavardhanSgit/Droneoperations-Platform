@@ -1,0 +1,42 @@
+# Everything here is either rebuilt inside the image, or must never enter one.
+#
+# Keeping node_modules out is not just about size: a macOS-built native module
+# copied into a Linux image fails at require() with an error that points at the
+# module rather than at the copy.
+
+node_modules
+**/node_modules
+
+# Build output — regenerated in the build stage.
+dist
+**/dist
+.next
+**/.next
+apps/api/src/generated
+
+# Secrets. .env holds a real JWT_ACCESS_SECRET and a database URL; a COPY that
+# swept it in would bake credentials into a layer that survives deletion.
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Local state and tooling noise.
+.git
+.github
+/.storage/
+apps/*/.storage/
+/.storage-test/
+apps/*/.storage-test/
+# ANCHORED, for the same reason .gitignore is — and this file made the mistake
+# first. A bare `coverage` matches a directory of that name at ANY depth, which
+# silently swallowed src/modules/coverage/, app/coverage/ and
+# features/coverage/: source the build imports. The image built, then failed
+# with "Cannot find module './modules/coverage/coverage.module'".
+/coverage/
+apps/*/coverage/
+*.log
+.DS_Store
+.vscode
+.idea
+.freebuff

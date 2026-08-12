@@ -15,6 +15,28 @@ Two product lines share one platform:
 
 ## Running it
 
+### With Docker — nothing else to install
+
+```bash
+docker compose up --build
+docker compose exec api node dist/database/seed.js     # demo data
+
+# → http://localhost:3010   sign in as fpo@demo.local / demo-passphrase-2026
+```
+
+No Postgres install, no database creation, no `.env`. Postgres is published on
+host port **5433** so it does not collide with a local install; the API reaches
+it over the compose network regardless.
+
+Migrations run automatically when the API container starts — the schema has to
+match the code about to serve traffic. Seeding is a separate command because
+demo data is a choice.
+
+> These containers are for local development. The hosted deploy is Vercel (web)
+> and Render (API) against Neon, and is deliberately independent of them.
+
+### Without Docker
+
 **Prerequisites:** Node ≥ 20.11, PostgreSQL ≥ 14, npm.
 
 ```bash
@@ -223,9 +245,19 @@ Uploaded filenames are **never** used to build a path. Only the extension surviv
 ## Testing
 
 ```bash
-npm test                 # 50 unit tests, ~3s — no database
-npm run api:test:int     # 27 integration tests, ~5s — real Postgres
+npm test                 # 154 unit tests, ~6s — no database
+npm run api:test:int     # 47 integration tests, ~6s — real Postgres
 ```
+
+Both run on every push and pull request via GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), against a real
+Postgres service container, alongside typecheck, lint and a production build of
+both apps.
+
+One detail worth knowing if you fork this: **CI has to run `prisma generate`
+before anything typechecks.** The client is generated into `src/generated` and
+git-ignored — it is build output — so on a fresh clone every import of it is a
+missing module until that step runs.
 
 **Two suites, deliberately separate.** Mixing them makes the fast one slow and stops it being run on every save.
 

@@ -1,0 +1,89 @@
+# The whole stack, for someone who has just cloned this repo.
+#
+#   docker compose up --build
+#   docker compose exec api node dist/database/seed.js     ← demo data
+#   → http://localhost:3010     sign in as fpo@demo.local / demo-passphrase-2026
+#
+# Running it needs no Postgres install, no database creation and no .env file.
+# That is the point: the barrier to looking at this project should be Docker
+# and nothing else.
+#
+# The seed is a separate command rather than part of `up` on purpose. Migrations
+# must run automatically — the schema has to match the code that is about to
+# serve traffic — but demo data is a choice, and silently inserting 400 bookings
+# into a database someone may have their own plans for is not the container's
+# call to make.
+#
+# This is NOT how the app is deployed. Production is Vercel (web) and Render
+# (API) against Neon, and these containers are deliberately independent of that
+# so a change here cannot break a working deploy.
+
+name: drone-ops
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: drone_ops
+      POSTGRES_PASSWORD: drone_ops
+      POSTGRES_DB: drone_ops
+    ports:
+      # 5433 on the HOST, 5432 inside. Anyone who already runs Postgres locally
+      # — which is most people who have worked on this repo — has 5432 bound,
+      # and compose fails to start rather than falling back.
+      #
+      #   psql postgresql://drone_ops:drone_ops@localhost:5433/drone_ops
+      #
+      # The API is unaffected: it reaches Postgres over the compose network on
+      # the internal 5432, not through this mapping.
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # The API waits on this rather than on the container merely existing —
+    # Postgres accepts connections several seconds after the process starts,
+    # and without the gate the first migration races it and loses.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drone_ops -d drone_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      # Repo root, not apps/api: npm workspaces hoist dependencies into the
+      # root node_modules, so a narrower context resolves nothing.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # `postgres` is the service name — Docker's own DNS resolves it on the
+      # compose network. localhost here would mean the API container itself.
+      DATABASE_URL: postgresql://drone_ops:drone_ops@postgres:5432/drone_ops?schema=public
+      # A fixed development secret, and safe to commit ONLY because these
+      # containers are local. Render holds a real one; it is not in this repo.
+      JWT_ACCESS_SECRET: local-docker-development-secret-not-for-production
+      WEB_ORIGIN: http://localhost:3010
+      API_PUBLIC_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Baked into the bundle at build time, so it must be the address the
+        # BROWSER will use — localhost:3000 — not the compose service name.
+        # The browser runs on the host and knows nothing about this network.
+        NEXT_PUBLIC_API_URL: http://localhost:3000
+    depends_on:
+      - api
+    ports:
+      - "3010:3010"
+
+volumes:
+  postgres-data:

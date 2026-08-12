@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first. Without this, pushing
+# three times in a minute runs three full pipelines and you wait for the answer
+# to a question you have already changed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+
+    # The integration suite talks to a real Postgres on purpose — it exists to
+    # exercise transactions, partial unique indexes and cascade rules, none of
+    # which a mock can tell you anything about.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: drone_ops_test
+        ports:
+          - 5432:5432
+        # Without the health check the first migration races the container's
+        # startup and fails with ECONNREFUSED perhaps one run in five.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/drone_ops_test?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # MUST come before anything that typechecks. The Prisma client is
+      # generated into src/generated and git-ignored — it is build output — so
+      # on a fresh clone every `import from '../generated/prisma'` is a missing
+      # module until this runs. This is the step a first pipeline forgets.
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace @drone-ops/api
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The API has no ESLint config yet; `npm run typecheck` with the compiler
+      # is what guards it. The web app has a real config.
+      - name: Lint
+        run: npm run lint --workspace @drone-ops/web
+
+      - name: Unit tests
+        run: npm run api:test
+
+      - name: Apply migrations to the test database
+        run: npm run api:migrate:deploy
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+
+      - name: Integration tests
+        run: npm run api:test:int
+
+      - name: Build API
+        run: npm run api:build
+
+      # NEXT_PUBLIC_* is inlined at build time, so a value has to exist here or
+      # the bundle ships with `undefined` as its API host. CI only proves the
+      # build compiles; the real value comes from Vercel's environment.
+      - name: Build web
+        run: npm run web:build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000

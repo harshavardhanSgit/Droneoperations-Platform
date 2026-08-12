@@ -54,8 +54,14 @@ COPY apps/api ./apps/api
 # without it nothing compiles.
 RUN npm run build --workspace @drone-ops/api
 
-# Re-resolve without dev dependencies. Doing this in the build stage rather
-# than the runtime one keeps npm itself out of the final image layer history.
+# ---------------------------------------------------------------------- prune
+# Its own stage so `build` still has the dev dependencies in it. That makes the
+# build stage runnable — `docker build --target build` then `npm run api:test`
+# reproduces a Linux CI run on any machine, which is how the one CI failure
+# this pipeline caught was diagnosed.
+FROM build AS prune
+WORKDIR /app
+
 RUN npm ci --omit=dev
 
 # -------------------------------------------------------------------- runtime
@@ -67,13 +73,13 @@ ENV NODE_ENV=production
 # A non-root user. The node images ship one already, so this is a chown and a
 # USER line rather than a useradd — but it matters: a container process running
 # as root is one container escape away from root on the host.
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build --chown=node:node /app/apps/api/dist ./apps/api/dist
-COPY --from=build --chown=node:node /app/apps/api/prisma ./apps/api/prisma
-COPY --from=build --chown=node:node /app/apps/api/package.json ./apps/api/
-COPY --from=build --chown=node:node /app/apps/api/prisma.config.ts ./apps/api/
-COPY --from=build --chown=node:node /app/package.json ./
+COPY --from=prune --chown=node:node /app/node_modules ./node_modules
+COPY --from=prune --chown=node:node /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=prune --chown=node:node /app/apps/api/dist ./apps/api/dist
+COPY --from=prune --chown=node:node /app/apps/api/prisma ./apps/api/prisma
+COPY --from=prune --chown=node:node /app/apps/api/package.json ./apps/api/
+COPY --from=prune --chown=node:node /app/apps/api/prisma.config.ts ./apps/api/
+COPY --from=prune --chown=node:node /app/package.json ./
 
 # Uploads land here when STORAGE_LOCAL_DIR is used. Created and owned up front,
 # because a process that cannot write its own storage directory fails at the

@@ -1,4 +1,4 @@
-import { generateHistoryPlan, HISTORY_TARGETS, type GenCatalogue } from './generate-history';
+import { generateHistoryPlan, HISTORY_TARGETS, type GenCatalogue } from './generate-history.plan';
 
 const NOW = new Date('2026-08-06T09:00:00.000Z').getTime();
 

@@ -1,60 +1,44 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+import { linksFor } from "@/components/app-shell";
 import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-6 border-b border-border py-2.5 text-sm last:border-0">
-      <span className="text-fg-muted">{label}</span>
-      <span className="text-right font-medium">{value}</span>
-    </div>
-  );
-}
-
-function DashboardContent() {
+/**
+ * Kept as a redirect, not deleted.
+ *
+ * This used to be the M0 walking-skeleton page — a read-only dump of
+ * GET /auth/me with a note explaining how the refresh cookie works. It proved
+ * the auth loop when there was nothing else to look at, and then quietly
+ * stopped being linked from anywhere once every role got a real first screen.
+ *
+ * Deleting the route would break two fallbacks that still point here:
+ * `landingRouteFor`'s default branch, and app-shell's `home` when a role has
+ * no links. Both are unreachable today, but a 404 is a worse failure than a
+ * redirect if either ever fires — so this forwards to whatever the signed-in
+ * role's first screen actually is.
+ */
+function DashboardRedirect() {
   const { account } = useAuth();
+  const router = useRouter();
 
-  if (!account) return null;
+  useEffect(() => {
+    if (!account) return;
 
-  return (
-    <main className="mx-auto w-full max-w-lg px-6 py-16">
-      <header className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {account.organisation.name}
-          </h1>
-          <p className="mt-1 text-sm text-fg-muted">
-            Signed in as {account.fullName}
-          </p>
-        </div>
-      </header>
+    const first = linksFor(account.organisation.kind, account.role)[0];
+    router.replace(first?.href ?? "/account");
+  }, [account, router]);
 
-      <section className="rounded-lg border border-border-strong p-5">
-        <h2 className="mb-3 text-sm font-medium">Account</h2>
-        <Row label="Email" value={account.email} />
-        {account.phone ? <Row label="Phone" value={account.phone} /> : null}
-        <Row label="Organisation type" value={account.organisation.type} />
-        <Row label="Marketplace side" value={account.organisation.kind} />
-        <Row label="Role" value={account.role} />
-      </section>
-
-
-
-
-      <p className="mt-6 text-xs text-fg-subtle">
-        This data came from <code className="font-mono">GET /api/v1/auth/me</code>, which
-        requires a valid access token. Reload the page — the access token is lost, and the
-        session is restored from the refresh cookie.
-      </p>
-    </main>
-  );
+  return <div className="px-6 py-20 text-sm text-fg-muted">Taking you to your workspace…</div>;
 }
 
 export default function DashboardPage() {
   return (
     <RequireAuth>
-      <DashboardContent />
+      <DashboardRedirect />
     </RequireAuth>
   );
 }

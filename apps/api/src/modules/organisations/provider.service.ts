@@ -12,9 +12,15 @@ import type {
   ProviderDetailDto,
   ProviderDto,
   ProviderListDto,
+  UpdateProviderCoverageDto,
   UpdateProviderProfileDto,
 } from './dto/provider.dto';
-import { assertEditable, assertTransition, BOOKABLE_STAGE } from './provider-stage.machine';
+import {
+  assertCoverageEditable,
+  assertEditable,
+  assertTransition,
+  BOOKABLE_STAGE,
+} from './provider-stage.machine';
 import { ProviderRepository, type ProviderWithOrganisation } from './provider.repository';
 
 @Injectable()
@@ -87,6 +93,44 @@ export class ProviderService {
     if (provider.stage !== 'PROFILE_COMPLETE') {
       await this.transition(provider, 'PROFILE_COMPLETE', actor.userId);
     }
+
+    return this.toDto(await this.reload(provider.id));
+  }
+
+  /**
+   * Change coverage without re-entering review.
+   *
+   * Deliberately NOT part of updateOwnProfile: that path is gated on
+   * assertEditable, which excludes ACTIVATED so a verified business cannot
+   * quietly change the details staff approved. Coverage was never reviewed —
+   * it is where you work from and how far you drive — and locking it to
+   * onboarding left every live provider unable to change the one number
+   * discovery actually matches on.
+   */
+  async updateOwnCoverage(
+    actor: ActorContext,
+    dto: UpdateProviderCoverageDto,
+  ): Promise<ProviderDto> {
+    const provider = await this.requireOwn(actor);
+
+    assertCoverageEditable(provider.stage);
+
+    // Same rule as the profile path: a radius is a distance FROM somewhere, so
+    // it needs a base either already saved or arriving in this request.
+    const willHaveBase = (dto.latitude ?? provider.latitude) != null;
+
+    if (dto.serviceRadiusKm !== undefined && !willHaveBase) {
+      throw new BusinessRuleException(
+        'LOCATION_REQUIRED',
+        'Pick your base on the map before setting how far you will travel',
+      );
+    }
+
+    await this.providers.updateCoverage(provider.id, {
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      serviceRadiusKm: dto.serviceRadiusKm,
+    });
 
     return this.toDto(await this.reload(provider.id));
   }

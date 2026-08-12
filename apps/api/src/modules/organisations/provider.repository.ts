@@ -48,6 +48,23 @@ export class ProviderRepository {
   }
 
   /**
+   * Base and range only. Narrower than updateProfile on purpose: this path is
+   * open to ACTIVATED providers, so it must be incapable of touching the
+   * business details staff verified.
+   */
+  updateCoverage(
+    id: string,
+    coverage: {
+      latitude?: number | undefined;
+      longitude?: number | undefined;
+      serviceRadiusKm?: number | undefined;
+    },
+    tx?: Tx,
+  ): Promise<ProviderModel> {
+    return this.db(tx).provider.update({ where: { id }, data: coverage });
+  }
+
+  /**
    * Moves a provider to a new stage AND records the event, in one call. The
    * two must never happen separately — a stage without its event is history
    * that cannot be reconstructed.

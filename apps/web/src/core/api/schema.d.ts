@@ -229,6 +229,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/providers/me/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set where you are based and how far you travel
+         * @description Available once activated, unlike business details. Rejected while UNDER_REVIEW or SUSPENDED.
+         */
+        put: operations["ProviderController_updateCoverage_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/providers/me/documents": {
         parameters: {
             query?: never;
@@ -284,6 +304,30 @@ export interface paths {
          * @description PROFILE_COMPLETE → UNDER_REVIEW. Details are frozen until staff decide.
          */
         post: operations["ProviderController_submit_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customers/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your saved defaults
+         * @description Returns an empty object when nothing has been saved — not a 404, because "not set yet" is a normal state rather than an error.
+         */
+        get: operations["CustomerController_findOwn_v1"];
+        /**
+         * Save your default field
+         * @description Omitting a field leaves it alone; sending null clears it. Saves the search map from opening on the middle of India every time.
+         */
+        put: operations["CustomerController_updateOwn_v1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1245,6 +1289,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List platform staff accounts
+         * @description Admins and Service Engineers — everyone who can sign in to the console.
+         */
+        get: operations["AdminUserController_list_v1"];
+        put?: never;
+        /**
+         * Create an Admin or Service Engineer
+         * @description Platform accounts are created by an existing admin — never self-registered.
+         */
+        post: operations["AdminUserController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bookings": {
         parameters: {
             query?: never;
@@ -1656,6 +1724,17 @@ export interface components {
              */
             serviceRadiusKm?: number;
         };
+        UpdateProviderCoverageDto: {
+            /** @example 17.9689 */
+            latitude?: number;
+            /** @example 79.5941 */
+            longitude?: number;
+            /**
+             * @description Kilometres this provider will travel from their base. Requires a base.
+             * @example 60
+             */
+            serviceRadiusKm?: number;
+        };
         UploadTicketDto: {
             /** Format: uuid */
             documentId: string;
@@ -1691,6 +1770,30 @@ export interface components {
              * @example 20481
              */
             sizeBytes: number;
+        };
+        CustomerProfileDto: {
+            /** @example 17.9689 */
+            latitude?: number;
+            /** @example 79.5941 */
+            longitude?: number;
+            /** @example The north field */
+            locationLabel?: string;
+            /** Format: uuid */
+            defaultAreaId?: string;
+            /** @example Warangal */
+            defaultAreaName?: string;
+            /** Format: uuid */
+            defaultAreaParentId?: string;
+        };
+        UpdateCustomerProfileDto: {
+            /** @example 17.9689 */
+            latitude?: Record<string, never> | null;
+            /** @example 79.5941 */
+            longitude?: Record<string, never> | null;
+            /** @example The north field, behind the water tank */
+            locationLabel?: Record<string, never> | null;
+            /** Format: uuid */
+            defaultAreaId?: Record<string, never> | null;
         };
         ServiceTypeDto: {
             /** Format: uuid */
@@ -2523,11 +2626,28 @@ export interface components {
             fullName: string;
             /** @example engineer@droneops.local */
             email: string;
+            /** @enum {string} */
+            role?: "ADMIN" | "SERVICE_ENGINEER";
+            /** Format: date-time */
+            createdAt?: string;
         };
         StaffListDto: {
             items: components["schemas"]["StaffMemberDto"][];
             /** @example 3 */
             total: number;
+        };
+        CreateStaffDto: {
+            /** @example ravi@droneops.local */
+            email: string;
+            /** @example Ravi Teja */
+            fullName: string;
+            /** @example a long passphrase works best */
+            password: string;
+            /**
+             * @example SERVICE_ENGINEER
+             * @enum {string}
+             */
+            role: "ADMIN" | "SERVICE_ENGINEER";
         };
         DashboardDto: {
             /**
@@ -3075,6 +3195,49 @@ export interface operations {
             };
         };
     };
+    ProviderController_updateCoverage_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProviderCoverageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ProviderDto"];
+                    };
+                };
+            };
+            /** @description Coverage not editable in the current stage */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description A radius needs a base to measure from */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
     ProviderController_listDocuments_v1: {
         parameters: {
             query?: never;
@@ -3170,6 +3333,79 @@ export interface operations {
             };
             /** @description Illegal stage transition */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CustomerController_findOwn_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerProfileDto"];
+                    };
+                };
+            };
+            /** @description Not a customer organisation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CustomerController_updateOwn_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomerProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerProfileDto"];
+                    };
+                };
+            };
+            /** @description Not a customer organisation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description That district is not in the catalogue */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4812,6 +5048,80 @@ export interface operations {
             };
             /** @description Role does not permit this action */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminUserController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffListDto"];
+                    };
+                };
+            };
+            /** @description Role does not permit this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminUserController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStaffDto"];
+            };
+        };
+        responses: {
+            /** @description Account created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffMemberDto"];
+                    };
+                };
+            };
+            /** @description Role does not permit this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelopeDto"];
+                };
+            };
+            /** @description Email already registered */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

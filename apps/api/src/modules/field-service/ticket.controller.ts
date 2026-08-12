@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import type { ActorContext } from '../identity/actor-context';
 import { CurrentUser } from '../identity/decorators/current-user.decorator';
@@ -41,7 +42,7 @@ export class ProviderTicketController {
   @ApiOperation({ summary: 'Your maintenance tickets' })
   @ApiEnvelope(TicketListDto)
   list(@CurrentUser() actor: ActorContext, @Query() query: TicketQueryDto): Promise<TicketListDto> {
-    return this.tickets.listOwn(actor, { skip: query.skip, take: query.take }, query.status);
+    return this.tickets.listOwn(actor, pageOf(query), query.status);
   }
 }
 
@@ -57,7 +58,7 @@ export class EngineerTicketController {
   @ApiOperation({ summary: 'Tickets assigned to you' })
   @ApiEnvelope(TicketListDto)
   mine(@CurrentUser() actor: ActorContext, @Query() query: TicketQueryDto): Promise<TicketListDto> {
-    return this.tickets.listMine(actor, { skip: query.skip, take: query.take });
+    return this.tickets.listMine(actor, pageOf(query));
   }
 
   @Post(':id/start')

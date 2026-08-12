@@ -1,11 +1,11 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { PaginationQueryDto, pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope } from '../../common/swagger/api-envelope.decorator';
 import type { ActorContext } from '../identity/actor-context';
 import { CurrentUser } from '../identity/decorators/current-user.decorator';
-import { NotificationDto, NotificationListDto } from './dto/notification.dto';
+import { NotificationListDto } from './dto/notification.dto';
 import { NotificationService } from './notification.service';
 
 class UnreadCountDto {
@@ -26,7 +26,7 @@ export class NotificationController {
     @CurrentUser() actor: ActorContext,
     @Query() query: PaginationQueryDto,
   ): Promise<NotificationListDto> {
-    return this.notifications.list(actor, { skip: query.skip, take: query.take });
+    return this.notifications.list(actor, pageOf(query));
   }
 
   @Get('unread-count')

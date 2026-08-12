@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import {
   AssignEngineerDto,
@@ -25,7 +26,7 @@ export class AdminTicketController {
   @ApiOperation({ summary: 'All maintenance tickets', description: 'status=OPEN is the dispatch queue.' })
   @ApiEnvelope(TicketListDto)
   list(@Query() query: TicketQueryDto): Promise<TicketListDto> {
-    return this.tickets.listAll({ skip: query.skip, take: query.take }, query.status);
+    return this.tickets.listAll(pageOf(query), query.status);
   }
 
   @Post(':id/assign')

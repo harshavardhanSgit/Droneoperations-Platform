@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { OfferingInclusion } from '../../generated/prisma/client';
-import { BusinessRuleException } from '../../common/errors/app.exception';
 import { coarsenOrNull } from '../../common/geo/coarsen';
 import { distanceBetween, type GeoPoint } from '../../common/geo/distance';
 import { CatalogueService } from '../catalogue/catalogue.service';
 import { ReputationService } from '../reputation/reputation.service';
 import { DiscoveryRepository, type MatchCandidate } from './discovery.repository';
-import { MatchSort, type MatchDto, type MatchQueryDto, type MatchResultsDto } from './dto/discovery.dto';
+import { MatchSort, type MatchDto, type MatchResultsDto } from './dto/discovery.dto';
 
 const ALL_INCLUSIONS = Object.values(OfferingInclusion);
 

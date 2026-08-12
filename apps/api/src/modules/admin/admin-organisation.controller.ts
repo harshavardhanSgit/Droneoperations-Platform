@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsEnum, IsOptional } from 'class-validator';
 
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { PaginationQueryDto, pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import { RequirePermissions } from '../identity/decorators/require-permissions.decorator';
 import { OrganisationListDto } from '../organisations/dto/organisation.dto';
@@ -45,7 +45,7 @@ export class AdminOrganisationController {
   list(@Query() query: ListOrganisationsQuery): Promise<OrganisationListDto> {
     return this.organisations.list(
       query.kind ? { kind: query.kind } : {},
-      { skip: query.skip, take: query.take },
+      pageOf(query),
     );
   }
 }

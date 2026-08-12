@@ -38,6 +38,8 @@ export type Dashboard = components["schemas"]["DashboardDto"];
 export type ProviderRating = components["schemas"]["ProviderRatingDto"];
 export type StaffMember = components["schemas"]["StaffMemberDto"];
 export type StaffList = components["schemas"]["StaffListDto"];
+export type OrganisationList = components["schemas"]["OrganisationListDto"];
+export type CustomerProfile = components["schemas"]["CustomerProfileDto"];
 
 export type Offering = components["schemas"]["OfferingDto"];
 export type OfferingVersion = components["schemas"]["OfferingVersionDto"];

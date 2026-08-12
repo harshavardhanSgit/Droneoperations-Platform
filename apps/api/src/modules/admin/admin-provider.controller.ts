@@ -12,7 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsEnum, IsOptional } from 'class-validator';
 
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { PaginationQueryDto, pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import { ProviderStage } from '../../generated/prisma/client';
 import type { ActorContext } from '../identity/actor-context';
@@ -59,7 +59,7 @@ export class AdminProviderController {
   list(@Query() query: ListProvidersQuery): Promise<ProviderListDto> {
     return this.providers.list(
       query.stage ? { stage: query.stage } : {},
-      { skip: query.skip, take: query.take },
+      pageOf(query),
     );
   }
 

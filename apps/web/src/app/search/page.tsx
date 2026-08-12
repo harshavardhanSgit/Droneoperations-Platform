@@ -14,7 +14,9 @@ import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
 import { distanceLabel, rupees, shortDate, windowLabel, WINDOWS } from "@/features/bookings/format";
+import * as customerApi from "@/features/auth/customer-api";
 import * as catalogueApi from "@/features/catalogue/api";
+import { resolveAreaFromPin } from "@/features/catalogue/resolve-area";
 import * as discoveryApi from "@/features/discovery/api";
 import { getProviderRating } from "@/features/discovery/reviews-api";
 import { INCLUSION_LABEL } from "@/features/provider/offerings-format";
@@ -178,44 +180,88 @@ function Search() {
   }, []);
 
   /**
-   * The geocoder names a place in its own words; the selects run on catalogue
-   * ids. Match by normalized name, tolerating the suffix variations the two
-   * sources use for the same district ("Warangal Urban" vs "Warangal").
+   * Open on the customer's saved field rather than the middle of India.
+   *
+   * The whole point of the saved default: a farmer books the same land over
+   * and over, and re-dropping the same pin every time is the single most
+   * repetitive thing this page used to ask of them.
+   *
+   * Deliberately does NOT run a search. A pre-filled pin is a starting point,
+   * not an instruction — the service type and quantity are still theirs to
+   * choose, and searching on their behalf would show results for a job nobody
+   * described.
    */
-  const nameMatches = useCallback((areaName: string, candidate?: string) => {
-    if (!candidate) return false;
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
-    const a = norm(areaName);
-    const b = norm(candidate);
-    if (!a || !b) return false;
-    if (a === b) return true;
-    return a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a));
+  useEffect(() => {
+    let cancelled = false;
+
+    customerApi
+      .getOwnCustomerProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        if (profile.latitude === undefined || profile.longitude === undefined) return;
+
+        setPoint({ latitude: profile.latitude, longitude: profile.longitude });
+        setPinLabel(profile.locationLabel ?? "Your saved field");
+
+        // The district select is cascading — it has no options until its state
+        // is chosen — so the state has to be restored and its districts loaded
+        // before the district id means anything. Setting the id alone would
+        // leave the select blank, which reads as the saved value being lost.
+        if (profile.defaultAreaId && profile.defaultAreaParentId) {
+          const stateId = profile.defaultAreaParentId;
+          const areaId = profile.defaultAreaId;
+
+          setStateId(stateId);
+          void loadDistricts(stateId).then(() => {
+            if (!cancelled) setAreaId(areaId);
+          });
+        }
+      })
+      .catch(() => {
+        // No saved field, or it would not load. Either way the page works
+        // exactly as it did before — this is a convenience, not a dependency.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Runs ONCE, on mount. loadDistricts is a stable useCallback with no deps,
+    // so listing it would change nothing — but including it invites someone to
+    // add a real dependency later and turn a one-time restore into a loop that
+    // overwrites whatever the customer has since chosen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
    * A picked pin is a precise answer — carry it into the State and District
    * selects so the customer does not re-type what the map already knows.
-   * Best-effort: when the geocoder's names do not line up with the catalogue,
-   * the selects are left for the customer to choose, exactly as before.
+   *
+   * The name-matching itself lives in features/catalogue/resolve-area, shared
+   * with the account page's default-field picker. What stays here is the part
+   * that is genuinely about THIS page: the sequence guard, and remembering
+   * which selects the pin filled so "Clear location" can undo exactly those.
    */
   const fillFromPin = useCallback(
     async (location: PickedLocation) => {
       const seq = ++pickSeq.current;
-      const state = states.find((s) => nameMatches(s.name, location.state));
-      if (!state) return; // outside the catalogue — leave the selects as they are
+      const resolved = await resolveAreaFromPin(location, states);
 
-      setStateId(state.id);
+      // Superseded by a newer pick, or by the customer choosing a state by
+      // hand while this was in flight.
+      if (seq !== pickSeq.current) return;
+      if (!resolved.stateId) return; // outside the catalogue — leave the selects alone
 
-      const districts = await loadDistricts(state.id);
-      if (seq !== pickSeq.current) return; // superseded by a newer pick or a manual change
+      setStateId(resolved.stateId);
+      // Straight from the resolver rather than a second fetch: it already
+      // loaded exactly the rows this select needs.
+      setDistricts(resolved.districts);
+      setAreaId(resolved.areaId ?? "");
 
-      const district =
-        districts.find((d) => nameMatches(d.name, location.district)) ??
-        districts.find((d) => nameMatches(d.name, location.city));
-      pickFilled.current = district ? { stateId: state.id, areaId: district.id } : { stateId: state.id };
-      if (district) setAreaId(district.id);
+      pickFilled.current = resolved.areaId
+        ? { stateId: resolved.stateId, areaId: resolved.areaId }
+        : { stateId: resolved.stateId };
     },
-    [loadDistricts, nameMatches, states],
+    [states],
   );
 
   async function runSearch(next: discoveryApi.MatchSort, options: { fresh: boolean }) {

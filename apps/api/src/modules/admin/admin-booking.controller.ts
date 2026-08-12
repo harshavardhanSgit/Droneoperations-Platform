@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import { BookingService } from '../bookings/booking.service';
 import {
@@ -37,7 +38,7 @@ export class AdminBookingController {
   @ApiEnvelope(BookingListDto)
   @ApiErrorEnvelope(HttpStatus.FORBIDDEN, 'Role does not permit this action')
   list(@Query() query: BookingQueryDto): Promise<BookingListDto> {
-    return this.bookings.listAll({ skip: query.skip, take: query.take }, query.status);
+    return this.bookings.listAll(pageOf(query), query.status);
   }
 
   @Get(':id')

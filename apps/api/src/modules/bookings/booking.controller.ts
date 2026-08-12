@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import type { ActorContext } from '../identity/actor-context';
 import { CurrentUser } from '../identity/decorators/current-user.decorator';
@@ -9,7 +10,6 @@ import { BookingService } from './booking.service';
 import {
   AssignProviderDto,
   BookingDetailDto,
-  BookingDto,
   BookingListDto,
   BookingQueryDto,
   CancelBookingDto,
@@ -42,7 +42,7 @@ export class BookingController {
   @ApiOperation({ summary: 'Your bookings' })
   @ApiEnvelope(BookingListDto)
   list(@CurrentUser() actor: ActorContext, @Query() query: BookingQueryDto): Promise<BookingListDto> {
-    return this.bookings.listOwn(actor, { skip: query.skip, take: query.take }, query.status);
+    return this.bookings.listOwn(actor, pageOf(query), query.status);
   }
 
   @Get(':id')

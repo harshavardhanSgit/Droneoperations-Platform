@@ -42,6 +42,29 @@ export class UserRepository {
     });
   }
 
+  /**
+   * Every platform account, with the role each one holds.
+   *
+   * listPlatformStaff answers "who can take a ticket". This answers "who has
+   * access to this platform at all", which is a different question and the one
+   * the admin users screen asks — so it must include ADMINs, and it must carry
+   * the role rather than assuming it.
+   */
+  listAllPlatformStaff(): Promise<(UserModel & { memberships: { role: MembershipRole }[] })[]> {
+    return this.prisma.user.findMany({
+      where: {
+        memberships: { some: { status: 'ACTIVE', organisation: { kind: 'PLATFORM' } } },
+      },
+      include: {
+        memberships: {
+          where: { status: 'ACTIVE', organisation: { kind: 'PLATFORM' } },
+          select: { role: true },
+        },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+  }
+
   create(
     data: {
       email: string;

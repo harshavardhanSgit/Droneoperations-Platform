@@ -11,6 +11,7 @@ import {
   ProviderDetailDto,
   ProviderDto,
   RequestDocumentUploadDto,
+  UpdateProviderCoverageDto,
   UpdateProviderProfileDto,
   UploadTicketDto,
 } from './dto/provider.dto';
@@ -47,6 +48,31 @@ export class ProviderController {
     @Body() dto: UpdateProviderProfileDto,
   ): Promise<ProviderDto> {
     return this.providers.updateOwnProfile(actor, dto);
+  }
+
+  /**
+   * Separate from `profile` because the two have different lifetimes.
+   *
+   * Business details are verified once and re-enter review if they change.
+   * Coverage is an operating decision — it changes when the fleet does — and
+   * staff never reviewed it, so an ACTIVATED provider may change it without
+   * losing their verified status.
+   */
+  @Put('coverage')
+  @RequirePermissions('provider:manage-own')
+  @ApiOperation({
+    summary: 'Set where you are based and how far you travel',
+    description:
+      'Available once activated, unlike business details. Rejected while UNDER_REVIEW or SUSPENDED.',
+  })
+  @ApiEnvelope(ProviderDto)
+  @ApiErrorEnvelope(HttpStatus.CONFLICT, 'Coverage not editable in the current stage')
+  @ApiErrorEnvelope(HttpStatus.UNPROCESSABLE_ENTITY, 'A radius needs a base to measure from')
+  updateCoverage(
+    @CurrentUser() actor: ActorContext,
+    @Body() dto: UpdateProviderCoverageDto,
+  ): Promise<ProviderDto> {
+    return this.providers.updateOwnCoverage(actor, dto);
   }
 
   @Post('documents')

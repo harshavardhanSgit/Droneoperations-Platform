@@ -51,7 +51,10 @@ export class CatalogueService {
         name: dto.name.trim(),
         description: dto.description?.trim(),
         pricingUnit: dto.pricingUnit,
-        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        // Appended, not defaulted to 0. The column's own default would put an
+        // unpositioned new type at the front of every list — including the one
+        // the customer search page picks its default from.
+        sortOrder: dto.sortOrder ?? (await this.catalogue.nextServiceTypeSortOrder()),
       }),
     );
   }

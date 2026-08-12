@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { pageOf } from '../../common/dto/pagination.dto';
 import { ApiEnvelope, ApiErrorEnvelope } from '../../common/swagger/api-envelope.decorator';
 import type { ActorContext } from '../identity/actor-context';
 import { CurrentUser } from '../identity/decorators/current-user.decorator';
@@ -34,7 +35,7 @@ export class ProviderBookingController {
   ): Promise<BookingListDto> {
     return this.bookings.listAssignedToMe(
       actor,
-      { skip: query.skip, take: query.take },
+      pageOf(query),
       query.assignmentStatus,
     );
   }

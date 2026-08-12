@@ -12,6 +12,7 @@ import { AdminTicketController } from './admin-ticket.controller';
 import { AdminOrganisationController } from './admin-organisation.controller';
 import { AdminProviderController } from './admin-provider.controller';
 import { AdminStaffController } from './admin-staff.controller';
+import { AdminUserController } from './admin-user.controller';
 
 /**
  * Controllers only. No providers, ever.
@@ -29,6 +30,7 @@ import { AdminStaffController } from './admin-staff.controller';
     AdminCatalogueController,
     AdminTicketController,
     AdminStaffController,
+    AdminUserController,
     AdminBookingController,
     AdminDashboardController,
   ],

@@ -47,6 +47,24 @@ export class CatalogueRepository {
     return this.db(tx).serviceType.create({ data });
   }
 
+  /**
+   * Where an unpositioned new service type belongs: the end.
+   *
+   * The column defaults to 0, and lists are ordered by it ascending — so a
+   * service type added through the admin screen without an explicit position
+   * silently landed AHEAD of every curated entry. It then became the customer
+   * search page's default selection, which is how a brand-new service type
+   * nobody offered started greeting every visitor with an empty result.
+   *
+   * Stepping by 10 leaves room to slot something between two existing entries
+   * without renumbering the whole list.
+   */
+  async nextServiceTypeSortOrder(tx?: Tx): Promise<number> {
+    const { _max } = await this.db(tx).serviceType.aggregate({ _max: { sortOrder: true } });
+
+    return (_max.sortOrder ?? 0) + 10;
+  }
+
   updateServiceType(
     id: string,
     data: {

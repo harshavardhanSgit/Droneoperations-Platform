@@ -14,14 +14,21 @@ export interface ProviderProfileInput {
   city: string;
   state: string;
   pincode: string;
+}
+
+/**
+ * Where the business works from and how far it will go.
+ *
+ * A separate call from the profile, because the API treats them differently:
+ * business details are verified and re-enter review if changed, so they lock
+ * once activated. Coverage was never reviewed and stays editable for life —
+ * which is the point, since it changes whenever the fleet does.
+ */
+export interface ProviderCoverageInput {
   /** Point picked on the map. Sent as a pair, or not at all. */
   latitude?: number;
   longitude?: number;
-  /**
-   * How far this business travels from that point, in km. Omitted means "leave
-   * it as it is"; the API rejects a radius when there is no base to measure
-   * from.
-   */
+  /** Kilometres travelled from that base. The API rejects it without a base. */
   serviceRadiusKm?: number;
 }
 
@@ -29,6 +36,12 @@ export const getOwnProvider = () => apiFetch<ProviderDetail>("/api/v1/providers/
 
 export const saveProfile = (input: ProviderProfileInput) =>
   apiFetch<Provider>("/api/v1/providers/me/profile", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+
+export const saveCoverage = (input: ProviderCoverageInput) =>
+  apiFetch<Provider>("/api/v1/providers/me/coverage", {
     method: "PUT",
     body: JSON.stringify(input),
   });

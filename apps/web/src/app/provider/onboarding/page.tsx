@@ -24,6 +24,18 @@ const DOCUMENT_KINDS = [
 
 const EDITABLE = ["REGISTERED", "PROFILE_COMPLETE", "DOCUMENTS_SUBMITTED", "REJECTED"];
 
+/**
+ * Mirrors COVERAGE_EDITABLE_STAGES in the API's provider-stage machine.
+ *
+ * ACTIVATED is the addition, and the whole point: coverage is not a verified
+ * detail, so a live provider must be able to change it. UNDER_REVIEW and
+ * SUSPENDED stay out.
+ *
+ * UX only — the API's stage machine is the boundary. This just avoids offering
+ * a control that would be refused.
+ */
+const COVERAGE_EDITABLE = [...EDITABLE, "ACTIVATED"];
+
 function Onboarding() {
   const { account } = useAuth();
   const toast = useToast();
@@ -108,6 +120,36 @@ function Onboarding() {
     }
   }
 
+  /**
+   * Coverage saves on its own, so an ACTIVATED provider can change where they
+   * work from and how far they go without the locked business-details form
+   * standing in the way.
+   */
+  async function onSaveCoverage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    setBusy("coverage");
+
+    try {
+      await providerApi.saveCoverage({
+        ...(pickedLocation
+          ? { latitude: pickedLocation.latitude, longitude: pickedLocation.longitude }
+          : {}),
+        // Omitted when blank, never sent as 0: the API treats undefined as
+        // "leave it alone", and a radius of zero would mean this business
+        // travels nowhere.
+        ...(radius ? { serviceRadiusKm: Number(radius) } : {}),
+      });
+      await refresh();
+      toast("Coverage saved");
+    } catch (caught) {
+      handle(caught);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function onSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -126,13 +168,8 @@ function Onboarding() {
         state: String(form.get("state")),
         pincode: String(form.get("pincode")),
         ...(registrationNumber ? { registrationNumber } : {}),
-        ...(pickedLocation
-          ? { latitude: pickedLocation.latitude, longitude: pickedLocation.longitude }
-          : {}),
-        // Omitted entirely when blank, not sent as 0: the API treats undefined
-        // as "leave it alone", and a radius of zero would mean this business
-        // travels nowhere.
-        ...(radius ? { serviceRadiusKm: Number(radius) } : {}),
+        // No coordinates or radius here any more — coverage has its own
+        // endpoint, because it stays editable after this form locks.
       });
       await refresh();
       toast("Business details saved");
@@ -205,6 +242,7 @@ function Onboarding() {
   }
 
   const editable = EDITABLE.includes(provider.stage);
+  const coverageEditable = COVERAGE_EDITABLE.includes(provider.stage);
   // A radius without a base is meaningless, and the API rejects it. Either the
   // saved point or one picked in this session counts — the pick is submitted
   // alongside the radius, so waiting for a round trip would be wrong.
@@ -240,8 +278,36 @@ function Onboarding() {
           <Field label="Registration number (optional)" name="registrationNumber" defaultValue={provider.registrationNumber ?? ""} disabled={!editable} error={fieldErrors.registrationNumber?.[0]} />
           <Field label="Contact phone" name="contactPhone" required defaultValue={provider.contactPhone ?? ""} disabled={!editable} error={fieldErrors.contactPhone?.[0]} />
 
+          <Field label="Address" name="addressLine" required defaultValue={provider.addressLine ?? ""} disabled={!editable} error={fieldErrors.addressLine?.[0]} />
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="City" name="city" required defaultValue={provider.city ?? ""} disabled={!editable} error={fieldErrors.city?.[0]} />
+            <Field label="State" name="state" required defaultValue={provider.state ?? ""} disabled={!editable} error={fieldErrors.state?.[0]} />
+            <Field label="PIN code" name="pincode" required defaultValue={provider.pincode ?? ""} disabled={!editable} error={fieldErrors.pincode?.[0]} />
+          </div>
+          {editable ? <SubmitButton pending={busy === "profile"}>Save details</SubmitButton> : (
+            <p className="text-xs text-fg-subtle">
+              Details are locked while your application is {provider.stage.toLowerCase().replace("_", " ")}.
+            </p>
+          )}
+        </form>
+      </section>
+
+      {/*
+        Coverage is its own section because it has its own lifetime. Business
+        details are verified once and lock on activation; where you work from
+        and how far you drive were never reviewed, and change whenever the
+        fleet does — so this stays open for the life of the account.
+      */}
+      <section className="mt-6 rounded-surface border border-border p-5">
+        <h2 className="text-sm font-medium">Coverage</h2>
+        <p className="mt-1 mb-4 text-xs text-fg-subtle">
+          The only thing that decides which searches you appear in. You can change it at any
+          time, even once you are active.
+        </p>
+
+        <form onSubmit={onSaveCoverage} className="space-y-4">
           <div>
-            <span className="mb-1.5 block text-sm font-medium">Business location</span>
+            <span className="mb-1.5 block text-sm font-medium">Where you are based</span>
             <MapPicker
               initial={
                 provider.latitude != null && provider.longitude != null
@@ -250,15 +316,15 @@ function Onboarding() {
               }
               onPick={onPickLocation}
               onClear={() => setPickedLocation(null)}
-              disabled={!editable}
+              disabled={!coverageEditable}
             />
           </div>
 
           {/*
-            Coverage, stated once. The pin is where you are; this is how far
-            you will go. Together they decide every search you appear in — so
-            the copy says the consequence out loud rather than labelling a
-            slider "radius" and leaving the provider to guess.
+            The pin is where you are; this is how far you will go. Together they
+            decide every search you appear in — so the copy says the consequence
+            out loud rather than labelling a slider "radius" and leaving the
+            provider to guess.
           */}
           <div>
             <div className="flex items-baseline justify-between">
@@ -275,7 +341,7 @@ function Onboarding() {
               className="mt-2 w-full accent-[var(--accent)] disabled:opacity-45"
               value={radius || "60"}
               onChange={(e) => setRadius(e.target.value)}
-              disabled={!editable || !hasBase}
+              disabled={!coverageEditable || !hasBase}
               aria-label="Travel radius in kilometres"
             />
             <p className="mt-1 text-xs text-fg-subtle">
@@ -290,15 +356,12 @@ function Onboarding() {
             ) : null}
           </div>
 
-          <Field label="Address" name="addressLine" required defaultValue={provider.addressLine ?? ""} disabled={!editable} error={fieldErrors.addressLine?.[0]} />
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="City" name="city" required defaultValue={provider.city ?? ""} disabled={!editable} error={fieldErrors.city?.[0]} />
-            <Field label="State" name="state" required defaultValue={provider.state ?? ""} disabled={!editable} error={fieldErrors.state?.[0]} />
-            <Field label="PIN code" name="pincode" required defaultValue={provider.pincode ?? ""} disabled={!editable} error={fieldErrors.pincode?.[0]} />
-          </div>
-          {editable ? <SubmitButton pending={busy === "profile"}>Save details</SubmitButton> : (
+          {coverageEditable ? (
+            <SubmitButton pending={busy === "coverage"}>Save coverage</SubmitButton>
+          ) : (
             <p className="text-xs text-fg-subtle">
-              Details are locked while your application is {provider.stage.toLowerCase().replace("_", " ")}.
+              Coverage is locked while your application is{" "}
+              {provider.stage.toLowerCase().replace("_", " ")}.
             </p>
           )}
         </form>

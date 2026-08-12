@@ -41,20 +41,25 @@ const profile = (patch: Partial<UpdateProviderProfileDto> = {}): UpdateProviderP
 describe('ProviderService — a radius needs a base', () => {
   let service: ProviderService;
   let updateProfile: jest.Mock;
+  let updateCoverage: jest.Mock;
 
   /** `saved` is the provider row as it already stands in the database. */
-  const setup = async (saved: { latitude: number | null; longitude: number | null }) => {
+  const setup = async (
+    saved: { latitude: number | null; longitude: number | null },
+    stage: string = 'PROFILE_COMPLETE',
+  ) => {
     const provider = {
       id: 'prov-1',
       organisationId: 'prov-org',
       organisation: { name: 'Kumar Agri' },
-      stage: 'PROFILE_COMPLETE',
+      stage,
       stageEnteredAt: new Date(),
       serviceRadiusKm: null,
       ...saved,
     };
 
     updateProfile = jest.fn().mockResolvedValue(provider);
+    updateCoverage = jest.fn().mockResolvedValue(provider);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -65,6 +70,7 @@ describe('ProviderService — a radius needs a base', () => {
             findByOrganisation: jest.fn().mockResolvedValue(provider),
             findById: jest.fn().mockResolvedValue(provider),
             updateProfile,
+            updateCoverage,
             transition: jest.fn(),
             listStageHistory: jest.fn().mockResolvedValue([]),
           },
@@ -112,6 +118,67 @@ describe('ProviderService — a radius needs a base', () => {
       'prov-1',
       expect.objectContaining({ serviceRadiusKm: 60 }),
     );
+  });
+
+  it('refuses a PROFILE edit once activated, as before', async () => {
+    // The rule this feature must not weaken: a verified business cannot
+    // quietly change the details staff approved.
+    await setup({ latitude: 17.9689, longitude: 79.5941 }, 'ACTIVATED');
+
+    await expect(service.updateOwnProfile(actor, profile())).rejects.toMatchObject({
+      code: 'PROVIDER_NOT_EDITABLE',
+    });
+  });
+
+  it('ALLOWS a coverage change once activated', async () => {
+    // The bug this fixes. Coverage was never reviewed — it is where you work
+    // from and how far you drive — so locking it to onboarding left every live
+    // provider unable to change the one number discovery matches on.
+    await setup({ latitude: 17.9689, longitude: 79.5941 }, 'ACTIVATED');
+
+    await service.updateOwnCoverage(actor, { serviceRadiusKm: 95 });
+
+    expect(updateCoverage).toHaveBeenCalledWith(
+      'prov-1',
+      expect.objectContaining({ serviceRadiusKm: 95 }),
+    );
+  });
+
+  it.each([['UNDER_REVIEW'], ['SUSPENDED']] as const)(
+    'refuses a coverage change while %s',
+    async (stage) => {
+      // Under review the profile is a fixed snapshot; a suspended provider is
+      // not participating at all.
+      await setup({ latitude: 17.9689, longitude: 79.5941 }, stage);
+
+      await expect(
+        service.updateOwnCoverage(actor, { serviceRadiusKm: 95 }),
+      ).rejects.toMatchObject({ code: 'PROVIDER_COVERAGE_NOT_EDITABLE' });
+
+      expect(updateCoverage).not.toHaveBeenCalled();
+    },
+  );
+
+  it('still refuses a radius with no base, on the coverage path too', async () => {
+    await setup({ latitude: null, longitude: null }, 'ACTIVATED');
+
+    await expect(
+      service.updateOwnCoverage(actor, { serviceRadiusKm: 60 }),
+    ).rejects.toBeInstanceOf(BusinessRuleException);
+
+    expect(updateCoverage).not.toHaveBeenCalled();
+  });
+
+  it('cannot touch verified business details through the coverage path', async () => {
+    // Structural, not incidental: the coverage repository method takes only
+    // base and range, so this path is INCAPABLE of writing a legal name.
+    await setup({ latitude: 17.9689, longitude: 79.5941 }, 'ACTIVATED');
+
+    await service.updateOwnCoverage(actor, { serviceRadiusKm: 80 });
+
+    const written = updateCoverage.mock.calls[0]?.[1] as Record<string, unknown>;
+
+    expect(Object.keys(written).sort()).toEqual(['latitude', 'longitude', 'serviceRadiusKm']);
   });
 
   it('leaves an untouched profile alone when no radius is sent', async () => {

@@ -106,6 +106,41 @@ export class UpdateProviderProfileDto {
   serviceRadiusKm?: number;
 }
 
+/**
+ * Coverage on its own: where the business works from, and how far it will go.
+ *
+ * Separate from the profile because it has a different lifetime. The profile
+ * is verified once and re-enters review if it changes; coverage is an
+ * operating decision an ACTIVATED provider adjusts whenever their fleet does.
+ * Same field rules as above — the pair contract and the 500 km cap are the
+ * same contract, restated for a smaller payload.
+ */
+export class UpdateProviderCoverageDto {
+  @ApiPropertyOptional({ example: 17.9689 })
+  @ValidateIf((o: UpdateProviderCoverageDto) => o.longitude !== undefined)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 79.5941 })
+  @ValidateIf((o: UpdateProviderCoverageDto) => o.latitude !== undefined)
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+
+  @ApiPropertyOptional({
+    example: 60,
+    description: 'Kilometres this provider will travel from their base. Requires a base.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  serviceRadiusKm?: number;
+}
+
 export class RejectProviderDto {
   @ApiProperty({ example: 'Registration number could not be verified' })
   @IsString()

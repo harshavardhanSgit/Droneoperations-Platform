@@ -1,18 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
+import { MapPicker } from "@/components/map-picker";
 import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/form";
 import { Page, PageHeader, Surface } from "@/components/ui/surface";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/core/api/client";
+import type { Area } from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 import { useTheme } from "@/core/theme/theme-context";
 import type { Theme } from "@/core/theme/theme";
 import * as authApi from "@/features/auth/api";
+import * as customerApi from "@/features/auth/customer-api";
+import * as catalogueApi from "@/features/catalogue/api";
+import { resolveAreaFromPin } from "@/features/catalogue/resolve-area";
 import * as organisationApi from "@/features/auth/organisation-api";
 
 const THEMES: { value: Theme; label: string; hint: string }[] = [
@@ -57,6 +62,51 @@ function Account() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // The customer's saved default field. Loaded lazily — providers and staff
+  // never render this section, so they never make the request.
+  const [fieldPoint, setFieldPoint] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [fieldLabel, setFieldLabel] = useState("");
+  // Resolved from the pin so a saved field can pre-fill a booking's district.
+  const [fieldAreaId, setFieldAreaId] = useState<string | null>(null);
+  // Top-level areas, needed to turn a geocoded state name into a catalogue id.
+  const [states, setStates] = useState<Area[]>([]);
+
+  const isCustomer = account?.organisation.kind === "CUSTOMER";
+
+  useEffect(() => {
+    if (!isCustomer) return;
+    let cancelled = false;
+
+    customerApi
+      .getOwnCustomerProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        if (profile.latitude !== undefined && profile.longitude !== undefined) {
+          setFieldPoint({ latitude: profile.latitude, longitude: profile.longitude });
+        }
+        setFieldLabel(profile.locationLabel ?? "");
+        setFieldAreaId(profile.defaultAreaId ?? null);
+      })
+      .catch(() => {
+        // A profile that will not load must not break the rest of the page —
+        // everything else here is independent of it.
+      });
+
+    catalogueApi
+      .listAreas()
+      .then((topLevel) => {
+        if (!cancelled) setStates(topLevel);
+      })
+      .catch(() => {
+        // Without states a pin cannot be resolved to a district — the pin
+        // itself still saves, which is the part that matters most.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCustomer]);
+
   if (!account) return null;
 
   const isOwner = account.role === "OWNER";
@@ -95,6 +145,51 @@ function Account() {
       toast("Organisation renamed");
     } catch (caught) {
       fail(caught, "Could not rename your organisation");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onSaveField(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setBusy("field");
+
+    try {
+      await customerApi.saveOwnCustomerProfile({
+        // null, not undefined: the customer may have cleared the pin, and the
+        // API reads undefined as "leave it alone" — which would silently keep
+        // a point they just removed.
+        latitude: fieldPoint?.latitude ?? null,
+        longitude: fieldPoint?.longitude ?? null,
+        locationLabel: fieldLabel.trim() || null,
+        defaultAreaId: fieldAreaId,
+      });
+      toast("Default field saved");
+    } catch (caught) {
+      fail(caught, "Could not save your default field");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onClearField() {
+    setError(null);
+    setBusy("field");
+
+    try {
+      await customerApi.saveOwnCustomerProfile({
+        latitude: null,
+        longitude: null,
+        locationLabel: null,
+        defaultAreaId: null,
+      });
+      setFieldPoint(null);
+      setFieldLabel("");
+      setFieldAreaId(null);
+      toast("Default field cleared");
+    } catch (caught) {
+      fail(caught, "Could not clear your default field");
     } finally {
       setBusy(null);
     }
@@ -250,6 +345,75 @@ function Account() {
             </Button>
           </form>
         </Section>
+
+        {/*
+          Customers only. A provider's base is coverage — it decides who they
+          are shown to — and lives on the onboarding screen with its radius. A
+          customer's pin decides nothing; it is only a starting point for the
+          search map, which is why it belongs in personal settings.
+        */}
+        {account.organisation.kind === "CUSTOMER" ? (
+          <Section
+            title="Default field"
+            description="Where the search map opens, so you are not re-pinning the same field every time."
+          >
+            <form onSubmit={onSaveField} className="space-y-4">
+              <MapPicker
+                heightClass="h-64"
+                initial={fieldPoint ?? undefined}
+                onPick={(location) => {
+                  setFieldPoint({ latitude: location.latitude, longitude: location.longitude });
+                  if (!fieldLabel.trim()) {
+                    setFieldLabel(location.label.split(",").slice(0, 2).join(", "));
+                  }
+
+                  // Resolve the district NOW, while the geocoder's answer is in
+                  // hand. Storing only the coordinates would mean the search
+                  // page restores a pin it cannot book against — Booking.areaId
+                  // is a required FK, and re-deriving it there would cost
+                  // another geocode round trip on every page load.
+                  void resolveAreaFromPin(location, states).then((resolved) => {
+                    setFieldAreaId(resolved.areaId ?? null);
+                  });
+                }}
+                onClear={() => {
+                  setFieldPoint(null);
+                  setFieldAreaId(null);
+                }}
+              />
+
+              {fieldPoint && fieldAreaId === null ? (
+                <p className="rounded-control bg-warning-bg px-3 py-2 text-xs text-warning">
+                  That pin is outside the districts we cover, so it will not pre-fill the district
+                  on a booking. You can still save it.
+                </p>
+              ) : null}
+
+              <Field
+                label="What you call it (optional)"
+                placeholder="The north field"
+                value={fieldLabel}
+                onChange={(e) => setFieldLabel(e.target.value)}
+              />
+
+              <div className="flex gap-2">
+                <Button type="submit" variant="primary" className="flex-1" disabled={busy !== null}>
+                  {busy === "field" ? "Saving…" : "Save default field"}
+                </Button>
+                {fieldPoint || fieldLabel ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={busy !== null}
+                    onClick={() => void onClearField()}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </Section>
+        ) : null}
 
         <Section title="Appearance" description="Applies to this browser only.">
           {/*

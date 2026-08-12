@@ -121,11 +121,53 @@ model Organisation {
 
   memberships Membership[]
   provider    Provider?
+  customer    CustomerProfile?
   bookings    Booking[]
   notifications Notification[]
 
   @@index([kind, status])
   @@map("organisations")
+}
+
+/// The buyer's side of the marketplace, mirroring Provider.
+///
+/// A SEPARATE table rather than columns on Organisation, because Organisation
+/// is shared by all three kinds — customers, providers and the platform itself.
+/// Hanging customer-only fields off it would mean every provider row carrying
+/// columns that can never apply to it, and the next kind adding more.
+///
+/// Optional (`CustomerProfile?`): a customer can book without ever filling this
+/// in. It exists to save repetition, not to gate anything.
+model CustomerProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  organisationId String       @unique @map("organisation_id") @db.Uuid
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  /// The field they book work on most often, so the search map opens there
+  /// instead of on the middle of India. Same plain-double reasoning as
+  /// Provider: this is a pin, not a survey datum. Both set together or neither.
+  latitude  Float? @map("latitude")
+  longitude Float? @map("longitude")
+
+  /// What that pin is called in their words ("the north field"), shown back to
+  /// them so a saved coordinate is recognisable rather than two numbers.
+  locationLabel String? @map("location_label")
+
+  /// The district that pin sits in. Denormalised deliberately: Booking.areaId
+  /// is a required FK, and resolving a pin to a district costs a geocode round
+  /// trip — so the answer is stored once when they set it, not recomputed on
+  /// every booking.
+  ///
+  /// SetNull rather than Cascade: retiring a district from the catalogue must
+  /// not delete a customer's profile, only the stale reference in it.
+  defaultAreaId String? @map("default_area_id") @db.Uuid
+  defaultArea   Area?   @relation(fields: [defaultAreaId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("customer_profiles")
 }
 
 model Membership {
@@ -431,6 +473,7 @@ model Area {
   children Area[] @relation("AreaHierarchy")
   offerings OfferingArea[]
   bookings  Booking[]
+  customerDefaults CustomerProfile[]
 
   @@unique([parentId, name])
   @@index([level, status])

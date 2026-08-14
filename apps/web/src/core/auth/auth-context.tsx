@@ -14,6 +14,7 @@ import {
 import { refreshSession, setAccessToken } from "@/core/api/client";
 import type { CurrentAccount } from "@/core/api/types";
 import * as authApi from "@/features/auth/api";
+import { disablePush } from "@/features/notifications/push";
 
 type Status = "loading" | "authenticated" | "anonymous";
 
@@ -107,6 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     decided.current = true;
+    // Drop this browser's push registration BEFORE the session goes, or a
+    // shared machine keeps ringing for whoever just left. Never allowed to
+    // block sign-out — disablePush swallows its own failures.
+    await disablePush();
     await authApi.logout();
     setAccessToken(null);
     setAccount(null);

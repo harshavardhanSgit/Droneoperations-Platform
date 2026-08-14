@@ -12,6 +12,7 @@
     "generate:api": "openapi-typescript http://localhost:3000/api/docs-json -o src/core/api/schema.d.ts"
   },
   "dependencies": {
+    "firebase": "^12.17.1",
     "leaflet": "^1.9.4",
     "next": "16.2.12",
     "react": "19.2.4",

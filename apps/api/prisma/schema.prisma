@@ -104,6 +104,7 @@ model User {
   memberships         Membership[]
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  deviceTokens        DeviceToken[]
 
   @@map("users")
 }
@@ -932,6 +933,42 @@ model Notification {
 
   @@index([organisationId, readAt, createdAt])
   @@map("notifications")
+}
+
+/// A browser or device registered to receive push notifications.
+///
+/// Belongs to a USER, not an organisation: a device is a person's phone, and
+/// the same person could later hold membership in more than one organisation.
+/// Notifications are addressed to an organisation, so delivery joins through
+/// membership rather than denormalising the organisation onto the token —
+/// which would go stale the moment a membership changed.
+///
+/// One row per browser profile per device. A user with a laptop and a phone
+/// has two, and both should ring.
+model DeviceToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The FCM registration token. Unique because FCM issues one per browser
+  /// profile — re-registering the same browser must update the existing row,
+  /// not accumulate duplicates that would each deliver the same notification.
+  token String @unique
+
+  /// Free text from the client ("web"), not an enum. A new platform should be
+  /// a value, not a migration.
+  platform String @default("web")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// Refreshed on every re-registration. FCM tokens rot silently — the app is
+  /// uninstalled, the browser clears storage — and the only reliable signals
+  /// are a delivery rejection or a token that has not been seen in months.
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 // ============================================================================

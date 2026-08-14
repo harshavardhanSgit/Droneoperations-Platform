@@ -10,7 +10,7 @@ import type {
   BookingCompletionEvent,
   BookingScheduleEvent,
 } from '../bookings/booking.events';
-import { NotificationRepository } from './notification.repository';
+import { NotificationService } from './notification.service';
 
 const money = (minor?: number) =>
   minor === undefined ? '' : `₹${(minor / 100).toLocaleString('en-IN')}`;
@@ -24,18 +24,22 @@ const money = (minor?: number) =>
  *
  * Every handler swallows its own errors. A notification that fails must never
  * surface as a failed booking — the business operation already committed.
+ *
+ * Handlers call the SERVICE, not the repository: delivery means persisting
+ * the record and then attempting a push, and putting that ordering in one
+ * place is what stops half these eight handlers from forgetting the push.
  */
 @Injectable()
 export class BookingNotificationListener {
   constructor(
-    private readonly notifications: NotificationRepository,
+    private readonly notifications: NotificationService,
     private readonly logger: Logger,
   ) {}
 
   @OnEvent(BOOKING_EVENTS.ASSIGNED)
   async onAssigned(event: BookingAssignedEvent): Promise<void> {
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: event.providerOrganisationId,
         type: 'BOOKING_ASSIGNED',
         title: `New request from ${event.customerName}`,
@@ -48,7 +52,7 @@ export class BookingNotificationListener {
   @OnEvent(BOOKING_EVENTS.ACCEPTED)
   async onAccepted(event: BookingAnsweredEvent): Promise<void> {
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: event.customerOrganisationId,
         type: 'BOOKING_ACCEPTED',
         title: `${event.providerName} accepted your booking`,
@@ -60,7 +64,7 @@ export class BookingNotificationListener {
   @OnEvent(BOOKING_EVENTS.REJECTED)
   async onRejected(event: BookingAnsweredEvent): Promise<void> {
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: event.customerOrganisationId,
         type: 'BOOKING_REJECTED',
         title: `${event.providerName} declined your booking`,
@@ -76,7 +80,7 @@ export class BookingNotificationListener {
     const toProvider = event.actedByRole === 'CUSTOMER';
 
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: toProvider ? event.providerOrganisationId : event.customerOrganisationId,
         type: 'BOOKING_SCHEDULE_PROPOSED',
         title: `${toProvider ? event.customerName : event.providerName} proposed a new date`,
@@ -91,7 +95,7 @@ export class BookingNotificationListener {
     const toProvider = event.actedByRole === 'CUSTOMER';
 
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: toProvider ? event.providerOrganisationId : event.customerOrganisationId,
         type: 'BOOKING_SCHEDULE_CONFIRMED',
         title: `Date agreed: ${event.date}, ${event.window.toLowerCase()}`,
@@ -103,7 +107,7 @@ export class BookingNotificationListener {
   @OnEvent(BOOKING_EVENTS.WORK_COMPLETED)
   async onWorkCompleted(event: BookingCompletionEvent): Promise<void> {
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: event.customerOrganisationId,
         type: 'BOOKING_WORK_COMPLETED',
         title: `${event.providerName} marked the work done`,
@@ -118,7 +122,7 @@ export class BookingNotificationListener {
     if (!event.providerOrganisationId) return;
 
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: event.providerOrganisationId as string,
         type: 'BOOKING_COMPLETION_CONFIRMED',
         title: 'Work confirmed by the customer',
@@ -136,7 +140,7 @@ export class BookingNotificationListener {
     if (!recipient) return;
 
     await this.safely(() =>
-      this.notifications.create({
+      this.notifications.deliver({
         organisationId: recipient,
         type: 'BOOKING_CANCELLED',
         title: 'Booking cancelled',

@@ -285,6 +285,58 @@ DATABASE_URL="postgresql://USER@localhost:5432/drone_ops_test" npx --prefix apps
 
 ---
 
+## Push notifications
+
+The bell works without any of this. Push adds an OS-level notification when the
+tab is closed, and a live unread count while it is open.
+
+**It is entirely optional.** With no Firebase credentials the API logs
+`Push notifications disabled` once at boot, the opt-in row never appears, and
+everything else behaves identically. That is why CI, `docker compose up` and a
+fresh clone all work with no Firebase project at all.
+
+### What it demonstrates
+
+Adding push changed **no domain module**. Booking still emits the same events it
+always did and knows nothing about Firebase; `PushService` is a new transport
+inside the notification module, reached only from `NotificationService.deliver`.
+That is the C1 boundary in the architecture doing exactly what it was drawn to
+do — the claim was "email in V2 is a transport swap, not a redesign", and this
+is the same swap with a different transport.
+
+### Setting it up (free, ~10 minutes)
+
+Firebase Cloud Messaging costs nothing on the Spark plan and needs no card.
+
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Add
+   project**. Analytics can be skipped.
+2. **Project settings → General → Your apps → Web** → register an app → copy
+   the config object.
+3. **Project settings → Cloud Messaging → Web Push certificates → Generate key
+   pair** → copy the key.
+4. **Project settings → Service accounts → Generate new private key** →
+   downloads a JSON file.
+5. Fill in `apps/api/.env` and `apps/web/.env.local` from the commented blocks
+   in each `.env.example`.
+6. Paste the same five public config values into
+   `apps/web/public/firebase-messaging-sw.js`. A service worker has no build
+   step and cannot read environment variables — the file explains why.
+
+In production the service account goes in Render's environment and the
+`NEXT_PUBLIC_FIREBASE_*` values in Vercel's.
+
+### Two things worth knowing
+
+**The record comes first, the push second.** `deliver()` writes the notification
+row and only then attempts a push, swallowing any failure. A user who declined
+permission, whose token has rotted, or who is behind a firewall still finds the
+notification in the bell. Reversing that order would make delivery depend on
+Google being reachable.
+
+**iOS Safari only supports web push for installed PWAs** (16.4+). Android
+Chrome works normally, which is the platform this product targets — but it is a
+real limitation, not an oversight.
+
 ## Deliberately not built
 
 Each of these is a real pattern, correctly applied elsewhere, and wrong at this scale. Knowing why is the point.

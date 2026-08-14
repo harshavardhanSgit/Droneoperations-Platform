@@ -11,6 +11,7 @@ import {
   onForegroundMessage,
   permissionState,
   pushAvailable,
+  syncExistingPermission,
 } from "@/features/notifications/push";
 import { destinationFor } from "@/features/notifications/route";
 
@@ -87,9 +88,22 @@ export function NotificationBell() {
   useEffect(() => {
     let cancelled = false;
 
-    void pushAvailable().then((available) => {
-      if (!cancelled && available && permissionState() === "default") setCanEnablePush(true);
-    });
+    void (async () => {
+      // Already refused: a browser will not ask again, so there is nothing to
+      // offer and saying so belongs on the account page, not in a dropdown.
+      if (permissionState() === "denied") return;
+      if (!(await pushAvailable()) || cancelled) return;
+
+      if (permissionState() === "granted") {
+        // Consent given on an earlier visit. Register quietly — without this
+        // they would sit past the prompt forever with no token, which looks
+        // exactly like the feature not working.
+        await syncExistingPermission();
+        return;
+      }
+
+      if (!cancelled) setCanEnablePush(true);
+    })();
 
     return () => {
       cancelled = true;

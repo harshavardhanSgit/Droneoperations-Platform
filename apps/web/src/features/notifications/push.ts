@@ -79,6 +79,32 @@ export async function pushAvailable(): Promise<boolean> {
 
 export type PushPermission = "granted" | "denied" | "default" | "unsupported";
 
+/**
+ * Obtain a token and hand it to the API.
+ *
+ * Shared by the opt-in flow and the already-granted repair, so the two cannot
+ * drift — the bug that motivated splitting this out was exactly one path
+ * registering a token and the other forgetting to.
+ *
+ * The service worker is registered explicitly rather than left to the SDK:
+ * Next serves it from /public at the site root, and passing the registration
+ * stops the SDK looking for it at a path that does not exist.
+ */
+async function registerToken(): Promise<void> {
+  const client = await messaging();
+  if (!client) throw new Error("push unsupported");
+
+  const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+  const token = await getToken(client, { vapidKey, serviceWorkerRegistration: registration });
+
+  if (!token) throw new Error("no token issued");
+
+  await apiFetch<null>("/api/v1/notifications/devices", {
+    method: "POST",
+    body: JSON.stringify({ token, platform: "web" }),
+  });
+}
+
 export function permissionState(): PushPermission {
   if (typeof Notification === "undefined") return "unsupported";
   return Notification.permission as PushPermission;
@@ -94,6 +120,29 @@ export function permissionState(): PushPermission {
  * Returns the resulting permission so the caller can explain what happened,
  * rather than a boolean that cannot distinguish "declined" from "broken".
  */
+/**
+ * Register this browser when permission was ALREADY granted.
+ *
+ * The gap this closes: a browser remembers its answer per origin, so someone
+ * who allowed notifications once — on a previous visit, or before the server
+ * could send — is permanently past the prompt. The opt-in row correctly does
+ * not appear for them, and without this they would never get a token either:
+ * consent given, and nothing delivered.
+ *
+ * Safe to call on every mount. Registration is an upsert, and getToken()
+ * returns the same value for the same browser profile.
+ */
+export async function syncExistingPermission(): Promise<void> {
+  if (permissionState() !== "granted") return;
+  if (!(await pushAvailable())) return;
+
+  await registerToken().catch(() => {
+    // Nothing to tell the user: they have already consented and this is a
+    // background repair. A failure means they get no push, which is the state
+    // they were in a moment ago anyway.
+  });
+}
+
 export async function enablePush(): Promise<PushPermission> {
   const client = await messaging();
   if (!client) return "unsupported";
@@ -102,19 +151,7 @@ export async function enablePush(): Promise<PushPermission> {
   if (permission !== "granted") return permission as PushPermission;
 
   try {
-    // The service worker is registered explicitly rather than left to the SDK:
-    // Next serves it from /public at the site root, and passing the
-    // registration avoids the SDK looking for it at a path that does not exist.
-    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    const token = await getToken(client, { vapidKey, serviceWorkerRegistration: registration });
-
-    if (!token) return "default";
-
-    await apiFetch<null>("/api/v1/notifications/devices", {
-      method: "POST",
-      body: JSON.stringify({ token, platform: "web" }),
-    });
-
+    await registerToken();
     return "granted";
   } catch {
     // A blocked service worker, a network failure, a bad VAPID key. The user

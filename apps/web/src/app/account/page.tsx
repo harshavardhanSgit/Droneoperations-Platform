@@ -16,6 +16,12 @@ import { useTheme } from "@/core/theme/theme-context";
 import type { Theme } from "@/core/theme/theme";
 import * as authApi from "@/features/auth/api";
 import * as customerApi from "@/features/auth/customer-api";
+import {
+  enablePush,
+  permissionState,
+  pushAvailable,
+  syncExistingPermission,
+} from "@/features/notifications/push";
 import * as catalogueApi from "@/features/catalogue/api";
 import { resolveAreaFromPin } from "@/features/catalogue/resolve-area";
 import * as organisationApi from "@/features/auth/organisation-api";
@@ -68,10 +74,50 @@ function Account() {
   const [fieldLabel, setFieldLabel] = useState("");
   // Resolved from the pin so a saved field can pre-fill a booking's district.
   const [fieldAreaId, setFieldAreaId] = useState<string | null>(null);
+  // Four states, because "cannot" and "refused" need different words:
+  // unavailable (browser or server cannot), denied, granted, or askable.
+  const [pushState, setPushState] = useState<"loading" | "unavailable" | "denied" | "granted" | "default">("loading");
   // Top-level areas, needed to turn a geocoded state name into a catalogue id.
   const [states, setStates] = useState<Area[]>([]);
 
   const isCustomer = account?.organisation.kind === "CUSTOMER";
+
+  // Push availability, resolved once on mount. Also repairs the case where
+  // permission was granted earlier but no token was ever registered — consent
+  // given and nothing delivered, which looks identical to the feature being
+  // broken.
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const permission = permissionState();
+
+      if (permission === "denied") {
+        if (!cancelled) setPushState("denied");
+        return;
+      }
+
+      const available = await pushAvailable();
+      if (cancelled) return;
+
+      if (!available) {
+        setPushState("unavailable");
+        return;
+      }
+
+      if (permission === "granted") {
+        await syncExistingPermission();
+        if (!cancelled) setPushState("granted");
+        return;
+      }
+
+      setPushState("default");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isCustomer) return;
@@ -147,6 +193,23 @@ function Account() {
       fail(caught, "Could not rename your organisation");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function onEnablePush() {
+    setError(null);
+    setBusy("push");
+
+    const result = await enablePush();
+    setBusy(null);
+
+    if (result === "granted") {
+      setPushState("granted");
+      toast("Notifications are on for this browser");
+    } else if (result === "denied") {
+      setPushState("denied");
+    } else {
+      setPushState("unavailable");
     }
   }
 
@@ -414,6 +477,45 @@ function Account() {
             </form>
           </Section>
         ) : null}
+
+        {/*
+          Push lives here as well as on the bell, because the bell is in the
+          MOBILE top bar — at desktop width there was nowhere to turn this on
+          at all. Account settings is reachable from every screen and every
+          size, which is where a per-browser preference belongs anyway.
+        */}
+        <Section
+          title="Notifications"
+          description="Get told when a job needs you, even with this tab closed. Applies to this browser only."
+        >
+          {pushState === "granted" ? (
+            <p className="text-sm text-success">
+              On for this browser. Turn it off in your browser&apos;s site settings.
+            </p>
+          ) : pushState === "denied" ? (
+            // The one case with no in-page remedy: a browser will not re-ask
+            // once refused, so the only honest thing is to say where the
+            // setting lives.
+            <p className="text-sm text-fg-muted">
+              Your browser is blocking notifications for this site. Click the icon to the left of
+              the address bar and allow notifications, then reload.
+            </p>
+          ) : pushState === "unavailable" ? (
+            <p className="text-sm text-fg-muted">
+              Not available in this browser. Safari on iPhone needs the site added to your home
+              screen first.
+            </p>
+          ) : (
+            <Button
+              variant="primary"
+              full
+              disabled={busy !== null}
+              onClick={() => void onEnablePush()}
+            >
+              {busy === "push" ? "Turning on…" : "Turn on notifications"}
+            </Button>
+          )}
+        </Section>
 
         <Section title="Appearance" description="Applies to this browser only.">
           {/*

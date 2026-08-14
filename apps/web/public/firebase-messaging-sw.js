@@ -27,14 +27,15 @@
 importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
 
-// Replace these with the values from your Firebase project — the same ones in
-// apps/web/.env.local. They must be literals; there is no build step here.
+// The same values as apps/web/.env.local, repeated as literals because there
+// is no build step here. Committed deliberately: these are public identifiers,
+// not credentials.
 const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME",
+  apiKey: "AIzaSyAWkc0WPbtAPZGlovp3mKrpPcDz681d1S4",
+  authDomain: "droneops-fdf0e.firebaseapp.com",
+  projectId: "droneops-fdf0e",
+  messagingSenderId: "708829332727",
+  appId: "1:708829332727:web:7fb58282f9aa116bf2bff2",
 };
 
 if (firebaseConfig.projectId !== "REPLACE_ME") {

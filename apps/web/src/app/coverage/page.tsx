@@ -80,8 +80,10 @@ function CoverageContent() {
     [data],
   );
 
-  /** "By delivery" means by delivery — an activated-but-idle provider gets a
-   * row only once they have something to show for it. */
+  /**
+   * "By delivery" means by delivery — an activated-but-idle provider gets a row only once they
+   * have something to show for it.
+   */
   const deliveringProviders = useMemo(
     () =>
       data ? data.providers.filter((p) => p.jobs > 0 || p.acresCovered > 0).slice(0, 6) : [],

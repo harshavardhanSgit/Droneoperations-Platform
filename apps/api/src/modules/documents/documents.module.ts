@@ -14,9 +14,7 @@ import { StorageController } from './storage.controller';
     DocumentService,
     DocumentRepository,
     LocalDiskStorageService,
-    // The abstract class is the injection token. Everything depends on
-    // StorageService; only this one line decides which implementation answers.
-    // Swapping to S3 means adding S3StorageService and changing useExisting.
+    // The abstract class is the injection token.
     { provide: StorageService, useExisting: LocalDiskStorageService },
   ],
   exports: [DocumentService],

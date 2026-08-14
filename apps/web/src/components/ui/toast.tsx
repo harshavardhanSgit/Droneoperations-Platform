@@ -4,17 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 import { TONE_DOT, TONE_SURFACE, type Tone } from "./tone";
 
-/**
- * Confirmation that something happened.
- *
- * Every mutation in this app used to succeed in silence — a form would close, a
- * list would reload, and the user was left inferring success from the absence
- * of an error. That is the same signal as a request that did nothing.
- *
- * Deliberately NOT a notification: these are transient acknowledgements of an
- * action the user just took, they carry no history, and they are not the
- * Notification module. Anything worth keeping goes to the bell.
- */
+/** Confirmation that something happened. */
 type Toast = { id: number; tone: Tone; message: string };
 
 const ToastContext = createContext<((message: string, tone?: Tone) => void) | null>(null);
@@ -23,8 +13,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const show = useCallback((message: string, tone: Tone = "success") => {
-    // Date.now() collides when two fire in the same millisecond, which is
-    // exactly what an "upload then close" pair does.
+    // Date.now() collides when two fire in the same millisecond, which is exactly what an
+    // "upload then close" pair does.
     const id = Math.random();
 
     setToasts((current) => [...current, { id, tone, message }]);

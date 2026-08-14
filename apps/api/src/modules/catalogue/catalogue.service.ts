@@ -51,9 +51,7 @@ export class CatalogueService {
         name: dto.name.trim(),
         description: dto.description?.trim(),
         pricingUnit: dto.pricingUnit,
-        // Appended, not defaulted to 0. The column's own default would put an
-        // unpositioned new type at the front of every list — including the one
-        // the customer search page picks its default from.
+        // Appended, not defaulted to 0.
         sortOrder: dto.sortOrder ?? (await this.catalogue.nextServiceTypeSortOrder()),
       }),
     );
@@ -116,8 +114,8 @@ export class CatalogueService {
   }
 
   /**
-   * The database cannot enforce that a DISTRICT's parent is a STATE — one
-   * self-referencing table has no way to express that. So the service does.
+   * The database cannot enforce that a DISTRICT's parent is a STATE — one self-referencing
+   * table has no way to express that.
    */
   async createArea(dto: CreateAreaDto): Promise<AreaDto> {
     const requiredParent = REQUIRED_PARENT_LEVEL[dto.level];

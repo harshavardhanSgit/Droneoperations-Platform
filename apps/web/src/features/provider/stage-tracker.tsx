@@ -6,10 +6,7 @@ const PIPELINE = [
   { key: "ACTIVATED", label: "Active" },
 ] as const;
 
-/**
- * Mirrors the backend's TRANSITIONS table. Deliberately display-only — the
- * server decides what is legal, this just shows the user where they are.
- */
+/** Mirrors the backend's TRANSITIONS table. */
 export function StageTracker({ stage }: { stage: string }) {
   if (stage === "REJECTED" || stage === "SUSPENDED") {
     return (

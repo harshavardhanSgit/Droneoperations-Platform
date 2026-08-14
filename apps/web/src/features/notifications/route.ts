@@ -1,17 +1,6 @@
 import type { CurrentAccount, Notification } from "@/core/api/types";
 
-/**
- * Where a notification takes you.
- *
- * The same event reaches two different people through two different screens: a
- * declined booking is `/bookings/:id` for the customer who must pick someone
- * else, and nothing a provider can act on at all. Linking everyone to the
- * customer route — which is what this used to do — sent providers to an
- * endpoint their role cannot call, and the product answered with a raw 403.
- *
- * Keyed on the VIEWER, not on the event. The notification does not know who is
- * reading it; the account does.
- */
+/** Where a notification takes you. */
 export function destinationFor(
   notification: Notification,
   account: CurrentAccount | null,
@@ -41,10 +30,7 @@ export function destinationFor(
   return notification.bookingId ? `/bookings/${notification.bookingId}` : "/bookings";
 }
 
-/**
- * Grouping by day rather than showing a timestamp on every row. "Today" and
- * "Yesterday" are how people actually locate a notification; 14:32 is not.
- */
+/** Grouping by day rather than showing a timestamp on every row. */
 export function dayLabel(iso: string): string {
   const then = new Date(iso);
   const now = new Date();

@@ -6,15 +6,7 @@ import { argon2id, hash } from 'argon2';
 import { PrismaClient } from '../generated/prisma/client';
 import { generateHistory } from './generate-history';
 
-/**
- * Creates the PLATFORM organisation and its first ADMIN.
- *
- * These cannot come from /auth/register — that endpoint only accepts CUSTOMER
- * and PROVIDER, deliberately, so nobody can self-elevate. Platform staff are
- * provisioned out of band; after this, an existing ADMIN creates the rest.
- *
- * Idempotent: safe to run repeatedly.
- */
+/** Creates the PLATFORM organisation and its first ADMIN. */
 const connectionString = process.env['DATABASE_URL'];
 
 if (!connectionString) {
@@ -78,9 +70,8 @@ async function main(): Promise<void> {
   await seedStaff(ENGINEER_EMAIL, ENGINEER_PASSWORD, 'Field Engineer', 'SERVICE_ENGINEER');
   await seedMarketplace();
 
-  // The landing page claims real numbers, so the database needs a believable
-  // operating history — driven through the REAL booking services so every
-  // state-machine transition is genuine. See generate-history.ts.
+  // The landing page claims real numbers, so the database needs a believable operating history
+  // — driven through the REAL booking services so every state-machine transition is genuine.
   await generateHistory();
 
   const existing = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
@@ -153,15 +144,7 @@ async function seedStaff(email: string, password: string, fullName: string, role
 
 const DEMO_PASSWORD = process.env['SEED_DEMO_PASSWORD'] ?? 'demo-passphrase-2026';
 
-/**
- * City centres for the demo providers' registered bases.
- *
- * Real coordinates, because distance is now a visible number: inventing them
- * would put "Nashik" 400 km from Nashik and make every distance on the search
- * page a lie. A provider whose city is not listed simply gets no coordinates —
- * the same state as a real provider who has not opened the map yet, which is
- * worth keeping in the demo so the "distance unknown" path is exercised.
- */
+/** City centres for the demo providers' registered bases. */
 const CITY_COORDINATES: Record<string, { latitude: number; longitude: number }> = {
   Warangal: { latitude: 17.9689, longitude: 79.5941 },
   Khammam: { latitude: 17.2473, longitude: 80.1514 },
@@ -190,8 +173,8 @@ const DEMO_PROVIDERS = [
     city: 'Guntur', state: 'Andhra Pradesh', districts: ['Guntur', 'Krishna'], radiusKm: 70,
     price: 48000, min: 5, inclusions: ['WATER', 'LABOUR'] as const,
     notes: 'Chilli and cotton specialists.' },
-  // The southern and western belts: these are what make the coverage story
-  // multi-state rather than a two-district demo.
+  // The southern and western belts: these are what make the coverage story multi-state rather
+  // than a two-district demo.
   { org: 'Rayalaseema Agri Wings', email: 'rayalaseema@demo.local', owner: 'Chandrasekhar Reddy',
     city: 'Kurnool', state: 'Andhra Pradesh', districts: ['Kurnool', 'Anantapur'], radiusKm: 120,
     price: 47000, min: 5, inclusions: ['WATER', 'TRANSPORT'] as const,
@@ -216,9 +199,8 @@ const DEMO_CUSTOMERS = [
 ];
 
 /**
- * Seeds providers already ACTIVATED, with a synthetic stage history so the
- * pipeline view is not empty. Bypassing the real flow is acceptable for demo
- * data and ONLY for demo data — the API has no path that skips review.
+ * Seeds providers already ACTIVATED, with a synthetic stage history so the pipeline view is not
+ * empty.
  */
 async function seedMarketplace(): Promise<void> {
   const spraying = await prisma.serviceType.findUnique({ where: { code: 'CROP_SPRAYING' } });
@@ -273,9 +255,7 @@ async function seedMarketplace(): Promise<void> {
           state: seed.state,
           pincode: '500001',
           ...(CITY_COORDINATES[seed.city] ?? {}),
-          // How far this business travels. Deliberately varied 45–120 km so a
-          // single pin produces different supply depending on where it lands —
-          // a demo where everyone declares the same range proves nothing.
+          // How far this business travels.
           serviceRadiusKm: seed.radiusKm,
           stage: 'ACTIVATED',
           activatedAt: new Date(),
@@ -320,8 +300,8 @@ async function seedMarketplace(): Promise<void> {
         });
       }
 
-      // A real fleet, not a single machine: three serviceable airframes per
-      // provider makes the coverage fleet count mean something.
+      // A real fleet, not a single machine: three serviceable airframes per provider makes the
+      // coverage fleet count mean something.
       const DRONE_MODELS = ['Marut AG365', 'Marut AG365N', 'Skyfarm SF-60'] as const;
       for (let i = 0; i < DRONE_MODELS.length; i += 1) {
         await tx.drone.create({
@@ -338,9 +318,7 @@ async function seedMarketplace(): Promise<void> {
     console.log(`  provider: ${seed.email} — ${seed.org}, Rs${seed.price / 100}/acre`);
   }
 
-  // Convergence: a provider that predates a districts change keeps its old
-  // footprint. The seed is the source of truth for the demo marketplace, so
-  // existing providers converge onto the current definition on re-runs.
+  // Convergence: a provider that predates a districts change keeps its old footprint.
   for (const seed of DEMO_PROVIDERS) {
     if (!(await prisma.user.findUnique({ where: { email: seed.email } }))) continue;
 
@@ -367,16 +345,7 @@ async function seedMarketplace(): Promise<void> {
       console.log(`  converged offering areas: ${seed.org} (+${missing.length} districts)`);
     }
 
-    /**
-     * Backfill the base coordinate.
-     *
-     * Providers seeded before latitude/longitude existed are skipped by the
-     * `continue` in the creation loop, so a re-run alone would never give them
-     * a location and every distance on the search page would read "unknown".
-     *
-     * Guarded on latitude being null, so a provider who has since moved their
-     * own pin is never overwritten by the seed.
-     */
+    /** Backfill the base coordinate. */
     const point = CITY_COORDINATES[seed.city];
 
     if (point) {
@@ -391,14 +360,7 @@ async function seedMarketplace(): Promise<void> {
       if (count) console.log(`  located: ${seed.org} (${seed.city})`);
     }
 
-    /**
-     * Backfill the travel radius, on its own guard.
-     *
-     * Separate from the coordinate backfill on purpose: a provider seeded
-     * before this column existed already HAS a latitude, so folding it into
-     * the block above would skip every one of them and leave the whole demo
-     * fleet unmatchable — a radius of null means invisible in search.
-     */
+    /** Backfill the travel radius, on its own guard. */
     const { count: ranged } = await prisma.provider.updateMany({
       where: {
         organisation: { memberships: { some: { user: { email: seed.email } } } },

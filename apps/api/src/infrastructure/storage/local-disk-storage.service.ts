@@ -9,16 +9,7 @@ import { AccessDeniedException } from '../../common/errors/app.exception';
 import type { Env } from '../../config/env.validation';
 import { StorageService, type StoredObjectRef } from './storage.service';
 
-/**
- * DEVELOPMENT ONLY.
- *
- * Writes to a local folder and mints signed URLs pointing back at this API,
- * so the client-side flow is byte-for-byte identical to the S3 one. In
- * production this is replaced by an S3 adapter and the bytes never touch us.
- *
- * Not viable in production for the reason noted in the blueprint: managed
- * hosting gives you an ephemeral filesystem, so uploads vanish on redeploy.
- */
+/** DEVELOPMENT ONLY. */
 @Injectable()
 export class LocalDiskStorageService extends StorageService {
   private readonly root: string;
@@ -39,8 +30,7 @@ export class LocalDiskStorageService extends StorageService {
     filename: string;
     contentType: string;
   }): Promise<StoredObjectRef> {
-    // The client's filename is NEVER used as a path. It is attacker-controlled
-    // and "../../etc/passwd" is a real filename. We keep only the extension.
+    // The client's filename is NEVER used as a path.
     const extension = extname(input.filename).toLowerCase().slice(0, 10);
     const storageKey = `${input.prefix}/${randomUUID()}${extension}`;
 
@@ -67,8 +57,7 @@ export class LocalDiskStorageService extends StorageService {
   resolveInsideRoot(storageKey: string): string {
     const target = resolve(join(this.root, normalize(storageKey)));
 
-    // Defence in depth. Even with a generated key, any path that escapes the
-    // root is refused rather than trusted.
+    // Defence in depth.
     if (target !== this.root && !target.startsWith(this.root + sep)) {
       throw new AccessDeniedException('Invalid storage key');
     }
@@ -86,8 +75,8 @@ export class LocalDiskStorageService extends StorageService {
     const expected = Buffer.from(this.hmac(action, storageKey, expiresAt));
     const provided = Buffer.from(signature);
 
-    // Length-safe constant-time compare: timingSafeEqual throws on a length
-    // mismatch, so guard that first rather than leaking it via an exception.
+    // Length-safe constant-time compare: timingSafeEqual throws on a length mismatch, so guard
+    // that first rather than leaking it via an exception.
     if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
       throw new AccessDeniedException('Invalid signature');
     }

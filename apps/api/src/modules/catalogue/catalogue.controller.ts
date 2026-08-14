@@ -16,11 +16,7 @@ class ListAreasQuery {
   parentId?: string;
 }
 
-/**
- * Read-only, available to any signed-in user. Customers need service types to
- * search; providers need them to price offerings. No permission beyond being
- * authenticated — this is public reference data, not anyone's private record.
- */
+/** Read-only, available to any signed-in user. */
 @ApiTags('Catalogue')
 @ApiBearerAuth('access-token')
 @Controller()

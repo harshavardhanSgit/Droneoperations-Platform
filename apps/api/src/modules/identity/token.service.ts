@@ -7,10 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Env } from '../../config/env.validation';
 import type { MembershipRole, OrganisationKind } from '../../generated/prisma/client';
 
-/**
- * Claims carried by the access token. Enough for the guard to build a full
- * actor context without touching the database.
- */
+/** Claims carried by the access token. */
 export interface AccessTokenClaims {
   sub: string; // user id
   oid: string; // organisation id
@@ -43,10 +40,7 @@ export class TokenService {
     return this.jwt.verifyAsync<AccessTokenClaims>(token);
   }
 
-  /**
-   * 32 bytes of CSPRNG output. `familyId` is carried across rotations so a
-   * replayed token can be traced to every descendant and revoked with it.
-   */
+  /** 32 bytes of CSPRNG output. */
   issueRefreshToken(familyId: string = randomUUID()): IssuedRefreshToken {
     const token = randomBytes(32).toString('base64url');
     const days = this.config.get('REFRESH_TOKEN_TTL_DAYS', { infer: true });
@@ -59,11 +53,7 @@ export class TokenService {
     };
   }
 
-  /**
-   * SHA-256, not argon2. Argon2 is slow on purpose to defend LOW-entropy
-   * secrets that humans choose. This token is 32 random bytes — there is no
-   * dictionary to attack, so slowness buys nothing and costs ~80ms per refresh.
-   */
+  /** SHA-256, not argon2. */
   hashRefreshToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }

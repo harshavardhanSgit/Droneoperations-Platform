@@ -7,17 +7,7 @@ import type { UpdateProviderProfileDto } from './dto/provider.dto';
 import { ProviderRepository } from './provider.repository';
 import { ProviderService } from './provider.service';
 
-/**
- * A radius is a distance FROM somewhere.
- *
- * The rule cannot live in the DTO, because the base may have been saved on an
- * earlier request — the question is about the resulting ROW, not the payload,
- * and a DTO cannot see the database. So it lives here, and so does its test.
- *
- * Why it matters beyond tidiness: a radius with no base does not fail loudly.
- * Discovery simply never matches that provider, so they would set a range, see
- * it saved, and quietly receive no work forever.
- */
+/** A radius is a distance FROM somewhere. */
 const actor: ActorContext = {
   userId: 'user-1',
   membershipId: 'mem-1',
@@ -93,9 +83,7 @@ describe('ProviderService — a radius needs a base', () => {
   });
 
   it('accepts a radius sent together with a base in the same request', async () => {
-    // The common case: a provider opens the map and moves the slider before
-    // saving once. Requiring two round trips would be a rule about our storage
-    // order, not about their business.
+    // The common case: a provider opens the map and moves the slider before saving once.
     await setup({ latitude: null, longitude: null });
 
     await service.updateOwnProfile(
@@ -121,8 +109,8 @@ describe('ProviderService — a radius needs a base', () => {
   });
 
   it('refuses a PROFILE edit once activated, as before', async () => {
-    // The rule this feature must not weaken: a verified business cannot
-    // quietly change the details staff approved.
+    // The rule this feature must not weaken: a verified business cannot quietly change the
+    // details staff approved.
     await setup({ latitude: 17.9689, longitude: 79.5941 }, 'ACTIVATED');
 
     await expect(service.updateOwnProfile(actor, profile())).rejects.toMatchObject({
@@ -131,9 +119,7 @@ describe('ProviderService — a radius needs a base', () => {
   });
 
   it('ALLOWS a coverage change once activated', async () => {
-    // The bug this fixes. Coverage was never reviewed — it is where you work
-    // from and how far you drive — so locking it to onboarding left every live
-    // provider unable to change the one number discovery matches on.
+    // The bug this fixes.
     await setup({ latitude: 17.9689, longitude: 79.5941 }, 'ACTIVATED');
 
     await service.updateOwnCoverage(actor, { serviceRadiusKm: 95 });
@@ -147,8 +133,8 @@ describe('ProviderService — a radius needs a base', () => {
   it.each([['UNDER_REVIEW'], ['SUSPENDED']] as const)(
     'refuses a coverage change while %s',
     async (stage) => {
-      // Under review the profile is a fixed snapshot; a suspended provider is
-      // not participating at all.
+      // Under review the profile is a fixed snapshot; a suspended provider is not participating
+      // at all.
       await setup({ latitude: 17.9689, longitude: 79.5941 }, stage);
 
       await expect(
@@ -170,8 +156,8 @@ describe('ProviderService — a radius needs a base', () => {
   });
 
   it('cannot touch verified business details through the coverage path', async () => {
-    // Structural, not incidental: the coverage repository method takes only
-    // base and range, so this path is INCAPABLE of writing a legal name.
+    // Structural, not incidental: the coverage repository method takes only base and range, so
+    // this path is INCAPABLE of writing a legal name.
     await setup({ latitude: 17.9689, longitude: 79.5941 }, 'ACTIVATED');
 
     await service.updateOwnCoverage(actor, { serviceRadiusKm: 80 });
@@ -182,8 +168,8 @@ describe('ProviderService — a radius needs a base', () => {
   });
 
   it('leaves an untouched profile alone when no radius is sent', async () => {
-    // undefined must reach Prisma as undefined — "leave the column alone" —
-    // so saving the address does not silently erase a declared range.
+    // undefined must reach Prisma as undefined — "leave the column alone" — so saving the
+    // address does not silently erase a declared range.
     await setup({ latitude: null, longitude: null });
 
     await service.updateOwnProfile(actor, profile());

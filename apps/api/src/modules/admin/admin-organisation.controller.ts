@@ -21,16 +21,7 @@ class ListOrganisationsQuery extends PaginationQueryDto {
   kind?: OrganisationKindFilter;
 }
 
-/**
- * ADMIN IS NOT A MODULE — it is a surface.
- *
- * This file contains a controller and nothing else. There is no
- * AdminService and no AdminRepository, and there never should be: every action
- * calls the exported service of the module that OWNS the data.
- *
- * If business logic ever appears here, the same rule now exists in two places
- * and they will diverge. That is the failure this constraint prevents.
- */
+/** ADMIN IS NOT A MODULE — it is a surface. */
 @ApiTags('Administration')
 @ApiBearerAuth('access-token')
 @Controller('admin/organisations')

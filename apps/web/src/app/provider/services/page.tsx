@@ -263,8 +263,8 @@ function Services() {
     }
   };
 
-  // One active offering per service type is a database rule, so the picker only
-  // shows what is still available rather than letting the API refuse.
+  // One active offering per service type is a database rule, so the picker only shows what is
+  // still available rather than letting the API refuse.
   const offered = new Set(offerings.filter((o) => o.status === "ACTIVE").map((o) => o.serviceTypeId));
   const available = serviceTypes.filter((t) => !offered.has(t.id));
 
@@ -276,8 +276,8 @@ function Services() {
   };
 
   const openReprice = (offering: Offering) => {
-    // Pre-filled from the current version because publishing is a REPLACEMENT:
-    // a blank form would silently drop the minimum and inclusions.
+    // Pre-filled from the current version because publishing is a REPLACEMENT: a blank form
+    // would silently drop the minimum and inclusions.
     setPanel({ id: offering.id, kind: "reprice" });
     setDraft(draftFrom(offering.currentVersion));
   };

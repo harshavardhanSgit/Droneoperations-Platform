@@ -56,8 +56,7 @@ export class BookingService {
     const booking = await this.prisma.$transaction(async (tx) => {
       const created = await this.bookings.create(
         {
-          // D7: the work is FOR the principal, created BY the actor. Identical
-          // today; different the moment staff book on a farmer's behalf.
+          // D7: the work is FOR the principal, created BY the actor.
           customerOrganisationId: actor.principalOrganisationId,
           createdByUserId: actor.userId,
           serviceTypeId: dto.serviceTypeId,
@@ -85,9 +84,7 @@ export class BookingService {
       return created;
     });
 
-    // Assigning is a separate transition, not part of creation. A booking is a
-    // valid object with no provider — which is precisely what lets V2 create it
-    // first and auto-assign afterwards (S1).
+    // Assigning is a separate transition, not part of creation.
     if (dto.offeringId) {
       return this.assign(actor, booking.id, dto.offeringId);
     }
@@ -135,19 +132,14 @@ export class BookingService {
             providerId: offering.providerId,
             offeringVersionId: version.id,
             assignedByUserId: actor.userId,
-            // S1 in practice. The strategy column and every value in it were
-            // written on day one; an operator stepping in is a value that was
-            // already legal, not a schema change. V2's auto-assignment adds
-            // PLATFORM_AUTO here and touches nothing else.
+            // S1 in practice.
             strategy:
               actor.organisationKind === 'PLATFORM' ? 'PLATFORM_MANAGED' : 'CUSTOMER_CHOICE',
           },
           tx,
         );
 
-        // The customer's preferred date becomes the opening proposal. Seeding
-        // it here rather than at creation means an UNASSIGNED booking carries a
-        // preference, not a commitment — nobody has agreed to anything yet.
+        // The customer's preferred date becomes the opening proposal.
         await this.bookings.supersedeOpenSchedules(booking.id, tx);
         await this.bookings.createSchedule(
           {
@@ -160,8 +152,7 @@ export class BookingService {
           tx,
         );
 
-        // F3: the quote is frozen against an immutable version. If the provider
-        // reprices tomorrow, this booking keeps today's terms.
+        // F3: the quote is frozen against an immutable version.
         await this.bookings.applyQuote(
           booking.id,
           {
@@ -245,8 +236,7 @@ export class BookingService {
 
       this.assertWon(closed.count);
 
-      // Accepting the job also accepts the date the customer proposed. If the
-      // provider wants a different date they propose one instead of accepting.
+      // Accepting the job also accepts the date the customer proposed.
       const pending = await this.bookings.findPendingSchedule(booking.id, tx);
 
       if (pending) {
@@ -290,11 +280,7 @@ export class BookingService {
 
   // ------------------------------------------------------------ scheduling
 
-  /**
-   * Either party proposes; the OTHER confirms (BR15). The same pair of methods
-   * serves the initial agreement and every later reschedule — a reschedule is
-   * not a different operation, it is the same negotiation run again.
-   */
+  /** Either party proposes; the OTHER confirms (BR15). */
   async proposeSchedule(
     actor: ActorContext,
     bookingId: string,
@@ -312,8 +298,7 @@ export class BookingService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Supersede whatever was open. Only one proposal may be outstanding, or
-      // "confirm" is ambiguous — and a partial unique index enforces it.
+      // Supersede whatever was open.
       await this.bookings.supersedeOpenSchedules(booking.id, tx);
 
       await this.bookings.createSchedule(
@@ -365,8 +350,8 @@ export class BookingService {
         ).count,
       );
 
-      // If the job itself is still awaiting an answer, confirming the date is
-      // also the acceptance — the provider proposed terms, the customer agreed.
+      // If the job itself is still awaiting an answer, confirming the date is also the
+      // acceptance — the provider proposed terms, the customer agreed.
       if (booking.status === 'ASSIGNED') {
         const assignment = await this.bookings.findActiveAssignment(booking.id, tx);
 
@@ -426,8 +411,7 @@ export class BookingService {
 
     assertTransition(booking.status, 'AWAITING_CONFIRMATION');
 
-    // BR14: the final amount is computed from what was DELIVERED, not what was
-    // booked. Spraying 18 of 20 acres bills 18.
+    // BR14: the final amount is computed from what was DELIVERED, not what was booked.
     const unitPrice = booking.unitPriceMinor;
 
     await this.prisma.$transaction(async (tx) => {
@@ -494,11 +478,7 @@ export class BookingService {
     return this.detail(reloaded);
   }
 
-  /**
-   * D9 — rejection returns the booking to UNASSIGNED with everything intact.
-   * The rejected assignment stays as history, which is why S1 models this as a
-   * table rather than a provider_id column.
-   */
+  /** D9 — rejection returns the booking to UNASSIGNED with everything intact. */
   async reject(actor: ActorContext, bookingId: string, reason: string): Promise<BookingDetailDto> {
     const { booking, assignment } = await this.requireAssignedToMe(actor, bookingId);
 
@@ -530,8 +510,8 @@ export class BookingService {
       this.assertWon(moved.count);
     });
 
-    // Built from the PRE-transition snapshot: after rejection the assignment is
-    // no longer active, so the reloaded booking no longer knows who declined.
+    // Built from the PRE-transition snapshot: after rejection the assignment is no longer
+    // active, so the reloaded booking no longer knows who declined.
     this.emit(BOOKING_EVENTS.REJECTED, { ...this.baseEvent(booking), reason });
 
     return this.detail(await this.requireBooking(booking.id));
@@ -553,18 +533,12 @@ export class BookingService {
     return { items: items.map((item) => this.toDto(item)), total };
   }
 
-  /** Counts by status, for the operator's dashboard. Owned here because Booking owns booking state. */
+  /** Counts by status, for the operator's dashboard. */
   countByStatus(): Promise<Record<string, number>> {
     return this.bookings.countByStatus();
   }
 
-  /**
-   * The operator's view: every booking, unscoped.
-   *
-   * Deliberately takes no ActorContext. There is no ownership rule to apply —
-   * the guard's booking:read-any permission IS the authorisation, and accepting
-   * an actor here would imply a second check that does not exist.
-   */
+  /** The operator's view: every booking, unscoped. */
   async listAll(
     page: { skip: number; take: number },
     status?: BookingStatus,
@@ -587,8 +561,8 @@ export class BookingService {
       assignmentStatus as never,
     );
 
-    // The provider row is already loaded for the ownership check, so measuring
-    // from their base costs nothing extra.
+    // The provider row is already loaded for the ownership check, so measuring from their base
+    // costs nothing extra.
     return { items: items.map((item) => this.toDto(item, provider)), total };
   }
 
@@ -622,9 +596,8 @@ export class BookingService {
   }
 
   /**
-   * Who may choose a provider: the customer, or platform staff stepping in on a
-   * job that is going nowhere (J6). Never a provider — a provider assigning
-   * themselves work is the marketplace failing.
+   * Who may choose a provider: the customer, or platform staff stepping in on a job that is
+   * going nowhere (J6).
    */
   private async requireAssignable(
     actor: ActorContext,
@@ -644,14 +617,8 @@ export class BookingService {
   }
 
   /**
-   * Who may cancel: the customer, the actively assigned provider (BR9 — either
-   * party), or platform staff intervening on a stuck job (FR-ADMIN-3).
-   *
-   * Deliberately NOT a widened requireOwnBooking. That helper also guards
-   * assign() and confirmCompletion(), and confirming completion is the
-   * customer's alone (D10) — loosening it there would let an operator sign off
-   * work on a customer's behalf. Cancellation has its own rule, so it gets its
-   * own check.
+   * Who may cancel: the customer, the actively assigned provider (BR9 — either party), or
+   * platform staff intervening on a stuck job (FR-ADMIN-3).
    */
   private async requireCancellable(
     actor: ActorContext,
@@ -720,8 +687,8 @@ export class BookingService {
     if (actor.organisationKind === 'PROVIDER') {
       const provider = await this.requireProvider(actor);
 
-      // A provider may see a booking they were ever asked about — including
-      // one they rejected, so their own history stays readable.
+      // A provider may see a booking they were ever asked about — including one they rejected,
+      // so their own history stays readable.
       if (booking.assignments.some((a) => a.providerId === provider.id)) {
         return;
       }
@@ -778,8 +745,7 @@ export class BookingService {
 
     const provider = await this.providers.findById(offering.providerId);
 
-    // BR1 restated at the point of use. Discovery filters activated providers,
-    // but a client can post any offering id — the rule must hold here too.
+    // BR1 restated at the point of use.
     if (!provider || provider.stage !== 'ACTIVATED') {
       throw new InvalidInputException('That provider is not currently accepting bookings', {
         offeringId,
@@ -825,9 +791,8 @@ export class BookingService {
   }
 
   /**
-   * Spread into the DTO so the key is absent — not null, not zero — whenever
-   * there is nothing to measure. Rounded to one decimal, matching Discovery,
-   * so the two surfaces never disagree about the same pair of points.
+   * Spread into the DTO so the key is absent — not null, not zero — whenever there is nothing
+   * to measure.
    */
   private distanceFrom(
     from: { latitude: number | null; longitude: number | null } | null | undefined,
@@ -838,11 +803,7 @@ export class BookingService {
     return km === null ? {} : { distanceKm: Math.round(km * 10) / 10 };
   }
 
-  /**
-   * @param from Optional origin to measure the job from. Supplied only on the
-   *   provider's own lists, where their registered base is the natural anchor;
-   *   omitted everywhere else, so the customer's view is unchanged.
-   */
+  /** @param from Optional origin to measure the job from. */
   private toDto(
     booking: BookingWithDetail,
     from?: { latitude: number | null; longitude: number | null } | null,
@@ -931,14 +892,7 @@ export class BookingService {
 
   // ----------------------------------------------------------------- events
 
-  /**
-   * Emitted AFTER the transaction commits, never inside it.
-   *
-   * Inside, a listener that threw would roll back the business change — a
-   * notification failure must never undo a booking. The cost is that a crash
-   * between commit and emit loses the event; that is the documented
-   * limitation the transactional outbox (deferred to V1) exists to close.
-   */
+  /** Emitted AFTER the transaction commits, never inside it. */
   private emit(event: string, payload: Record<string, unknown>): void {
     this.events.emit(event, payload);
   }

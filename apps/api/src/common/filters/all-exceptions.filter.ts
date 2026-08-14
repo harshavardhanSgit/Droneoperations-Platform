@@ -77,8 +77,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       };
     }
 
-    // Anything unrecognised is a bug. Report nothing about it — the details are
-    // in the log, findable by requestId.
+    // Anything unrecognised is a bug.
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       code: 'INTERNAL_ERROR',

@@ -1,11 +1,7 @@
 import type { ActorContext } from './actor-context';
 import { actorHasPermission, permissionsFor, PERMISSIONS } from './permissions';
 
-/**
- * The permission map is a pure function of (organisation kind, membership role).
- * That is precisely why it is testable without a database, a request or a Nest
- * module — and why level-1 authorisation was kept free of domain lookups.
- */
+/** The permission map is a pure function of (organisation kind, membership role). */
 const actor = (
   organisationKind: ActorContext['organisationKind'],
   role: ActorContext['role'],
@@ -90,8 +86,8 @@ describe('permission map', () => {
   describe('platform-wide data visibility', () => {
     it('only a PLATFORM ADMIN holds booking:read-any — the coverage gate', () => {
       expect(actorHasPermission(actor('PLATFORM', 'ADMIN'), 'booking:read-any')).toBe(true);
-      // The admin sees the whole market; a provider and a customer see only
-      // their own numbers, and an engineer works tickets, not dashboards.
+      // The admin sees the whole market; a provider and a customer see only their own numbers,
+      // and an engineer works tickets, not dashboards.
       expect(actorHasPermission(actor('PLATFORM', 'SERVICE_ENGINEER'), 'booking:read-any')).toBe(
         false,
       );

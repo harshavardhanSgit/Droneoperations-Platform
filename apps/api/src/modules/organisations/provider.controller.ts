@@ -50,14 +50,7 @@ export class ProviderController {
     return this.providers.updateOwnProfile(actor, dto);
   }
 
-  /**
-   * Separate from `profile` because the two have different lifetimes.
-   *
-   * Business details are verified once and re-enter review if they change.
-   * Coverage is an operating decision — it changes when the fleet does — and
-   * staff never reviewed it, so an ACTIVATED provider may change it without
-   * losing their verified status.
-   */
+  /** Separate from `profile` because the two have different lifetimes. */
   @Put('coverage')
   @RequirePermissions('provider:manage-own')
   @ApiOperation({

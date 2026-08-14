@@ -8,11 +8,7 @@ export const listAllBookings = (status?: string) =>
 export const getBookingAsAdmin = (id: string) =>
   apiFetch<BookingDetail>(`/api/v1/admin/bookings/${id}`);
 
-/**
- * Places a stuck job with a provider directly. The API records this as a
- * PLATFORM_MANAGED assignment — same table and lifecycle as a customer
- * choosing, differing only in how the provider was picked.
- */
+/** Places a stuck job with a provider directly. */
 export const reassign = (id: string, offeringId: string) =>
   apiFetch<BookingDetail>(`/api/v1/admin/bookings/${id}/reassign`, {
     method: "POST",

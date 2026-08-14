@@ -25,27 +25,7 @@ import {
   type IntentStatus,
 } from './generate-history.plan';
 
-/**
- * The EXECUTOR half of the history seed.
- *
- * Bootstraps the real application and drives every planned booking through the
- * REAL BookingService (create -> assign -> accept -> markComplete ->
- * confirmCompletion), then SettlementService for payments and
- * ReputationService for reviews. Every state-machine transition and event is
- * therefore genuine — this is operating history, not inserts masquerading as
- * it. The plan it executes comes from ./generate-history.plan.
- *
- * Idempotency: history bookings are BACKDATED up to a year. If any completed
- * booking older than a month exists, the database has already been through
- * this seed, so a re-run skips. Smoke-test bookings are created today, so
- * they never trip the marker.
- *
- * Known limitation, accepted for a dev seed: the marker is the existence of
- * backdated COMPLETED work, not a fingerprint of the plan. A seed that fails
- * halfway is therefore never "healed" to the full 300-completed target, and a
- * run that failed after creating only cancelled/in-flight rows could duplicate
- * those on re-run. The seed throws on any failure, so this is visible.
- */
+/** The EXECUTOR half of the history seed. */
 
 // -------------------------------------------------------------- the executor
 
@@ -74,10 +54,8 @@ function addHours(d: Date, hours: number): Date {
 }
 
 /**
- * Spreads a booking's timestamps over its own timeline so the detail page and
- * dashboards read like real history rather than a burst of writes. The
- * transitions themselves were real (they went through the state machines);
- * this only relabels the clock.
+ * Spreads a booking's timestamps over its own timeline so the detail page and dashboards read
+ * like real history rather than a burst of writes.
  */
 async function backdate(
   prisma: PrismaService,
@@ -169,8 +147,8 @@ export async function generateHistory(): Promise<void> {
     const settlement = app.get(SettlementService);
     const reputation = app.get(ReputationService);
 
-    // Idempotency marker: history bookings are backdated; a completed booking
-    // older than a month can only have come from a previous seed run.
+    // Idempotency marker: history bookings are backdated; a completed booking older than a
+    // month can only have come from a previous seed run.
     const marker = await prisma.booking.count({
       where: {
         status: 'COMPLETED',

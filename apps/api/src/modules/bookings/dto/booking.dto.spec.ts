@@ -5,11 +5,8 @@ import { TimeWindow } from '../../../generated/prisma/client';
 import { CreateBookingDto } from './booking.dto';
 
 /**
- * The location fields are the one place in this DTO with cross-field logic:
- * latitude and longitude must arrive as a pair, each within its valid range.
- * Pin that contract here — a future editor adding @IsOptional to either field
- * would silently break the both-or-neither rule (IsOptional short-circuits all
- * other validators on undefined), and this spec is what would catch it.
+ * The location fields are the one place in this DTO with cross-field logic: latitude and
+ * longitude must arrive as a pair, each within its valid range.
  */
 const BASE = {
   serviceTypeId: 'f0f0f0f0-0000-4000-8000-000000000001',

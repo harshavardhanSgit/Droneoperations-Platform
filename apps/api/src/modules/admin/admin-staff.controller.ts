@@ -6,10 +6,7 @@ import { StaffListDto } from '../identity/dto/staff.dto';
 import { RequirePermissions } from '../identity/decorators/require-permissions.decorator';
 import { StaffService } from '../identity/staff.service';
 
-/**
- * Controllers only — the fifth admin surface, added the same way as the others.
- * The query itself belongs to Identity; this file routes to it and nothing more.
- */
+/** Controllers only — the fifth admin surface, added the same way as the others. */
 @ApiTags('Administration')
 @ApiBearerAuth('access-token')
 @Controller('admin/engineers')

@@ -22,13 +22,7 @@ const FILTERS = [
   { value: "", label: "All" },
 ];
 
-/**
- * The console surface: 32px rows, tabular figures, a real table.
- *
- * This is the deliberate opposite of the provider screens. An operator scanning
- * a queue compares rows against each other, so the rows must line up and fit on
- * one screen. The same content as cards would be honest and useless.
- */
+/** The console surface: 32px rows, tabular figures, a real table. */
 function Tickets() {
   const toast = useToast();
   const [items, setItems] = useState<Ticket[]>([]);
@@ -39,9 +33,8 @@ function Tickets() {
   const [assigning, setAssigning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Deliberately does not touch `loading` — a synchronous setState inside an
-  // effect triggers an extra render pass before paint. Callers that need a
-  // spinner set it themselves; the first load starts with loading already true.
+  // Deliberately does not touch `loading` — a synchronous setState inside an effect triggers an
+  // extra render pass before paint.
   const load = (next = status) => {
     return admin
       .listTickets(next || undefined)

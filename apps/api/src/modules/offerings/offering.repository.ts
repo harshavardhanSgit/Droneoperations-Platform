@@ -87,12 +87,7 @@ export class OfferingRepository {
     return this.db(tx).offeringVersion.create({ data });
   }
 
-  /**
-   * Closes the current version. Conditional on effectiveTo still being NULL,
-   * so a concurrent reprice that already closed it yields count 0 and the
-   * caller knows it lost the race rather than silently creating a second
-   * "current" version.
-   */
+  /** Closes the current version. */
   closeCurrentVersion(offeringId: string, at: Date, tx?: Tx): Promise<{ count: number }> {
     return this.db(tx).offeringVersion.updateMany({
       where: { offeringId, effectiveTo: null },

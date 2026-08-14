@@ -5,14 +5,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { useAuth } from "./auth-context";
 
-/**
- * UX only — NOT a security boundary.
- *
- * This stops a signed-out user staring at an empty page. It cannot stop anyone
- * reading data: the browser bundle is public and the API is reachable directly.
- * Authorisation is enforced by the API's global JwtAuthGuard, and this
- * component just mirrors that decision for the user's benefit.
- */
+/** UX only — NOT a security boundary. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { status } = useAuth();
   const router = useRouter();
@@ -34,14 +27,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/**
- * Also UX only — the API's PermissionsGuard is still the boundary.
- *
- * Keyed on (kind, role) because kind alone is not enough: an Admin and a
- * Service Engineer are both PLATFORM, and a kind-only check lets an engineer
- * through to a screen the API will then refuse with a raw 403. Explaining that
- * in the product beats surfacing the guard's error message.
- */
+/** Also UX only — the API's PermissionsGuard is still the boundary. */
 export function RequireRole({
   kind,
   role,

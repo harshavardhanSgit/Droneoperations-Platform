@@ -17,15 +17,7 @@ const PRICING_UNITS = ["PER_ACRE", "PER_SQ_KM", "PER_HOUR", "PER_DAY", "PER_ASSE
 
 const unitLabel = (u: string) => u.replace("PER_", "per ").toLowerCase().replace("_", " ");
 
-/**
- * The screen that makes S5 checkable.
- *
- * Adding "Aerial survey" here is a row in a table, and it is immediately
- * offerable by every provider and bookable by every customer — no deploy, no
- * migration, no code change. That claim has been in the architecture from the
- * start; until this screen existed there was no way to test it through the
- * product.
- */
+/** The screen that makes S5 checkable. */
 function Catalogue() {
   const toast = useToast();
   const [services, setServices] = useState<ServiceType[]>([]);

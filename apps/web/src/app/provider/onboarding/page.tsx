@@ -24,16 +24,7 @@ const DOCUMENT_KINDS = [
 
 const EDITABLE = ["REGISTERED", "PROFILE_COMPLETE", "DOCUMENTS_SUBMITTED", "REJECTED"];
 
-/**
- * Mirrors COVERAGE_EDITABLE_STAGES in the API's provider-stage machine.
- *
- * ACTIVATED is the addition, and the whole point: coverage is not a verified
- * detail, so a live provider must be able to change it. UNDER_REVIEW and
- * SUSPENDED stay out.
- *
- * UX only — the API's stage machine is the boundary. This just avoids offering
- * a control that would be refused.
- */
+/** Mirrors COVERAGE_EDITABLE_STAGES in the API's provider-stage machine. */
 const COVERAGE_EDITABLE = [...EDITABLE, "ACTIVATED"];
 
 function Onboarding() {
@@ -48,21 +39,11 @@ function Onboarding() {
 
   /** Picked on the map — submitted with the profile. */
   const [pickedLocation, setPickedLocation] = useState<PickedLocation | null>(null);
-  /**
-   * How far this business will travel from its base, in km.
-   *
-   * Held as a string because that is what a range input gives back, and an
-   * empty string is the meaningful "not declared yet" state — which is not the
-   * same as zero, and must not be sent as one.
-   */
+  /** How far this business will travel from its base, in km. */
   const [radius, setRadius] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
-  /**
-   * A map pick fills the address fields in place. The geocoder's names are
-   * best-effort, so they stay editable — this only writes them, it does not
-   * replace the fields with read-only text.
-   */
+  /** A map pick fills the address fields in place. */
   const onPickLocation = useCallback((location: PickedLocation) => {
     setPickedLocation(location);
     const form = formRef.current;
@@ -87,9 +68,8 @@ function Onboarding() {
     setRadius(detail.serviceRadiusKm != null ? String(detail.serviceRadiusKm) : "");
   }, []);
 
-  // The effect owns its own fetch rather than calling refresh(): every setState
-  // then happens inside a promise callback, never synchronously in the effect
-  // body. `cancelled` stops a slow response writing to an unmounted component.
+  // The effect owns its own fetch rather than calling refresh(): every setState then happens
+  // inside a promise callback, never synchronously in the effect body.
   useEffect(() => {
     let cancelled = false;
 
@@ -121,9 +101,8 @@ function Onboarding() {
   }
 
   /**
-   * Coverage saves on its own, so an ACTIVATED provider can change where they
-   * work from and how far they go without the locked business-details form
-   * standing in the way.
+   * Coverage saves on its own, so an ACTIVATED provider can change where they work from and how
+   * far they go without the locked business-details form standing in the way.
    */
   async function onSaveCoverage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -136,9 +115,8 @@ function Onboarding() {
         ...(pickedLocation
           ? { latitude: pickedLocation.latitude, longitude: pickedLocation.longitude }
           : {}),
-        // Omitted when blank, never sent as 0: the API treats undefined as
-        // "leave it alone", and a radius of zero would mean this business
-        // travels nowhere.
+        // Omitted when blank, never sent as 0: the API treats undefined as "leave it alone",
+        // and a radius of zero would mean this business travels nowhere.
         ...(radius ? { serviceRadiusKm: Number(radius) } : {}),
       });
       await refresh();
@@ -243,9 +221,7 @@ function Onboarding() {
 
   const editable = EDITABLE.includes(provider.stage);
   const coverageEditable = COVERAGE_EDITABLE.includes(provider.stage);
-  // A radius without a base is meaningless, and the API rejects it. Either the
-  // saved point or one picked in this session counts — the pick is submitted
-  // alongside the radius, so waiting for a round trip would be wrong.
+  // A radius without a base is meaningless, and the API rejects it.
   const hasBase = pickedLocation !== null || (provider.latitude != null && provider.longitude != null);
 
   return (

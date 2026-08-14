@@ -17,10 +17,8 @@ export class StaffListDto {
 }
 
 /**
- * Platform accounts are CREATED by an existing admin, never self-registered —
- * which is why this is not part of RegisterDto. Registration can only ever
- * produce the two marketplace sides; letting it mint an ADMIN would make
- * privilege escalation a public endpoint.
+ * Platform accounts are CREATED by an existing admin, never self-registered — which is why this
+ * is not part of RegisterDto.
  */
 export enum StaffRole {
   ADMIN = 'ADMIN',

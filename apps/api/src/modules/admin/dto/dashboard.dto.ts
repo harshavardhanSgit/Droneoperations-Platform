@@ -1,12 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-/**
- * Counts, not analytics.
- *
- * The operator's question is "is anything stuck?", and a number answers it.
- * Charts and trends are V2 — they consume effort and demonstrate nothing this
- * does not.
- */
+/** Counts, not analytics. */
 export class DashboardDto {
   @ApiProperty({ example: 3, description: 'Providers submitted and awaiting review' })
   providersAwaitingReview: number;

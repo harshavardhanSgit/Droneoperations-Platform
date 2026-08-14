@@ -5,16 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CoverageState } from "@/core/api/types";
 
 /**
- * India rendered from a vendored, open-source GeoJSON
- * (apps/web/public/india-states.geojson — simplified from DataMeet's maps
- * repo by scripts/simplify-geojson.mjs).
- *
- * No map library: the file is a plain FeatureCollection, so a few dozen lines
- * of equirectangular projection are all it takes. That keeps the web app's
- * zero-dependency rule intact and the whole map under 350 KB.
- *
- * States with coverage data are tinted by acres (darker = more); the rest of
- * India stays as a faint backdrop — "the map faded out in the background".
+ * India rendered from a vendored, open-source GeoJSON (apps/web/public/india-states.geojson —
+ * simplified from DataMeet's maps repo by scripts/simplify-geojson.mjs).
  */
 
 type Coord = [number, number];
@@ -41,9 +33,8 @@ function loadGeo(): Promise<GeoFeature[]> {
 }
 
 /**
- * DataMeet spells some states differently than the admin catalogue
- * ("Arunanchal Pradesh" vs "Arunachal Pradesh"), so names are matched
- * case-insensitively after trimming.
+ * DataMeet spells some states differently than the admin catalogue ("Arunanchal Pradesh" vs
+ * "Arunachal Pradesh"), so names are matched case-insensitively after trimming.
  */
 const nameKey = (name: string) => name.trim().toLowerCase();
 
@@ -102,8 +93,8 @@ export function IndiaMap({
   selected?: string | null;
   onSelect?: (name: string | null) => void;
   /**
-   * False makes the map view-only (the landing showcase): no focus stops, no
-   * click/keyboard selection, and the aria-label stops promising interaction.
+   * False makes the map view-only (the landing showcase): no focus stops, no click/keyboard
+   * selection, and the aria-label stops promising interaction.
    */
   interactive?: boolean;
 }) {

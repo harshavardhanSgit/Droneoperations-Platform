@@ -1,8 +1,4 @@
-/**
- * The vocabulary features use to describe meaning. A feature says a booking is
- * "warning"; this layer decides what warning looks like. Nothing in components/ui
- * may import a domain type, and nothing in features/ may name a colour.
- */
+/** The vocabulary features use to describe meaning. */
 export type Tone = "success" | "warning" | "danger" | "info" | "neutral";
 
 export const TONE_TEXT: Record<Tone, string> = {

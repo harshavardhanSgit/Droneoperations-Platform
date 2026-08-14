@@ -30,8 +30,7 @@ function ago(iso: string): string {
 
 export function NotificationBell() {
   const { account } = useAuth();
-  // Shared with the sidebar badge and the notifications page — see
-  // unread-store. Local state here is what made the count go stale.
+  // Shared with the sidebar badge and the notifications page — see unread-store.
   const unread = useUnreadCount();
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
@@ -44,30 +43,14 @@ export function NotificationBell() {
     void refreshUnreadCount();
   }, []);
 
-  /**
-   * Refetch on mount and whenever the tab regains focus.
-   *
-   * Deliberately not a short polling interval: the count is cheap but not free,
-   * and a user who is not looking at the tab does not need a live number.
-   * Real-time delivery is an SSE transport swap behind the same endpoint.
-   */
+  /** Refetch on mount and whenever the tab regains focus. */
   useEffect(() => {
     refreshCount();
     window.addEventListener("focus", refreshCount);
     return () => window.removeEventListener("focus", refreshCount);
   }, [refreshCount]);
 
-  /**
-   * A push arriving while the tab is open updates the count immediately.
-   *
-   * The service worker deliberately does NOT fire for these — browsers will
-   * not show a banner for a page you are already looking at — so without this
-   * the notification would land silently and the bell would stay stale until
-   * the next focus event.
-   *
-   * Returns a no-op unsubscribe when push is unavailable, which is the normal
-   * case for anyone who has not set up Firebase.
-   */
+  /** A push arriving while the tab is open updates the count immediately. */
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
@@ -83,28 +66,18 @@ export function NotificationBell() {
     };
   }, [refreshCount]);
 
-  /**
-   * Whether to offer the "turn on notifications" row at all.
-   *
-   * Asked once, and only when everything needed is actually in place: the
-   * browser supports push, the server has credentials to send it, and the user
-   * has neither granted nor refused yet. A browser gives exactly one prompt —
-   * decline it and it is gone for good — so offering one we could not honour
-   * would spend that single chance on nothing.
-   */
+  /** Whether to offer the "turn on notifications" row at all. */
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      // Already refused: a browser will not ask again, so there is nothing to
-      // offer and saying so belongs on the account page, not in a dropdown.
+      // Already refused: a browser will not ask again, so there is nothing to offer and saying
+      // so belongs on the account page, not in a dropdown.
       if (permissionState() === "denied") return;
       if (!(await pushAvailable()) || cancelled) return;
 
       if (permissionState() === "granted") {
-        // Consent given on an earlier visit. Register quietly — without this
-        // they would sit past the prompt forever with no token, which looks
-        // exactly like the feature not working.
+        // Consent given on an earlier visit.
         await syncExistingPermission();
         return;
       }

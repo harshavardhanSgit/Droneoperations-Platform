@@ -1,11 +1,4 @@
-/**
- * Borders, not shadows.
- *
- * A shadow says "this floats above the page", which is true of a dialog and
- * false of a list row. Using elevation for things that are not elevated is the
- * single most common reason an interface looks decorated rather than designed.
- * Everything here is flat and separated by a hairline.
- */
+/** Borders, not shadows. */
 export function Surface({
   children,
   className = "",
@@ -17,27 +10,15 @@ export function Surface({
   as?: "div" | "section" | "li" | "article";
 } & React.HTMLAttributes<HTMLElement>) {
   return (
-    // Extra props are forwarded so a card can carry an id or pointer handlers
-    // without its caller abandoning the primitive and hand-rolling the border,
-    // radius and background — which is exactly how the search results cards
-    // ended up as the only ones in the app missing bg-bg-raised.
+    // Extra props are forwarded so a card can carry an id or pointer handlers without its
+    // caller abandoning the primitive and hand-rolling the border.
     <Tag className={`rounded-surface border border-border bg-bg-raised ${className}`} {...props}>
       {children}
     </Tag>
   );
 }
 
-/**
- * The page container. Mobile-first means the layout ADAPTS upward, not that it
- * caps at a phone width and leaves a desktop two-thirds empty — which is what a
- * bare max-w-2xl does.
- *
- *   field   — reading and acting on records; wide enough for two columns of
- *             cards on a laptop, one on a phone.
- *   console — scanning tables; as wide as the content needs.
- *   form    — a single column of inputs. Deliberately narrow: line length is a
- *             legibility constraint, and a 1200px-wide text field is unusable.
- */
+/** The page container. */
 export function Page({
   children,
   size = "field",
@@ -53,11 +34,7 @@ export function Page({
   );
 }
 
-/**
- * Cards in one column on a phone, two from `md` up. `items-start` matters:
- * without it, expanding a panel inside one card stretches its neighbour to
- * match, which looks like a rendering fault.
- */
+/** Cards in one column on a phone, two from `md` up. */
 export const cardGrid = "grid items-start gap-3 md:grid-cols-2";
 
 export function PageHeader({
@@ -80,10 +57,7 @@ export function PageHeader({
   );
 }
 
-/**
- * An empty state is a real state, not a blank area. It says what would be here,
- * why it is not, and what to do — in that order.
- */
+/** An empty state is a real state, not a blank area. */
 export function EmptyState({
   title,
   description,

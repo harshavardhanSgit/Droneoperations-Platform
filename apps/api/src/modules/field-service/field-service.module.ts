@@ -9,9 +9,8 @@ import { TicketRepository } from './ticket.repository';
 import { TicketService } from './ticket.service';
 
 /**
- * A second product line, sharing identity, storage and documents with the
- * marketplace and nothing else. It imports Assets, Documents and Organisations
- * — and NOTHING from Booking, Discovery, Offerings, Settlement or Reputation.
+ * A second product line, sharing identity, storage and documents with the marketplace and
+ * nothing else.
  */
 @Module({
   imports: [PrismaModule, AssetsModule, DocumentsModule, OrganisationsModule],

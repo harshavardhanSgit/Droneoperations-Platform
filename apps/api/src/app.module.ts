@@ -32,8 +32,7 @@ import { SettlementModule } from './modules/settlement/settlement.module';
       cache: true,
       validate: validateEnv,
     }),
-    // In-process pub/sub. V1 swaps a durable transport in behind the same
-    // event names — see the outbox note in the architecture review (F8).
+    // In-process pub/sub.
     EventEmitterModule.forRoot(),
     LoggingModule,
     HealthModule,
@@ -53,17 +52,14 @@ import { SettlementModule } from './modules/settlement/settlement.module';
     CoverageModule,
   ],
   providers: [
-    // Registered as providers rather than via app.useGlobalFilters() so they
-    // participate in dependency injection — the filter needs the Logger.
+    // Registered as providers rather than via app.useGlobalFilters() so they participate in
+    // dependency injection — the filter needs the Logger.
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
-    // SECURE BY DEFAULT. Every route requires a valid access token unless it
-    // is explicitly marked @Public(). A new controller is protected the moment
-    // it exists — the failure mode becomes "I forgot to open it", which is
-    // visible, instead of "I forgot to close it", which is a breach.
+    // SECURE BY DEFAULT.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Order matters: guards run in registration order, so authentication
-    // populates request.user before authorisation reads it.
+    // Order matters: guards run in registration order, so authentication populates request.user
+    // before authorisation reads it.
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })

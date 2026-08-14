@@ -4,15 +4,8 @@ import { validate } from 'class-validator';
 import { pageOf, PaginationQueryDto } from './pagination.dto';
 
 /**
- * The regression this file exists for:
- *
- * `skip` and `take` were getters on the DTO. class-transformer builds the
- * instance by assigning every key of the query onto it, so `?take=5` tried to
- * write a getter-only property and threw — the API answered a malformed query
- * with 500 INTERNAL_ERROR instead of a 400 naming the bad parameter.
- *
- * Re-adding a getter for either name would bring both failures straight back,
- * so both are asserted here rather than only the crash.
+ * The regression this file exists for: `skip` and `take` were getters on the DTO.
+ * class-transformer builds the instance by assigning every key of the query onto it.
  */
 const build = (query: Record<string, unknown>) => plainToInstance(PaginationQueryDto, query);
 
@@ -42,8 +35,8 @@ describe('PaginationQueryDto', () => {
     // The heart of it. Building the instance must not throw...
     expect(() => build(query)).not.toThrow();
 
-    // ...and the unknown property must be visible to the whitelist, which is
-    // what turns this into a 400 rather than a silently ignored parameter.
+    // ...and the unknown property must be visible to the whitelist, which is what turns this
+    // into a 400 rather than a silently ignored parameter.
     const errors = await check(query);
 
     expect(errors.length).toBeGreaterThan(0);

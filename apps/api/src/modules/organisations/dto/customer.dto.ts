@@ -10,24 +10,9 @@ import {
   ValidateIf,
 } from 'class-validator';
 
-/**
- * The customer's saved default field.
- *
- * Every field is optional and independently clearable, because this is a
- * convenience record rather than a form to complete — a customer who has set a
- * pin but not a label is in a perfectly normal state.
- */
+/** The customer's saved default field. */
 export class UpdateCustomerProfileDto {
-  /**
-   * Both or neither, the same contract Provider and Booking use.
-   *
-   * NOT @IsOptional: the pair rule depends on ValidateIf short-circuiting the
-   * @IsNumber check when the OTHER axis is absent. @IsOptional would
-   * short-circuit the failure too and let half a coordinate through.
-   *
-   * `null` is allowed and means "forget my saved pin" — distinct from omitting
-   * the field, which leaves it alone.
-   */
+  /** Both or neither, the same contract Provider and Booking use. */
   @ApiPropertyOptional({ example: 17.9689, nullable: true })
   @ValidateIf((o: UpdateCustomerProfileDto) => o.longitude !== undefined && o.latitude !== null)
   @IsNumber({ maxDecimalPlaces: 7 })
@@ -49,8 +34,8 @@ export class UpdateCustomerProfileDto {
   locationLabel?: string | null;
 
   /**
-   * The district that pin sits in, stored so a booking does not need a geocode
-   * round trip to find it again.
+   * The district that pin sits in, stored so a booking does not need a geocode round trip to
+   * find it again.
    */
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   @IsOptional()
@@ -67,13 +52,6 @@ export class CustomerProfileDto {
   /** Resolved for display, so the client need not look the district up again. */
   @ApiPropertyOptional({ example: 'Warangal' }) defaultAreaName?: string;
 
-  /**
-   * The district's parent state.
-   *
-   * Returned because the booking form's district select is CASCADING — it has
-   * no options until a state is chosen. Restoring a saved district without its
-   * state would leave the select holding a value none of its options match,
-   * which renders as blank and reads as data loss.
-   */
+  /** The district's parent state. */
   @ApiPropertyOptional({ format: 'uuid' }) defaultAreaParentId?: string;
 }

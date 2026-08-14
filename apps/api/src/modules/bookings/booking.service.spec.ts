@@ -8,14 +8,7 @@ import type { ActorContext } from '../identity/actor-context';
 import { BookingRepository } from './booking.repository';
 import { BookingService } from './booking.service';
 
-/**
- * No database, no HTTP, no Nest lifecycle — every dependency is a plain object.
- *
- * This is the concrete payoff of constructor injection: BookingService never
- * constructs its own collaborators, so a test can hand it whatever it likes.
- * A service that did `new PrismaClient()` internally could only be tested with
- * a real database running.
- */
+/** No database, no HTTP, no Nest lifecycle — every dependency is a plain object. */
 const customer: ActorContext = {
   userId: 'user-1',
   membershipId: 'mem-1',
@@ -25,9 +18,7 @@ const customer: ActorContext = {
   principalOrganisationId: 'cust-org',
 };
 
-// principalOrganisationId must move too. Leaving it as the customer's makes
-// requireParty classify this actor as the CUSTOMER — a fixture that lies about
-// who is acting will pass tests that should fail.
+// principalOrganisationId must move too.
 const provider: ActorContext = {
   ...customer,
   organisationKind: 'PROVIDER',
@@ -60,8 +51,8 @@ const booking = (overrides: Record<string, unknown> = {}) => ({
 
 describe('BookingService business rules', () => {
   let service: BookingService;
-  // Explicit mock shapes: jest.Mocked<Partial<T>> keeps the REAL signatures
-  // (just optional), so `.mockResolvedValue` would not exist on them.
+  // Explicit mock shapes: jest.Mocked<Partial<T>> keeps the REAL signatures (just optional), so
+  // `.mockResolvedValue` would not exist on them.
   let bookings: { findById: jest.Mock; findPendingSchedule: jest.Mock };
   let offerings: { findById: jest.Mock };
   let providers: { findById: jest.Mock; findByOrganisation: jest.Mock };

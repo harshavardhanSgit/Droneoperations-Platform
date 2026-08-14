@@ -17,15 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  /**
-   * Runs only after the signature and expiry have already been verified.
-   *
-   * Deliberately does NOT query the database. The token carries everything the
-   * actor context needs, so an authenticated request costs zero queries. The
-   * price is staleness: a revoked membership stays usable until the token
-   * expires. That window is exactly JWT_ACCESS_TTL_SECONDS — which is why it
-   * is 15 minutes and not 24 hours.
-   */
+  /** Runs only after the signature and expiry have already been verified. */
   validate(claims: AccessTokenClaims): ActorContext {
     return {
       userId: claims.sub,

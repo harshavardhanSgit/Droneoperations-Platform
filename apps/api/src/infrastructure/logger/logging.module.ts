@@ -20,9 +20,8 @@ const HEALTH_PREFIX = '/api/v1/health';
           pinoHttp: {
             level: isProduction ? 'info' : 'debug',
 
-            // Reuse an inbound request id if a proxy already assigned one, so a
-            // trace survives across services. Echo it back so a client can
-            // quote it in a bug report.
+            // Reuse an inbound request id if a proxy already assigned one, so a trace survives
+            // across services.
             genReqId: (req: IncomingMessage, res: ServerResponse) => {
               const inbound = req.headers['x-request-id'];
               const id = typeof inbound === 'string' && inbound ? inbound : randomUUID();
@@ -39,8 +38,7 @@ const HEALTH_PREFIX = '/api/v1/health';
               remove: true,
             },
 
-            // Health probes run every few seconds forever. Logging them buries
-            // everything else.
+            // Health probes run every few seconds forever.
             autoLogging: {
               ignore: (req: IncomingMessage) => req.url?.startsWith(HEALTH_PREFIX) ?? false,
             },

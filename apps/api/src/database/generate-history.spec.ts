@@ -106,8 +106,8 @@ describe('generateHistoryPlan — deterministic operating history', () => {
   it('keeps the kharif season dominant among service dates', () => {
     const plan = generateHistoryPlan(catalogue, 2026, NOW);
 
-    // Acceptance sampling keeps ~45% of non-kharif months: June–October
-    // should still account for well over half of all service dates.
+    // Acceptance sampling keeps ~45% of non-kharif months: June–October should still account
+    // for well over half of all service dates.
     const serviceMonths = plan.bookings.map((b) => {
       const d = new Date(NOW - b.serviceDaysAgo * 86_400_000);
       return d.getMonth() + 1;

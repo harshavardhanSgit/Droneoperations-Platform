@@ -7,12 +7,8 @@ export const startTicket = (id: string) =>
   apiFetch<TicketDetail>(`/api/v1/engineer/tickets/${id}/start`, { method: "POST" });
 
 /**
- * BR11 — a ticket cannot be closed without a report, so the upload has to
- * succeed before close is even offered. Same three-step flow as provider
- * documents; the difference is that this document is owned by the TICKET.
- *
- * Step 2 uses raw fetch: those bytes go to storage, not to our API. The signed
- * URL is the entire authorisation.
+ * BR11 — a ticket cannot be closed without a report, so the upload has to succeed before close
+ * is even offered.
  */
 export async function uploadReport(ticketId: string, file: File): Promise<string> {
   const ticket = await apiFetch<UploadTicket>(

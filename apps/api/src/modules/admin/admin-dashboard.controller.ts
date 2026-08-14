@@ -8,15 +8,7 @@ import { RequirePermissions } from '../identity/decorators/require-permissions.d
 import { ProviderService } from '../organisations/provider.service';
 import { DashboardDto } from './dto/dashboard.dto';
 
-/**
- * Reporting reads across modules and owns nothing.
- *
- * Every number here comes from the service that owns the data — Booking counts
- * bookings, Field Service counts tickets, Organisations counts providers. This
- * controller does no querying of its own. The alternative, a reporting module
- * with its own tables fed by every domain, inverts the dependency direction and
- * invites each new module to push data into it.
- */
+/** Reporting reads across modules and owns nothing. */
 @ApiTags('Administration')
 @ApiBearerAuth('access-token')
 @Controller('admin/dashboard')

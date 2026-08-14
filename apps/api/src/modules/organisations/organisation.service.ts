@@ -11,14 +11,7 @@ import { OrganisationRepository } from './organisation.repository';
 export class OrganisationService {
   constructor(private readonly organisations: OrganisationRepository) {}
 
-  /**
-   * LEVEL-2 authorisation lives here, not in a guard.
-   *
-   * The guard already established that this role may read an organisation. Only
-   * the service can decide WHICH organisation — and the answer comes from the
-   * actor's own token, never from a client-supplied id. That is what makes it
-   * impossible to read someone else's organisation by guessing a UUID.
-   */
+  /** LEVEL-2 authorisation lives here, not in a guard. */
   async findOwn(actor: ActorContext): Promise<OrganisationDto> {
     const organisation = await this.organisations.findById(actor.organisationId);
 

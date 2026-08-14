@@ -15,20 +15,7 @@ import { NotificationService } from './notification.service';
 const money = (minor?: number) =>
   minor === undefined ? '' : `₹${(minor / 100).toLocaleString('en-IN')}`;
 
-/**
- * The ONLY file that knows both about booking events and about notifications.
- *
- * The dependency runs one way: this module imports Booking's event contract;
- * Booking imports nothing from here. That is what makes email in V2 another
- * listener rather than a change to any domain service.
- *
- * Every handler swallows its own errors. A notification that fails must never
- * surface as a failed booking — the business operation already committed.
- *
- * Handlers call the SERVICE, not the repository: delivery means persisting
- * the record and then attempting a push, and putting that ordering in one
- * place is what stops half these eight handlers from forgetting the push.
- */
+/** The ONLY file that knows both about booking events and about notifications. */
 @Injectable()
 export class BookingNotificationListener {
   constructor(
@@ -158,8 +145,7 @@ export class BookingNotificationListener {
     try {
       await work();
     } catch (error) {
-      // Logged, never rethrown. The booking already happened; a failed notice
-      // must not turn a successful operation into an error for the user.
+      // Logged, never rethrown.
       this.logger.error({ err: error }, 'Failed to write notification');
     }
   }

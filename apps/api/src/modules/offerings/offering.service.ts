@@ -57,8 +57,8 @@ export class OfferingService {
             offeringId: created.id,
             versionNumber: 1,
             unitPriceMinor: dto.unitPriceMinor,
-            // Copied from the catalogue so the version records the unit the
-            // price was agreed in, independent of later catalogue changes.
+            // Copied from the catalogue so the version records the unit the price was agreed
+            // in, independent of later catalogue changes.
             pricingUnit: serviceType.pricingUnit,
             minQuantity: dto.minQuantity,
             inclusions: dto.inclusions ?? [],
@@ -77,8 +77,7 @@ export class OfferingService {
 
       return this.toDto(await this.requireOffering(offering.id));
     } catch (error) {
-      // The partial unique index caught a duplicate. An application-level check
-      // would have raced; this cannot.
+      // The partial unique index caught a duplicate.
       if (this.isUniqueViolation(error)) {
         throw new ResourceConflictException(
           'OFFERING_ALREADY_EXISTS',
@@ -90,13 +89,7 @@ export class OfferingService {
     }
   }
 
-  /**
-   * F3 in one method: close the current version, open a new one. The existing
-   * version is never touched, so any quote referencing it keeps its price.
-   *
-   * The new version REPLACES the terms wholesale — it does not inherit from
-   * its predecessor. See CreateOfferingVersionDto.
-   */
+  /** F3 in one method: close the current version, open a new one. */
   async publishVersion(
     actor: ActorContext,
     offeringId: string,
@@ -117,8 +110,7 @@ export class OfferingService {
     await this.prisma.$transaction(async (tx) => {
       const closed = await this.offerings.closeCurrentVersion(offering.id, now, tx);
 
-      // Conditional update returned nothing: a concurrent reprice already
-      // closed this version. Fail rather than create a second current one.
+      // Conditional update returned nothing: a concurrent reprice already closed this version.
       if (closed.count === 0) {
         throw new ResourceConflictException(
           'OFFERING_CONCURRENTLY_MODIFIED',
@@ -209,8 +201,8 @@ export class OfferingService {
     const offering = await this.requireOffering(offeringId);
 
     if (offering.providerId !== provider.id) {
-      // 404 rather than 403: confirming that someone else's offering exists is
-      // itself a small leak.
+      // 404 rather than 403: confirming that someone else's offering exists is itself a small
+      // leak.
       throw new ResourceNotFoundException('Offering', offeringId);
     }
 

@@ -1,13 +1,6 @@
 import { TONE_DOT, TONE_SURFACE, type Tone } from "./tone";
 
-/**
- * A dot plus a word, not a saturated block of colour.
- *
- * Solid pills compete with the content they annotate, and a list of twelve of
- * them reads as a paint chart. The dot carries the signal at a glance; the word
- * carries it for anyone who cannot distinguish the hue — which is why the label
- * is never optional.
- */
+/** A dot plus a word, not a saturated block of colour. */
 export function StatusPill({
   tone,
   children,

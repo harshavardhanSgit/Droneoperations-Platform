@@ -41,14 +41,7 @@ export class NotificationController {
     return this.notifications.list(actor, pageOf(query));
   }
 
-  /**
-   * Whether push is available at all.
-   *
-   * The client asks BEFORE prompting for notification permission. A browser
-   * only ever asks once — deny it and the prompt is gone for good — so asking
-   * on a server that cannot send would burn the user's single chance on
-   * nothing.
-   */
+  /** Whether push is available at all. */
   @Get('push-status')
   @ApiOperation({ summary: 'Whether the server can send push notifications' })
   @ApiEnvelope(PushStatusDto)
@@ -70,14 +63,7 @@ export class NotificationController {
     await this.notifications.registerDevice(actor, dto.token, dto.platform ?? 'web');
   }
 
-  /**
-   * No ownership check, deliberately: possession of the token IS the claim.
-   *
-   * It arrives from the browser that holds it, and the only thing an attacker
-   * could achieve by guessing one is to stop someone's notifications — an
-   * outcome the owner can undo by re-registering, and which needs a
-   * 4096-character secret to attempt.
-   */
+  /** No ownership check, deliberately: possession of the token IS the claim. */
   @Delete('devices')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

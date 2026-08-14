@@ -7,19 +7,10 @@ export const findMatches = (input: {
   serviceTypeId: string;
   quantity: number;
   sort?: MatchSort;
-  /**
-   * Where the work is. REQUIRED — coverage is a provider's base plus how far
-   * they travel, so without a point there is nothing to measure against.
-   *
-   * The response carries a distance, never the providers' own coordinates.
-   */
+  /** Where the work is. */
   latitude: number;
   longitude: number;
-  /**
-   * The district, carried through for the booking that follows. It does NOT
-   * narrow the search: a pin outside the catalogue's districts still returns
-   * everyone who can reach it.
-   */
+  /** The district, carried through for the booking that follows. */
   areaId?: string;
 }) => {
   const params = new URLSearchParams({

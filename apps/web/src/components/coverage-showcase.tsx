@@ -17,14 +17,7 @@ function ShowcaseKpi({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * The landing page's "the platform in numbers" section.
- *
- * Fetches the PUBLIC endpoint (GET /api/v1/coverage/public) — the SAME real
- * aggregation the admin screen shows, TTL-cached and rate-limited on the API
- * so anonymous page loads cannot hammer the database. Every number here is
- * computed from actual completed bookings, active offerings and drones.
- */
+/** The landing page's "the platform in numbers" section. */
 export function CoverageShowcase() {
   const [data, setData] = useState<Coverage | null>(null);
   const [error, setError] = useState<string | null>(null);

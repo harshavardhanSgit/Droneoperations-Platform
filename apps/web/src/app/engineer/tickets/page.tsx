@@ -14,12 +14,7 @@ import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import * as engineer from "@/features/engineer/api";
 import { TICKET_LABEL, TICKET_TONE, whenShort } from "@/features/maintenance/format";
 
-/**
- * The engineer surface is nearly linear: one job at a time, on a phone, on site.
- * Each ticket shows exactly the next action and nothing else — there is no
- * filtering, no sorting and no bulk anything, because none of that is a question
- * an engineer standing next to a broken drone is asking.
- */
+/** The engineer surface is nearly linear: one job at a time, on a phone, on site. */
 function Tickets() {
   const toast = useToast();
   const [items, setItems] = useState<Ticket[]>([]);
@@ -79,8 +74,7 @@ function Tickets() {
     }
   };
 
-  // Upload then close. Two calls, one button — an engineer should not have to
-  // know that a report is a separate resource from the ticket it belongs to.
+  // Upload then close.
   const finish = async (ticketId: string) => {
     if (!file) return;
 

@@ -22,8 +22,8 @@ import { TokenService } from './token.service';
     PrismaModule,
     PassportModule,
     OrganisationsModule,
-    // registerAsync because the secret comes from validated config, which does
-    // not exist until ConfigModule has run.
+    // registerAsync because the secret comes from validated config, which does not exist until
+    // ConfigModule has run.
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({

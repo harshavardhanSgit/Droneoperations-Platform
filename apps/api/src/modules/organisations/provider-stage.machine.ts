@@ -1,13 +1,7 @@
 import { ResourceConflictException } from '../../common/errors/app.exception';
 import type { ProviderStage } from '../../generated/prisma/client';
 
-/**
- * The onboarding pipeline, declared in one place.
- *
- * Everything about which moves are legal lives here — never as scattered `if`
- * statements in a service. When a stage is added (DOCUMENTS_SUBMITTED arrives
- * with document upload), this table is the only thing that changes.
- */
+/** The onboarding pipeline, declared in one place. */
 const TRANSITIONS: Record<ProviderStage, readonly ProviderStage[]> = {
   REGISTERED: ['PROFILE_COMPLETE'],
   PROFILE_COMPLETE: ['DOCUMENTS_SUBMITTED'],
@@ -18,13 +12,7 @@ const TRANSITIONS: Record<ProviderStage, readonly ProviderStage[]> = {
   SUSPENDED: ['ACTIVATED'],
 };
 
-/**
- * Stages in which the provider may still edit their own details.
- *
- * UNDER_REVIEW is deliberately excluded: staff must review a fixed snapshot,
- * not something changing under them. ACTIVATED is excluded because a change to
- * a verified business should re-enter review — that is a V2 flow.
- */
+/** Stages in which the provider may still edit their own details. */
 const EDITABLE_STAGES: readonly ProviderStage[] = [
   'REGISTERED',
   'PROFILE_COMPLETE',
@@ -33,24 +21,11 @@ const EDITABLE_STAGES: readonly ProviderStage[] = [
 ];
 
 /**
- * Stages in which the provider may change their COVERAGE — where they are
- * based and how far they travel.
- *
- * A superset of the above, and ACTIVATED is the point of it.
- *
- * The rule for business details is that changing a verified business should
- * re-enter review. Coverage is not a verified detail: staff check identity and
- * documents, and nobody reviews how far a business is willing to drive. It is
- * an operating decision, like opening hours, and it changes with the fleet —
- * a machine breaks, a bigger one arrives, fuel gets expensive.
- *
- * Locking it to onboarding made the whole radius feature unusable by exactly
- * the providers it is for: the live ones. An ACTIVATED provider could see the
- * number they set months ago and had no way to change it.
- *
- * SUSPENDED and UNDER_REVIEW stay out. A suspended provider is not
- * participating, and during review the profile is a fixed snapshot.
+ * Stages in which the provider may change their COVERAGE — where they are based and how far
+ * they travel.
  */
+// ACTIVATED is included deliberately: coverage was never reviewed by staff, so a live
+// provider must be able to change it. provider.service.spec.ts pins this.
 const COVERAGE_EDITABLE_STAGES: readonly ProviderStage[] = [...EDITABLE_STAGES, 'ACTIVATED'];
 
 /** BR1 — only this stage may appear in Discovery or receive bookings. */

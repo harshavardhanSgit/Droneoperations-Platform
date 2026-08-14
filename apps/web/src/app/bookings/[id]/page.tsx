@@ -57,8 +57,8 @@ function Detail() {
     setDate(detail.confirmedDate ?? detail.preferredDate);
   }, [id]);
 
-  // Every setState happens inside a promise callback, never synchronously in the
-  // effect body, and a late response cannot write to an unmounted component.
+  // Every setState happens inside a promise callback, never synchronously in the effect body,
+  // and a late response cannot write to an unmounted component.
   useEffect(() => {
     let cancelled = false;
 

@@ -47,24 +47,15 @@ export class ProviderService {
   }
 
   /**
-   * Saving business details advances REGISTERED (or REJECTED, on resubmission)
-   * to PROFILE_COMPLETE. Editing while already PROFILE_COMPLETE is just an
-   * update — not every write is a transition.
+   * Saving business details advances REGISTERED (or REJECTED, on resubmission) to
+   * PROFILE_COMPLETE.
    */
   async updateOwnProfile(actor: ActorContext, dto: UpdateProviderProfileDto): Promise<ProviderDto> {
     const provider = await this.requireOwn(actor);
 
     assertEditable(provider.stage);
 
-    /**
-     * A radius is a distance FROM somewhere. Without a base there is nothing to
-     * measure from, and discovery would silently never match this provider —
-     * they would set a range, see it saved, and quietly receive no work.
-     *
-     * Checked here rather than in the DTO because the base may have been saved
-     * on an earlier request: the rule is about the resulting row, not the
-     * payload, and a DTO cannot see the database.
-     */
+    /** A radius is a distance FROM somewhere. */
     const willHaveBase = (dto.latitude ?? provider.latitude) != null;
 
     if (dto.serviceRadiusKm !== undefined && !willHaveBase) {
@@ -82,9 +73,8 @@ export class ProviderService {
       city: dto.city.trim(),
       state: dto.state.trim(),
       pincode: dto.pincode.trim(),
-      // undefined is passed through untouched: Prisma treats it as "leave the
-      // column alone", so a profile save without coordinates never wipes a
-      // previously picked point.
+      // undefined is passed through untouched: Prisma treats it as "leave the column alone", so
+      // a profile save without coordinates never wipes a previously picked point.
       latitude: dto.latitude,
       longitude: dto.longitude,
       serviceRadiusKm: dto.serviceRadiusKm,
@@ -97,16 +87,7 @@ export class ProviderService {
     return this.toDto(await this.reload(provider.id));
   }
 
-  /**
-   * Change coverage without re-entering review.
-   *
-   * Deliberately NOT part of updateOwnProfile: that path is gated on
-   * assertEditable, which excludes ACTIVATED so a verified business cannot
-   * quietly change the details staff approved. Coverage was never reviewed —
-   * it is where you work from and how far you drive — and locking it to
-   * onboarding left every live provider unable to change the one number
-   * discovery actually matches on.
-   */
+  /** Change coverage without re-entering review. */
   async updateOwnCoverage(
     actor: ActorContext,
     dto: UpdateProviderCoverageDto,
@@ -115,8 +96,8 @@ export class ProviderService {
 
     assertCoverageEditable(provider.stage);
 
-    // Same rule as the profile path: a radius is a distance FROM somewhere, so
-    // it needs a base either already saved or arriving in this request.
+    // Same rule as the profile path: a radius is a distance FROM somewhere, so it needs a base
+    // either already saved or arriving in this request.
     const willHaveBase = (dto.latitude ?? provider.latitude) != null;
 
     if (dto.serviceRadiusKm !== undefined && !willHaveBase) {
@@ -153,11 +134,7 @@ export class ProviderService {
     });
   }
 
-  /**
-   * Confirming the FIRST document advances PROFILE_COMPLETE to
-   * DOCUMENTS_SUBMITTED. Subsequent uploads are just uploads — the stage has
-   * already moved, and re-entering a stage you are in is not a transition.
-   */
+  /** Confirming the FIRST document advances PROFILE_COMPLETE to DOCUMENTS_SUBMITTED. */
   async confirmDocumentUpload(
     actor: ActorContext,
     documentId: string,
@@ -166,8 +143,7 @@ export class ProviderService {
     const provider = await this.requireOwn(actor);
     const document = await this.documents.requireById(documentId);
 
-    // Ownership: the document must belong to THIS provider. Without this, any
-    // provider could confirm another's upload by guessing an id.
+    // Ownership: the document must belong to THIS provider.
     if (document.ownerType !== 'PROVIDER' || document.ownerId !== provider.id) {
       throw new ResourceNotFoundException('Document', documentId);
     }
@@ -231,14 +207,7 @@ export class ProviderService {
     return this.documents.listFor('PROVIDER', provider.id);
   }
 
-  /**
-   * Issues a short-lived read URL for a reviewer.
-   *
-   * The document must belong to the provider named in the path. Without that
-   * check, a reviewer with any provider id could read ANY document by guessing
-   * a document id — the permission guard only established that they may review
-   * providers, not which documents belong to whom.
-   */
+  /** Issues a short-lived read URL for a reviewer. */
   async createDocumentDownloadUrl(providerId: string, documentId: string): Promise<string> {
     const provider = await this.requireById(providerId);
     const document = await this.documents.requireById(documentId);
@@ -268,11 +237,7 @@ export class ProviderService {
 
   // ----------------------------------------------------------------- private
 
-  /**
-   * LEVEL-2 check. The permission guard established that a PROVIDER OWNER may
-   * manage a provider; only this can establish that it is THEIR provider — and
-   * the id comes from the actor's token, never the request.
-   */
+  /** LEVEL-2 check. */
   private async requireOwn(actor: ActorContext): Promise<ProviderWithOrganisation> {
     if (actor.organisationKind !== 'PROVIDER') {
       throw new AccessDeniedException('This account is not a provider organisation');

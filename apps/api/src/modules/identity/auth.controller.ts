@@ -60,8 +60,8 @@ export class AuthController {
   @ApiErrorEnvelope(HttpStatus.FORBIDDEN, 'Account or organisation suspended')
   async login(
     @Body() dto: LoginDto,
-    // passthrough: true lets us touch the response (to set a cookie) while Nest
-    // still serialises the return value through the response interceptor.
+    // passthrough: true lets us touch the response (to set a cookie) while Nest still
+    // serialises the return value through the response interceptor.
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
     const { body, refreshToken } = await this.auth.login(dto);
@@ -109,8 +109,8 @@ export class AuthController {
 
     await this.auth.logout(typeof presented === 'string' ? presented : undefined);
 
-    // Same path/flags as when it was set — a mismatch leaves a stale cookie
-    // in the browser that the server has already revoked.
+    // Same path/flags as when it was set — a mismatch leaves a stale cookie in the browser that
+    // the server has already revoked.
     res.clearCookie(REFRESH_COOKIE, { ...this.refreshCookieOptions(), maxAge: undefined });
   }
 
@@ -126,12 +126,7 @@ export class AuthController {
     return this.auth.me(actor);
   }
 
-  /**
-   * No @RequirePermissions. Every authenticated account may edit its OWN name
-   * and phone regardless of which side of the marketplace it sits on — there
-   * is no id in the path, so there is nothing to be authorised against beyond
-   * holding a valid token.
-   */
+  /** No @RequirePermissions. */
   @Patch('me')
   @ApiBearerAuth('access-token')
   @ApiOperation({
@@ -165,9 +160,7 @@ export class AuthController {
   ): Promise<void> {
     await this.auth.changePassword(actor, dto);
 
-    // The cookie this browser holds was just revoked server-side. Clearing it
-    // keeps the two in step — otherwise the next refresh presents a token the
-    // server has already killed, which the reuse detector reads as theft.
+    // The cookie this browser holds was just revoked server-side.
     res.clearCookie(REFRESH_COOKIE, { ...this.refreshCookieOptions(), maxAge: undefined });
   }
 
@@ -180,22 +173,12 @@ export class AuthController {
       // HTTPS only in production; must stay false locally or the browser drops it.
       secure: production,
       /**
-       * Locally the API and the web app share a site, so `lax` holds and blocks
-       * the basic CSRF shape. Deployed they do not: the browser is on
-       * *.vercel.app and the API on another host entirely, which makes every
-       * refresh a cross-site request — and a `lax` cookie is simply not sent.
-       * The session would appear to work until the first reload and then
-       * silently sign the user out.
-       *
-       * `none` is the only value that survives that, and it is only legal
-       * alongside `secure`. The CSRF protection it gives up is replaced by two
-       * things already in place: CORS restricted to one explicit origin with
-       * credentials, and a refresh token that is single-use and rotates, so a
-       * replayed one revokes the whole family rather than granting access.
+       * Locally the API and the web app share a site, so `lax` holds and blocks the basic CSRF
+       * shape.
        */
       sameSite: production ? 'none' : 'lax',
-      // Scoped: the browser only attaches it to auth routes, so it is absent
-      // from every ordinary API call and cannot leak through them.
+      // Scoped: the browser only attaches it to auth routes, so it is absent from every
+      // ordinary API call and cannot leak through them.
       path: '/api/v1/auth',
       maxAge: this.tokens.refreshTokenTtlMs(),
     };

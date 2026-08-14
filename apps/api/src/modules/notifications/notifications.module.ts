@@ -9,9 +9,8 @@ import { NotificationService } from './notification.service';
 import { PushService } from './push.service';
 
 /**
- * Imports NOTHING from any domain module except Booking's event *contract* —
- * a types file, not a service. Nothing here is exported, because nothing else
- * should depend on notifications existing.
+ * Imports NOTHING from any domain module except Booking's event *contract* — a types file, not
+ * a service.
  */
 @Module({
   imports: [PrismaModule],
@@ -20,9 +19,8 @@ import { PushService } from './push.service';
     NotificationService,
     NotificationRepository,
     BookingNotificationListener,
-    // The push transport lives INSIDE this module, which is the point: adding
-    // it changed no domain module. Booking still emits the same events and
-    // knows nothing about Firebase.
+    // The push transport lives INSIDE this module, which is the point: adding it changed no
+    // domain module.
     PushService,
     DeviceTokenRepository,
   ],

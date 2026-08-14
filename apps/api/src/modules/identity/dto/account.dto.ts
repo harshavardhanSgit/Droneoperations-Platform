@@ -1,15 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length, Matches, ValidateIf } from 'class-validator';
 
-/**
- * Editing your own details.
- *
- * NO EMAIL FIELD, deliberately. Email is the login identity, so changing it is
- * a verification flow — prove the new address, keep the old one working until
- * then — not a profile edit. Accepting it here would let anyone holding a
- * stolen access token lock the real owner out of their own account in one
- * request.
- */
+/** Editing your own details. */
 export class UpdateAccountDto {
   @ApiPropertyOptional({ example: 'Ramesh Kumar' })
   @IsOptional()
@@ -18,14 +10,7 @@ export class UpdateAccountDto {
   fullName?: string;
 
   /**
-   * An empty string means "remove my phone number"; omitting the field means
-   * "leave it alone". Those are different intents and the API must be able to
-   * tell them apart — a single optional field that treats "" as absent gives
-   * the user no way to delete a number they entered by mistake.
-   *
-   * ValidateIf rather than IsOptional: IsOptional short-circuits every other
-   * validator on undefined AND on null, which would let a null through the
-   * pattern check.
+   * An empty string means "remove my phone number"; omitting the field means "leave it alone".
    */
   @ApiPropertyOptional({
     example: '+919876543210',
@@ -42,11 +27,7 @@ export class ChangePasswordDto {
   @Length(1, 128)
   currentPassword: string;
 
-  /**
-   * Length is the only rule, matching registration. NIST 800-63B explicitly
-   * advises AGAINST composition requirements — they push people toward
-   * predictable substitutions like "Password1!" and add no real entropy.
-   */
+  /** Length is the only rule, matching registration. */
   @ApiProperty({ example: 'a long passphrase works best', minLength: 10 })
   @IsString()
   @Length(10, 128)

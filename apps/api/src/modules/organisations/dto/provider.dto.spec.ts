@@ -4,11 +4,8 @@ import { validate } from 'class-validator';
 import { UpdateProviderProfileDto } from './provider.dto';
 
 /**
- * The location fields are the one place in this DTO with cross-field logic:
- * latitude and longitude must arrive as a pair, each within its valid range.
- * Pin that contract here — a future editor adding @IsOptional to either field
- * would silently break the both-or-neither rule (IsOptional short-circuits all
- * other validators on undefined), and this spec is what would catch it.
+ * The location fields are the one place in this DTO with cross-field logic: latitude and
+ * longitude must arrive as a pair, each within its valid range.
  */
 const BASE = {
   legalName: 'Kumar Agri Services Pvt Ltd',
@@ -59,18 +56,13 @@ describe('UpdateProviderProfileDto location pair', () => {
   });
 });
 
-/**
- * The travel radius. Range only — whether a radius may exist AT ALL depends on
- * whether a base was saved on some earlier request, and a DTO cannot see the
- * database. That rule lives in ProviderService and is tested there.
- */
+/** The travel radius. */
 describe('UpdateProviderProfileDto serviceRadiusKm', () => {
   const propertiesFor = async (patch: Record<string, unknown>) =>
     (await errorsFor(patch)).map((error) => error.property);
 
   it('accepts a profile that declares no radius', async () => {
-    // "Not stated yet" is a legitimate state: it means invisible in search,
-    // not invalid.
+    // "Not stated yet" is a legitimate state: it means invisible in search, not invalid.
     expect(await errorsFor()).toHaveLength(0);
   });
 
@@ -88,9 +80,7 @@ describe('UpdateProviderProfileDto serviceRadiusKm', () => {
   });
 
   it('caps at exactly the prefilter’s assumption', async () => {
-    // MAX_SERVICE_RADIUS_KM in discovery.repository.ts is 500 and the box is
-    // built from it. If this cap ever rises without that constant, providers
-    // beyond the box would be silently dropped before the exact distance runs.
+    // MAX_SERVICE_RADIUS_KM in discovery.repository.ts is 500 and the box is built from it.
     expect(await errorsFor({ serviceRadiusKm: 500 })).toHaveLength(0);
   });
 });

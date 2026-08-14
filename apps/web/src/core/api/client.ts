@@ -16,9 +16,8 @@ export class ApiError extends Error {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 /**
- * Held in memory, never localStorage — anything localStorage can read, an
- * injected script can read too. The cost is that a page reload loses it, which
- * is why AuthProvider calls refresh() on mount to restore the session.
+ * Held in memory, never localStorage — anything localStorage can read, an injected script can
+ * read too.
  */
 let accessToken: string | null = null;
 
@@ -55,12 +54,7 @@ async function performRefresh(): Promise<boolean> {
   }
 }
 
-/**
- * SINGLE-FLIGHT. If ten requests expire at once, they must produce ONE refresh
- * call, not ten. The backend rotates refresh tokens and treats a replayed token
- * as theft — ten parallel refreshes would revoke the whole session family and
- * sign the user out. Everyone after the first awaits the same promise.
- */
+/** SINGLE-FLIGHT. */
 function refreshSession(): Promise<boolean> {
   const pending =
     refreshInFlight ??
@@ -106,8 +100,7 @@ export async function apiFetch<T>(
   if (!response.ok) {
     const error = (body as ErrorEnvelope | null)?.error;
 
-    // Only TOKEN_EXPIRED is retryable. Any other 401 means the session is
-    // genuinely dead, and retrying would loop.
+    // Only TOKEN_EXPIRED is retryable.
     if (response.status === 401 && error?.code === 'TOKEN_EXPIRED' && allowRetry) {
       if (await refreshSession()) {
         return apiFetch<T>(path, init, false);
@@ -123,17 +116,7 @@ export async function apiFetch<T>(
     );
   }
 
-  /**
-   * A successful response with no body.
-   *
-   * 204 No Content carries nothing to unwrap, so `body` is null and reaching
-   * for `.data` throws a TypeError — on a request that SUCCEEDED. The caller
-   * then reports failure for something the server did.
-   *
-   * This hid for a long time because logout() was the only 204 caller and it
-   * wraps everything in `.catch(() => null)`. change-password is the second,
-   * and it surfaced immediately.
-   */
+  /** A successful response with no body. */
   if (response.status === 204 || body === null) {
     return undefined as T;
   }

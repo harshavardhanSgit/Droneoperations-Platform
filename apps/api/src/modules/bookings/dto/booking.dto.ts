@@ -32,10 +32,7 @@ export class CreateBookingDto {
   @Max(1_000_000)
   quantity: number;
 
-  /**
-   * F9. A calendar date, not an instant. "2026-08-14" plus MORNING is the real
-   * commitment; a timestamp invents precision neither party agreed to.
-   */
+  /** F9. */
   @ApiProperty({ example: '2026-08-14', description: 'Local calendar date (YYYY-MM-DD)' })
   @IsDateString()
   preferredDate: string;
@@ -50,18 +47,7 @@ export class CreateBookingDto {
   @Length(2, 500)
   locationNote?: string;
 
-  /**
-   * The field's exact spot, picked on a map. Latitude and longitude are a
-   * pair: sending one without the other is rejected by the ValidateIf rules
-   * below, so a booking cannot be created with a missing axis. The district
-   * (areaId) stays the market scope; these are the delivery coordinates.
-   *
-   * NOTE — do NOT add @IsOptional to either field. The pair rule depends on
-   * ValidateIf short-circuiting the @IsNumber check when the OTHER field is
-   * absent: with only longitude sent, latitude's IsNumber sees `undefined` and
-   * fails the request. @IsOptional would short-circuit that failure and let a
-   * half-pair through. booking.dto.spec.ts pins this behaviour.
-   */
+  /** The field's exact spot, picked on a map. */
   @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the work site' })
   @ValidateIf((o) => o.longitude !== undefined)
   @IsNumber({ maxDecimalPlaces: 7 })
@@ -76,10 +62,7 @@ export class CreateBookingDto {
   @Max(180)
   longitude?: number;
 
-  /**
-   * Chosen from Discovery results. Optional so a booking can be created
-   * unassigned — which is exactly what V2's auto-assignment will do.
-   */
+  /** Chosen from Discovery results. */
   @ApiPropertyOptional({ format: 'uuid', description: 'Offering to assign immediately' })
   @IsOptional()
   @IsUUID()
@@ -179,8 +162,8 @@ export class BookingDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ enum: Object.values(BookingStatus) }) status: string;
 
-  // The ids as well as the names: an operator looking at an unassigned job needs
-  // to ask Discovery who could take it, and that question is asked with ids.
+  // The ids as well as the names: an operator looking at an unassigned job needs to ask
+  // Discovery who could take it, and that question is asked with ids.
   @ApiProperty({ format: 'uuid' }) serviceTypeId: string;
   @ApiProperty({ example: 'Crop spraying' }) serviceTypeName: string;
   @ApiProperty({ format: 'uuid' }) areaId: string;
@@ -192,16 +175,7 @@ export class BookingDto {
   @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the work site' }) latitude?: number;
   @ApiPropertyOptional({ example: 79.5941, description: 'Longitude of the work site' }) longitude?: number;
 
-  /**
-   * How far this job is from the READING provider's registered base.
-   *
-   * Present only on the provider's own lists, because only there is there a
-   * second point to measure from — a customer reading their booking has no
-   * "base", and the field is absent rather than zero. Also absent when either
-   * the provider or the booking has no coordinates.
-   *
-   * Straight line, not road distance; the UI must say so.
-   */
+  /** How far this job is from the READING provider's registered base. */
   @ApiPropertyOptional({
     example: 8.4,
     description:

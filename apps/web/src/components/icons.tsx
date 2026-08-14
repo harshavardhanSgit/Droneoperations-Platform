@@ -1,11 +1,4 @@
-/**
- * Inline SVG, keyed by route.
- *
- * No icon library: the web app's dependencies are deliberately next + react and
- * little else, and a nav needs sixteen glyphs — not a package. These are stroke
- * icons on a 24-unit grid using currentColor, so they inherit the link's colour
- * and the token layer keeps working without a per-icon dark variant.
- */
+/** Inline SVG, keyed by route. */
 const PATHS: Record<string, string> = {
   // Customer
   "/bookings": "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
@@ -25,8 +18,8 @@ const PATHS: Record<string, string> = {
   "/admin/providers": "M9 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M17 11a3 3 0 100-6M18 21v-1a5 5 0 00-2-4",
   "/admin/tickets": "M15 6a4 4 0 00-5.5 5.2L4 17v3h3l5.8-5.5A4 4 0 0018 9",
   "/admin/catalogue": "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
-  // A single figure: one customer organisation, distinct from the pair used
-  // for providers and the badge used for staff accounts.
+  // A single figure: one customer organisation, distinct from the pair used for providers and
+  // the badge used for staff accounts.
   "/admin/customers": "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21v-1a8 8 0 0116 0v1",
   // A figure with a key: these are accounts that can sign in to the console.
   "/admin/users": "M10 11a4 4 0 100-8 4 4 0 000 8zM3 21v-1a7 7 0 019.5-6.5M18 14a2 2 0 100-4 2 2 0 000 4zM18 14v6m0-3h2",

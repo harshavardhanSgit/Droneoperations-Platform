@@ -47,18 +47,7 @@ export class CatalogueRepository {
     return this.db(tx).serviceType.create({ data });
   }
 
-  /**
-   * Where an unpositioned new service type belongs: the end.
-   *
-   * The column defaults to 0, and lists are ordered by it ascending — so a
-   * service type added through the admin screen without an explicit position
-   * silently landed AHEAD of every curated entry. It then became the customer
-   * search page's default selection, which is how a brand-new service type
-   * nobody offered started greeting every visitor with an empty result.
-   *
-   * Stepping by 10 leaves room to slot something between two existing entries
-   * without renumbering the whole list.
-   */
+  /** Where an unpositioned new service type belongs: the end. */
   async nextServiceTypeSortOrder(tx?: Tx): Promise<number> {
     const { _max } = await this.db(tx).serviceType.aggregate({ _max: { sortOrder: true } });
 
@@ -80,12 +69,7 @@ export class CatalogueRepository {
 
   // ----------------------------------------------------------------- areas
 
-  /**
-   * Children of one node, or top-level states when parentId is undefined.
-   * Deliberately NOT a whole-tree fetch: a cascading picker only ever needs
-   * one level, and loading every taluka in India to render a state dropdown
-   * is how a reference endpoint becomes the slowest call in the system.
-   */
+  /** Children of one node, or top-level states when parentId is undefined. */
   listAreas(
     filter: { parentId?: string | null; level?: AreaLevel; status?: CatalogueStatus },
     tx?: Tx,

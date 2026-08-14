@@ -6,18 +6,7 @@ import { RequirePermissions } from '../identity/decorators/require-permissions.d
 import { CreateStaffDto, StaffListDto, StaffMemberDto } from '../identity/dto/staff.dto';
 import { StaffService } from '../identity/staff.service';
 
-/**
- * Platform accounts — the sixth admin surface, added the same way as the rest.
- *
- * Its own controller rather than more routes on AdminStaffController, because
- * `admin/engineers` and `admin/users` are different prefixes and Nest resolves
- * no `..` in a route path. They are also different capabilities: the engineer
- * list is a dispatch tool for handing out tickets (`ticket:assign`), this is
- * account administration (`user:manage`).
- *
- * Controllers only. Every action calls Identity's exported StaffService, which
- * owns users — there is no AdminService and there never should be.
- */
+/** Platform accounts — the sixth admin surface, added the same way as the rest. */
 @ApiTags('Administration')
 @ApiBearerAuth('access-token')
 @Controller('admin/users')
@@ -37,9 +26,8 @@ export class AdminUserController {
   }
 
   /**
-   * Deliberately NOT part of /auth/register: registration is public and may
-   * only ever produce the two marketplace sides. If it could mint an ADMIN,
-   * privilege escalation would be an unauthenticated endpoint.
+   * Deliberately NOT part of /auth/register: registration is public and may only ever produce
+   * the two marketplace sides.
    */
   @Post()
   @RequirePermissions('user:manage')

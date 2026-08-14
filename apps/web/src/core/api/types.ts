@@ -1,9 +1,7 @@
 import type { components } from "./schema";
 
 /**
- * Every type here is derived from the backend's OpenAPI spec via
- * `npm run web:generate-api`. Nothing is hand-written, so the frontend cannot
- * silently drift from the API contract.
+ * Every type here is derived from the backend's OpenAPI spec via `npm run web:generate-api`.
  */
 export type Liveness = components["schemas"]["LivenessResponseDto"];
 export type Readiness = components["schemas"]["ReadinessResponseDto"];
@@ -13,8 +11,10 @@ export type LoginResponse = components["schemas"]["LoginResponseDto"];
 export type RegisterResponse = components["schemas"]["RegisterResponseDto"];
 export type CurrentAccount = components["schemas"]["MeResponseDto"];
 export type Organisation = components["schemas"]["RegisteredOrganisationDto"];
-/** What GET/PATCH /organisations/me returns — fuller than the one nested in
- *  the register response, which carries only what the caller just created. */
+/**
+ * What GET/PATCH /organisations/me returns — fuller than the one nested in the register
+ * response, which carries only what the caller just created.
+ */
 export type OwnOrganisation = components["schemas"]["OrganisationDto"];
 
 export type Provider = components["schemas"]["ProviderDto"];

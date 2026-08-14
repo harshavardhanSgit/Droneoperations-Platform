@@ -6,14 +6,7 @@ import type { ActorContext } from '../identity/actor-context';
 import { CustomerRepository, type CustomerProfileWithArea } from './customer.repository';
 import type { CustomerProfileDto, UpdateCustomerProfileDto } from './dto/customer.dto';
 
-/**
- * The buyer's saved preferences.
- *
- * Exists to stop a farmer re-pinning the same field on every booking. It gates
- * nothing — a customer with no profile books exactly as before — so every read
- * returns an empty profile rather than a 404, which would make "I have not set
- * this yet" indistinguishable from an error.
- */
+/** The buyer's saved preferences. */
 @Injectable()
 export class CustomerService {
   constructor(
@@ -33,9 +26,8 @@ export class CustomerService {
   ): Promise<CustomerProfileDto> {
     this.requireCustomer(actor);
 
-    // Validated against the catalogue rather than trusted: a retired district
-    // saved as a default would fail later, at booking time, where the customer
-    // has no idea why. Null clears it and skips the check.
+    // Validated against the catalogue rather than trusted: a retired district saved as a
+    // default would fail later, at booking time, where the customer has no idea why.
     if (dto.defaultAreaId) {
       await this.catalogue.requireActiveArea(dto.defaultAreaId);
     }
@@ -43,8 +35,8 @@ export class CustomerService {
     const saved = await this.customers.save(actor.organisationId, {
       latitude: dto.latitude,
       longitude: dto.longitude,
-      // Trimmed to null rather than "" so "cleared" is one value in the
-      // column, not two that every reader has to know about.
+      // Trimmed to null rather than "" so "cleared" is one value in the column, not two that
+      // every reader has to know about.
       locationLabel:
         dto.locationLabel === undefined ? undefined : dto.locationLabel?.trim() || null,
       defaultAreaId: dto.defaultAreaId,
@@ -53,11 +45,7 @@ export class CustomerService {
     return this.toDto(saved);
   }
 
-  /**
-   * LEVEL-2 check. The permission guard established that this actor may manage
-   * their own organisation; only this establishes that the organisation is a
-   * CUSTOMER — a provider holds the same permission for their own business.
-   */
+  /** LEVEL-2 check. */
   private requireCustomer(actor: ActorContext): void {
     if (actor.organisationKind !== 'CUSTOMER') {
       throw new AccessDeniedException('This account is not a customer organisation');

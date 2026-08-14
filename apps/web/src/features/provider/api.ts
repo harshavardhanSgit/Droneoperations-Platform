@@ -16,14 +16,7 @@ export interface ProviderProfileInput {
   pincode: string;
 }
 
-/**
- * Where the business works from and how far it will go.
- *
- * A separate call from the profile, because the API treats them differently:
- * business details are verified and re-enter review if changed, so they lock
- * once activated. Coverage was never reviewed and stays editable for life —
- * which is the point, since it changes whenever the fleet does.
- */
+/** Where the business works from and how far it will go. */
 export interface ProviderCoverageInput {
   /** Point picked on the map. Sent as a pair, or not at all. */
   latitude?: number;
@@ -52,14 +45,7 @@ export const submitForReview = () =>
 export const listOwnDocuments = () =>
   apiFetch<ProviderDocument[]>("/api/v1/providers/me/documents");
 
-/**
- * The three-step upload.
- *
- * Step 2 deliberately uses raw `fetch`, NOT apiFetch: those bytes go to the
- * storage service, not to our API. It carries no bearer token and expects no
- * `{ data }` envelope — the signed URL is the entire authorisation. In
- * production that request goes to a different host altogether.
- */
+/** The three-step upload. */
 export async function uploadDocument(
   kind: string,
   file: File,
@@ -95,9 +81,8 @@ export async function uploadDocument(
     throw new ApiError("UPLOAD_FAILED", "The file could not be uploaded", upload.status);
   }
 
-  // file.size rather than anything the storage layer returns, because S3 will
-  // not report it back. Note the client is therefore asserting the size — the
-  // server should verify with a HEAD against storage before trusting it.
+  // file.size rather than anything the storage layer returns, because S3 will not report it
+  // back.
   return apiFetch<ProviderDocument>(
     `/api/v1/providers/me/documents/${ticket.documentId}/confirm`,
     { method: "POST", body: JSON.stringify({ sizeBytes: file.size }) },

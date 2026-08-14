@@ -10,8 +10,8 @@ import { DroneService } from './drone.service';
   imports: [PrismaModule, OrganisationsModule],
   controllers: [DroneController],
   providers: [DroneService, DroneRepository],
-  // Field Service needs both: the service for ownership checks, the repository
-  // to ground and un-ground a drone as tickets open and close.
+  // Field Service needs both: the service for ownership checks, the repository to ground and
+  // un-ground a drone as tickets open and close.
   exports: [DroneService, DroneRepository],
 })
 export class AssetsModule {}

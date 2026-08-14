@@ -16,11 +16,7 @@ export const createServiceType = (input: {
     body: JSON.stringify(input),
   });
 
-/**
- * code and pricingUnit are absent by design — the API refuses to change them.
- * Reinterpreting PER_ACRE as PER_HOUR would silently rewrite the meaning of
- * every price already quoted against it.
- */
+/** code and pricingUnit are absent by design — the API refuses to change them. */
 export const updateServiceType = (
   id: string,
   input: { name?: string; description?: string; sortOrder?: number; status?: string },
@@ -30,11 +26,7 @@ export const updateServiceType = (
     body: JSON.stringify(input),
   });
 
-/**
- * Built with URLSearchParams, not string concatenation. Hand-assembled query
- * strings get the first separator wrong the moment a parameter becomes
- * optional — which is exactly what happened here.
- */
+/** Built with URLSearchParams, not string concatenation. */
 export const listAreas = (parentId?: string) => {
   const params = new URLSearchParams({ includeRetired: "true" });
 

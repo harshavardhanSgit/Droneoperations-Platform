@@ -25,15 +25,13 @@ function Customers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // The effect owns its own fetch and every setState happens inside a promise
-  // callback, never synchronously in the effect body — the same shape the
-  // provider onboarding page uses. `cancelled` stops a slow response writing
-  // to an unmounted component, or a superseded page landing after a newer one.
+  // The effect owns its own fetch and every setState happens inside a promise callback, never
+  // synchronously in the effect body — the same shape the provider onboarding page uses.
   useEffect(() => {
     let cancelled = false;
 
-    // Customers are Organisations narrowed by kind, not a separate entity —
-    // so this is the shared list endpoint, not a bespoke one.
+    // Customers are Organisations narrowed by kind, not a separate entity — so this is the
+    // shared list endpoint, not a bespoke one.
     adminApi
       .listOrganisations("CUSTOMER", page)
       .then((result) => {
@@ -57,8 +55,8 @@ function Customers() {
 
   const pages = Math.max(1, Math.ceil(total / 20));
 
-  // Paging is a user action, so the spinner is raised there rather than in an
-  // effect reacting to the page number changing.
+  // Paging is a user action, so the spinner is raised there rather than in an effect reacting
+  // to the page number changing.
   const goTo = (next: number) => {
     setLoading(true);
     setPage(next);

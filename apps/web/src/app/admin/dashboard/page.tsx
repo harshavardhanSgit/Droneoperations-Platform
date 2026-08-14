@@ -10,15 +10,7 @@ import { ApiError, apiFetch } from "@/core/api/client";
 import type { Dashboard } from "@/core/api/types";
 import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 
-/**
- * Not four equal cards.
- *
- * An operator opens this asking one question — "is anything stuck?" — so the
- * things that need a human come first, as links to the screen where the work
- * happens. Everything else is background. A grid of identically-weighted tiles
- * would give a number that needs action and a number that does not exactly the
- * same visual claim.
- */
+/** Not four equal cards. */
 function AdminDashboard() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);

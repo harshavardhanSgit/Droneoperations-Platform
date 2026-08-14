@@ -39,12 +39,7 @@ function Drones() {
   const [faultFor, setFaultFor] = useState<string | null>(null);
   const [fault, setFault] = useState("");
 
-  /**
-   * The drone added a moment ago. A list that silently grows by one leaves the
-   * user hunting for what changed — five machines all look alike in plain text.
-   * Cleared on the next action rather than on a timer, so it is still there when
-   * they look up from the form.
-   */
+  /** The drone added a moment ago. */
   const [justAdded, setJustAdded] = useState<string | null>(null);
 
   const load = () =>
@@ -239,8 +234,8 @@ function Drones() {
                   <div className="mt-4 space-y-3 border-t border-border pt-4">
                     <Field
                       label="What is wrong with it?"
-                      // Live, not after submit: the rule is knowable before the
-                      // button is pressed, so say it before the button is pressed.
+                      // Live, not after submit: the rule is knowable before the button is
+                      // pressed, so say it before the button is pressed.
                       hint={
                         remaining > 0
                           ? `${remaining} more ${remaining === 1 ? "character" : "characters"} — the engineer needs enough to work with`

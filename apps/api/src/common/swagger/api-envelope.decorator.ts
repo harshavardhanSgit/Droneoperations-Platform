@@ -3,10 +3,7 @@ import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 
 import { ErrorEnvelopeDto } from '../http/error-envelope.dto';
 
-/**
- * Documents a success response as it is actually sent: wrapped in { data }.
- * Without this the docs would describe the unwrapped shape and be wrong.
- */
+/** Documents a success response as it is actually sent: wrapped in { data }. */
 export function ApiEnvelope<TModel extends Type<unknown>>(
   model: TModel,
   options: { status?: number; description?: string } = {},

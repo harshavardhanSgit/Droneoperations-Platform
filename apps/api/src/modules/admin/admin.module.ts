@@ -14,14 +14,7 @@ import { AdminProviderController } from './admin-provider.controller';
 import { AdminStaffController } from './admin-staff.controller';
 import { AdminUserController } from './admin-user.controller';
 
-/**
- * Controllers only. No providers, ever.
- *
- * Every future admin capability arrives the same way: import the owning
- * module, add a controller that calls its exported service. A new domain module
- * therefore ships WITH its admin surface instead of being retrofitted into a
- * god module.
- */
+/** Controllers only. */
 @Module({
   imports: [OrganisationsModule, CatalogueModule, FieldServiceModule, IdentityModule, BookingsModule],
   controllers: [

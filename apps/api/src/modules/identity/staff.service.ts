@@ -10,14 +10,7 @@ import { UserRepository } from './repositories/user.repository';
 
 const UNIQUE_VIOLATION = 'P2002';
 
-/**
- * Platform staff, read and created by the Admin Console.
- *
- * This lives in Identity because Identity owns users — not in modules/admin,
- * which holds controllers and no business logic. Assigning a ticket needs an
- * engineer's id; discovering that id is an Identity question, and answering it
- * anywhere else would put a second owner on the same data.
- */
+/** Platform staff, read and created by the Admin Console. */
 @Injectable()
 export class StaffService {
   constructor(
@@ -56,17 +49,7 @@ export class StaffService {
     return { items, total: items.length };
   }
 
-  /**
-   * Create an Admin or Service Engineer.
-   *
-   * One transaction for user + membership: an account with no membership can
-   * log in and belongs to nothing, which is a broken state no screen would
-   * ever show and no cleanup job would ever find.
-   *
-   * The PLATFORM organisation is found-or-created for the same reason the seed
-   * does it — there is exactly one, and the first staff account must not
-   * depend on the seed having run.
-   */
+  /** Create an Admin or Service Engineer. */
   async createStaff(dto: CreateStaffDto): Promise<StaffMemberDto> {
     const email = dto.email.trim().toLowerCase();
     const passwordHash = await this.passwords.hash(dto.password);
@@ -101,8 +84,8 @@ export class StaffService {
         };
       });
     } catch (error) {
-      // The unique index is the real guard, not a prior existence check —
-      // check-then-act loses a race between two admins adding the same person.
+      // The unique index is the real guard, not a prior existence check — check-then-act loses
+      // a race between two admins adding the same person.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION) {
         throw new ResourceConflictException(
           'EMAIL_ALREADY_REGISTERED',

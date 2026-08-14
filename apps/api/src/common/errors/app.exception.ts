@@ -23,8 +23,10 @@ export class InvalidInputException extends AppException {
 }
 
 export class UnauthenticatedException extends AppException {
-  /** `code` is overridable so a client can distinguish TOKEN_EXPIRED (retry
-   *  after refresh) from an invalid token (send the user to log in). */
+  /**
+   * `code` is overridable so a client can distinguish TOKEN_EXPIRED (retry after refresh) from
+   * an invalid token (send the user to log in).
+   */
   constructor(message = 'Authentication required', code = 'UNAUTHENTICATED') {
     super(code, message, HttpStatus.UNAUTHORIZED);
   }
@@ -47,10 +49,7 @@ export class ResourceNotFoundException extends AppException {
   }
 }
 
-/**
- * Two states cannot coexist — e.g. a second active assignment on a booking.
- * Carries its own code because there are many distinct conflicts.
- */
+/** Two states cannot coexist — e.g. a second active assignment on a booking. */
 export class ResourceConflictException extends AppException {
   constructor(code: string, message: string, details?: Record<string, unknown>) {
     super(code, message, HttpStatus.CONFLICT, details);
@@ -58,8 +57,8 @@ export class ResourceConflictException extends AppException {
 }
 
 /**
- * The request was well-formed and permitted, but a domain rule rejected it —
- * BR1 provider-not-approved, BR7 already-reviewed, and so on.
+ * The request was well-formed and permitted, but a domain rule rejected it — BR1
+ * provider-not-approved, BR7 already-reviewed, and so on.
  */
 export class BusinessRuleException extends AppException {
   constructor(code: string, message: string, details?: Record<string, unknown>) {
@@ -79,9 +78,8 @@ export class DependencyUnavailableException extends AppException {
 }
 
 /**
- * The error envelope has always documented a 429; now there is a limiter that
- * can actually raise it. Public analytics endpoints are where this matters —
- * they are the only routes reachable by a hostile client without a token.
+ * The error envelope has always documented a 429; now there is a limiter that can actually
+ * raise it.
  */
 export class TooManyRequestsException extends AppException {
   constructor(message = 'Too many requests. Please slow down and try again shortly.') {

@@ -7,9 +7,7 @@ const KHAMMAM = { latitude: 17.2473, longitude: 80.1514 };
 
 describe('distanceKm', () => {
   it('matches a known separation', () => {
-    // Warangal to Hyderabad is ~134 km straight line. Asserted as a range
-    // rather than toBeCloseTo, whose precision argument is base-10 exponents
-    // and reads as a tolerance it is not.
+    // Warangal to Hyderabad is ~134 km straight line.
     const d = distanceKm(WARANGAL, HYDERABAD);
 
     expect(d).toBeGreaterThan(132);
@@ -25,8 +23,8 @@ describe('distanceKm', () => {
   });
 
   it('stays finite for antipodal points', () => {
-    // sqrt(h) can round above 1 here; without the clamp Math.asin returns NaN
-    // and a NaN in a sort comparator scrambles the entire result list.
+    // sqrt(h) can round above 1 here; without the clamp Math.asin returns NaN and a NaN in a
+    // sort comparator scrambles the entire result list.
     const north = { latitude: 45, longitude: 0 };
     const antipode = { latitude: -45, longitude: 180 };
 
@@ -63,8 +61,8 @@ describe('distanceBetween', () => {
   });
 
   it('treats 0,0 as a real coordinate rather than absent', () => {
-    // Guarding with `!from.latitude` instead of `== null` would drop the
-    // equator and the prime meridian.
+    // Guarding with `!from.latitude` instead of `== null` would drop the equator and the prime
+    // meridian.
     expect(distanceBetween({ latitude: 0, longitude: 0 }, WARANGAL)).toBeGreaterThan(0);
   });
 });

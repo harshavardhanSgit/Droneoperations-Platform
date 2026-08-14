@@ -2,20 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
-/**
- * The three source reads behind the coverage dashboard. Each query is kept
- * deliberately narrow — the service needs one thing from each, and a fat
- * findMany that returns the whole row is how aggregation code rots.
- */
+/** The three source reads behind the coverage dashboard. */
 @Injectable()
 export class CoverageRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Delivered work. finalQuantity is BR14's "what was actually covered" —
-   * that is the number a coverage map must claim, never the booked quantity.
-   * The area hierarchy is walked up so a booking made against a taluka still
-   * lands on its district and state.
+   * Delivered work. finalQuantity is BR14's "what was actually covered" — that is the number a
+   * coverage map must claim, never the booked quantity.
    */
   completedBookings() {
     return this.prisma.booking.findMany({
@@ -32,12 +26,7 @@ export class CoverageRepository {
     });
   }
 
-  /**
-   * What is currently on sale. Same business rules as discovery: an offering
-   * only counts if its provider is ACTIVATED and its organisation is ACTIVE.
-   * A provider's footprint on the map is where they take work, not where they
-   * are registered.
-   */
+  /** What is currently on sale. */
   activeOfferings() {
     return this.prisma.offering.findMany({
       where: {

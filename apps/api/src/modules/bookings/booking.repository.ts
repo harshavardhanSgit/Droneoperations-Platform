@@ -97,16 +97,7 @@ export class BookingRepository {
     ]);
   }
 
-  /**
-   * Every booking on the platform, scoped by nothing.
-   *
-   * The absence of an organisation filter is the whole point and the whole
-   * danger: this is the only list method that does not constrain by who is
-   * asking, so it must never be reachable without booking:read-any. Kept
-   * visibly separate from listForCustomer rather than making that method's
-   * organisation argument optional — an optional scope is one forgotten
-   * argument away from leaking every booking to every customer.
-   */
+  /** Every booking on the platform, scoped by nothing. */
   listAll(
     page: { skip: number; take: number },
     filters: { status?: BookingStatus } = {},
@@ -160,11 +151,7 @@ export class BookingRepository {
     ]);
   }
 
-  /**
-   * F6 — optimistic locking. The WHERE clause pins the version we read, so a
-   * concurrent transition that already bumped it yields count 0 and the caller
-   * knows it lost rather than overwriting someone else's change.
-   */
+  /** F6 — optimistic locking. */
   transitionStatus(
     input: {
       id: string;
@@ -189,8 +176,7 @@ export class BookingRepository {
       })
       .then(async (result) => {
         if (result.count > 0) {
-          // BR16: the transition and its record are written together. A status
-          // change without its history entry is unreconstructable.
+          // BR16: the transition and its record are written together.
           await this.db(tx).bookingStatusHistory.create({
             data: {
               bookingId: input.id,

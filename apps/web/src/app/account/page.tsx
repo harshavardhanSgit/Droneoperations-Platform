@@ -68,24 +68,20 @@ function Account() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // The customer's saved default field. Loaded lazily — providers and staff
-  // never render this section, so they never make the request.
+  // The customer's saved default field.
   const [fieldPoint, setFieldPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [fieldLabel, setFieldLabel] = useState("");
   // Resolved from the pin so a saved field can pre-fill a booking's district.
   const [fieldAreaId, setFieldAreaId] = useState<string | null>(null);
-  // Four states, because "cannot" and "refused" need different words:
-  // unavailable (browser or server cannot), denied, granted, or askable.
+  // Four states, because "cannot" and "refused" need different words: unavailable (browser or
+  // server cannot), denied, granted, or askable.
   const [pushState, setPushState] = useState<"loading" | "unavailable" | "denied" | "granted" | "default">("loading");
   // Top-level areas, needed to turn a geocoded state name into a catalogue id.
   const [states, setStates] = useState<Area[]>([]);
 
   const isCustomer = account?.organisation.kind === "CUSTOMER";
 
-  // Push availability, resolved once on mount. Also repairs the case where
-  // permission was granted earlier but no token was ever registered — consent
-  // given and nothing delivered, which looks identical to the feature being
-  // broken.
+  // Push availability, resolved once on mount.
   useEffect(() => {
     let cancelled = false;
 
@@ -166,9 +162,8 @@ function Account() {
     setBusy("profile");
 
     try {
-      // Phone is sent even when blank — "" is how the API is told to clear it,
-      // and omitting the key would mean "leave it alone", making a number
-      // impossible to remove once added.
+      // Phone is sent even when blank — "" is how the API is told to clear it, and omitting the
+      // key would mean "leave it alone", making a number impossible to remove once added.
       const updated = await authApi.updateAccount({ fullName: fullName.trim(), phone: phone.trim() });
       setAccount(updated);
       toast("Profile saved");
@@ -220,9 +215,8 @@ function Account() {
 
     try {
       await customerApi.saveOwnCustomerProfile({
-        // null, not undefined: the customer may have cleared the pin, and the
-        // API reads undefined as "leave it alone" — which would silently keep
-        // a point they just removed.
+        // null, not undefined: the customer may have cleared the pin, and the API reads
+        // undefined as "leave it alone" — which would silently keep a point they just removed.
         latitude: fieldPoint?.latitude ?? null,
         longitude: fieldPoint?.longitude ?? null,
         locationLabel: fieldLabel.trim() || null,
@@ -262,8 +256,8 @@ function Account() {
     event.preventDefault();
     setError(null);
 
-    // Checked here as well as on the server: a typo in the confirmation is not
-    // worth a round trip, and the server never sees this field anyway.
+    // Checked here as well as on the server: a typo in the confirmation is not worth a round
+    // trip, and the server never sees this field anyway.
     if (newPassword !== confirmPassword) {
       setError("The two new passwords do not match");
       return;
@@ -275,11 +269,7 @@ function Account() {
       await authApi.changePassword(currentPassword, newPassword);
       toast("Password changed — please sign in again");
 
-      // signOut(), not just a redirect. The server revoked every refresh
-      // token, but this tab still holds a VALID access token in memory — a JWT
-      // cannot be revoked — so the app would go on believing it is signed in
-      // and bounce straight back out of /login. Clearing the local session is
-      // what makes the two agree.
+      // signOut(), not just a redirect.
       await signOut();
       router.push("/login");
     } catch (caught) {
@@ -430,11 +420,7 @@ function Account() {
                     setFieldLabel(location.label.split(",").slice(0, 2).join(", "));
                   }
 
-                  // Resolve the district NOW, while the geocoder's answer is in
-                  // hand. Storing only the coordinates would mean the search
-                  // page restores a pin it cannot book against — Booking.areaId
-                  // is a required FK, and re-deriving it there would cost
-                  // another geocode round trip on every page load.
+                  // Resolve the district NOW, while the geocoder's answer is in hand.
                   void resolveAreaFromPin(location, states).then((resolved) => {
                     setFieldAreaId(resolved.areaId ?? null);
                   });
@@ -493,9 +479,8 @@ function Account() {
               On for this browser. Turn it off in your browser&apos;s site settings.
             </p>
           ) : pushState === "denied" ? (
-            // The one case with no in-page remedy: a browser will not re-ask
-            // once refused, so the only honest thing is to say where the
-            // setting lives.
+            // The one case with no in-page remedy: a browser will not re-ask once refused, so
+            // the only honest thing is to say where the setting lives.
             <p className="text-sm text-fg-muted">
               Your browser is blocking notifications for this site. Click the icon to the left of
               the address bar and allow notifications, then reload.

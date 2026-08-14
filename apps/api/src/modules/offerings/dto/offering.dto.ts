@@ -113,14 +113,7 @@ export class CreateOfferingDto extends PricedFields {
   areaIds?: string[];
 }
 
-/**
- * A COMPLETE statement of commercial terms — not a patch.
- *
- * Anything omitted is absent from the new version, including minQuantity and
- * notes. That is deliberate: a version must be readable on its own without
- * consulting its predecessors. Clients MUST pre-fill this from the current
- * version so a price change does not silently drop a minimum job size.
- */
+/** A COMPLETE statement of commercial terms — not a patch. */
 export class CreateOfferingVersionDto extends PricedFields {}
 
 export class SetOfferingAreasDto {

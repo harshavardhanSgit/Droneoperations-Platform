@@ -39,14 +39,7 @@ export class RefreshTokenRepository {
     });
   }
 
-  /**
-   * Every session this user has anywhere.
-   *
-   * Used on password change. Someone changing their password is very often
-   * responding to a suspicion that another device is signed in — leaving those
-   * sessions alive would make the change theatre, because a stolen refresh
-   * token keeps minting access tokens regardless of the new password.
-   */
+  /** Every session this user has anywhere. */
   revokeAllForUser(userId: string, tx?: Tx): Promise<{ count: number }> {
     return this.db(tx).refreshToken.updateMany({
       where: { userId, revokedAt: null },

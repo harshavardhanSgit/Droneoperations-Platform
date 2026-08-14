@@ -12,25 +12,13 @@ export enum MatchSort {
   DISTANCE_ASC = 'DISTANCE_ASC',
 }
 
-/**
- * The customer's requirement. Note what is NOT here: a provider id. Discovery
- * takes a JOB and returns who can do it — the opposite of a directory, where
- * you pick a business first and work out the price afterwards.
- */
+/** The customer's requirement. */
 export class MatchQueryDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   serviceTypeId: string;
 
-  /**
-   * The district, kept only because a BOOKING needs one — Booking.areaId is a
-   * required FK. It no longer decides who appears: a provider's coverage is
-   * their base plus their travel radius, so matching is done on distance.
-   *
-   * Optional here so a customer can see who can reach a pin that falls outside
-   * the 17 districts the catalogue currently knows. They will not be able to
-   * book there until staff add the district, and the UI says so.
-   */
+  /** The district, kept only because a BOOKING needs one — Booking.areaId is a required FK. */
   @ApiPropertyOptional({ format: 'uuid', description: 'District, for the booking that follows' })
   @IsOptional()
   @IsUUID()
@@ -44,12 +32,10 @@ export class MatchQueryDto {
   quantity: number;
 
   /**
-   * Where the work is. REQUIRED — this is what discovery matches on.
+   * Where the work is. Required — this is what discovery matches on.
    *
-   * Coverage is now a provider's base plus how far they travel, so without a
-   * point there is nothing to compare against. No @IsOptional and no
-   * ValidateIf: both are mandatory, so the pair rule is simply "both present",
-   * which the plain validators already enforce.
+   * Do NOT add @IsOptional: both are mandatory, and @IsOptional would let a half-pair
+   * through. discovery.dto.spec.ts pins this.
    */
   @ApiProperty({ example: 17.9689 })
   @Type(() => Number)
@@ -85,34 +71,14 @@ export class MatchProviderDto {
   @ApiProperty({ example: 12, description: 'How many reviews the average is based on' })
   ratingCount: number;
 
-  /**
-   * Straight-line kilometres from the point the customer supplied.
-   *
-   * A DISTANCE, never the provider's coordinates. Shipping every provider's
-   * exact base to every searcher is a bigger disclosure than "12 km away", and
-   * nothing on the customer's side needs the raw point.
-   *
-   * Absent when the customer gave no location, or when this provider has not
-   * set one — which is not zero, and must not be rendered as "0 km".
-   */
+  /** Straight-line kilometres from the point the customer supplied. */
   @ApiPropertyOptional({
     example: 12.4,
     description: 'Straight-line km from the requested point. Absent if either side has no location.',
   })
   distanceKm?: number;
 
-  /**
-   * Where to draw this provider on the map — APPROXIMATE, on purpose.
-   *
-   * The exact registered base is never sent: a rival could read a whole
-   * fleet's footprint off a public search. This is the centre of the ~5 km
-   * grid cell the base falls in, so the marker says "this neighbourhood",
-   * not "this address". See common/geo/coarsen.ts for what that does and
-   * does not protect against.
-   *
-   * Deliberately named `approx…`: a field called `latitude` would be treated
-   * as exact by the next person to read it.
-   */
+  /** Where to draw this provider on the map — APPROXIMATE, on purpose. */
   @ApiPropertyOptional({
     example: 17.9707,
     description: 'Approximate base, snapped to a ~5 km grid. NOT the exact location.',

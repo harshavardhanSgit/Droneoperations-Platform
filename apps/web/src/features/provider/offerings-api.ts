@@ -20,17 +20,7 @@ export const createOffering = (
     body: JSON.stringify(input),
   });
 
-/**
- * A COMPLETE replacement of the terms, not a patch.
- *
- * Anything omitted here is absent from the new version — leave `notes` out and
- * the new version has no notes. The form therefore pre-fills from the current
- * version rather than starting blank, or a provider changing only the price
- * would silently drop their minimum quantity and inclusions.
- *
- * The previous version is never edited, which is what lets an already-quoted
- * booking keep its agreed price (BR8).
- */
+/** A COMPLETE replacement of the terms, not a patch. */
 export const publishVersion = (offeringId: string, terms: OfferingTerms) =>
   apiFetch<Offering>(`/api/v1/providers/me/offerings/${offeringId}/versions`, {
     method: "POST",

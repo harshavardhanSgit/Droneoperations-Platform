@@ -35,13 +35,7 @@ export class DocumentService {
     this.maxBytes = config.get('UPLOAD_MAX_BYTES', { infer: true });
   }
 
-  /**
-   * Step 1 of 3. Validates, reserves a storage location, records a PENDING
-   * row, and returns a short-lived upload URL.
-   *
-   * The bytes are NOT accepted here. In production the client uploads straight
-   * to object storage, so a 5 MB file never occupies an API worker.
-   */
+  /** Step 1 of 3. */
   async requestUpload(input: {
     ownerType: DocumentOwnerType;
     ownerId: string;
@@ -77,12 +71,7 @@ export class DocumentService {
     return { documentId: document.id, uploadUrl, maxBytes: this.maxBytes };
   }
 
-  /**
-   * Step 3 of 3. Only now is the document usable.
-   *
-   * PENDING rows that are never confirmed are abandoned uploads — harmless,
-   * and a V1 sweeper can delete them. Nothing treats them as real.
-   */
+  /** Step 3 of 3. */
   async confirmUpload(documentId: string, sizeBytes: number): Promise<DocumentDescriptor> {
     const document = await this.requireById(documentId);
 
@@ -100,9 +89,8 @@ export class DocumentService {
   }
 
   /**
-   * Callers must have already established that the actor may see this document
-   * — this issues a link, it does not authorise. Ownership belongs to the
-   * module that owns the entity, which is the only thing that knows the rule.
+   * Callers must have already established that the actor may see this document — this issues a
+   * link, it does not authorise.
    */
   async createDownloadUrl(documentId: string): Promise<string> {
     const document = await this.requireById(documentId);

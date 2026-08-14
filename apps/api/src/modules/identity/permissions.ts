@@ -1,10 +1,7 @@
 import type { MembershipRole, OrganisationKind } from '../../generated/prisma/client';
 import type { ActorContext } from './actor-context';
 
-/**
- * Every capability in the system. Adding one here and nowhere else means an
- * unassigned permission is dead by default rather than open by default.
- */
+/** Every capability in the system. */
 export const PERMISSIONS = [
   // Organisations
   'organisation:read-own',
@@ -64,24 +61,12 @@ const PROVIDER_MEMBER: Permission[] = [
   'booking:accept',
   'booking:reject',
   'booking:complete',
-  // BR9 — cancellation is available to EITHER party before completion. A
-  // provider whose drone is grounded must be able to release the job rather
-  // than silently not turn up.
+  // BR9 — cancellation is available to EITHER party before completion.
   'booking:cancel',
   'ticket:create',
 ];
 
-/**
- * THE single source of truth for level-1 authorisation.
- *
- * Keyed on (organisation kind, membership role) rather than a role column,
- * because the same role means different things on different sides of the
- * marketplace: an OWNER of a CUSTOMER organisation books work, an OWNER of a
- * PROVIDER organisation sells it.
- *
- * Adding a role in V2 (Pilot, Account Manager) is a new entry here — not a new
- * code path anywhere else.
- */
+/** THE single source of truth for level-1 authorisation. */
 const PERMISSION_MAP: Partial<Record<OrganisationKind, Partial<Record<MembershipRole, Permission[]>>>> =
   {
     CUSTOMER: {

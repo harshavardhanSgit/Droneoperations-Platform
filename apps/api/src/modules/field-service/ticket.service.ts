@@ -145,21 +145,8 @@ export class TicketService {
     return this.detail(await this.require(ticketId));
   }
 
-  /**
-   * BR11 — cannot close without a report, and only the assigned engineer.
-   *
-   * The report requirement is conditional on the TARGET status, which a column
-   * constraint cannot express, so the service owns it. The ownership rule is
-   * level-2: the guard established that engineers may close tickets, only this
-   * can establish that it is THEIR ticket.
-   */
-  /**
-   * The report belongs to the TICKET, not the provider.
-   *
-   * Reusing the provider-document endpoint would be wrong twice over: it is
-   * gated on onboarding editability (an ACTIVATED provider cannot use it), and
-   * the engineer — not the provider — is the author.
-   */
+  /** BR11 — cannot close without a report, and only the assigned engineer. */
+  /** The report belongs to the TICKET, not the provider. */
   async requestReportUpload(
     actor: ActorContext,
     ticketId: string,

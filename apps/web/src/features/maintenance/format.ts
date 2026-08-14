@@ -1,9 +1,8 @@
 import type { Tone } from "@/components/ui/tone";
 
 /**
- * One vocabulary for the maintenance lifecycle, shared by the provider, admin
- * and engineer screens. Three surfaces describing the same ticket with three
- * different words is how a product starts feeling like three products.
+ * One vocabulary for the maintenance lifecycle, shared by the provider, admin and engineer
+ * screens.
  */
 export const TICKET_LABEL: Record<string, string> = {
   OPEN: "Waiting for an engineer",

@@ -54,13 +54,7 @@ export class ReputationRepository {
     };
   }
 
-  /**
-   * Ratings for many providers in ONE query.
-   *
-   * Discovery needs a rating per result. Calling ratingFor() in a loop would be
-   * a classic N+1 — twenty matches becoming twenty round trips — so the batch
-   * shape exists before there is a caller tempted to write the loop.
-   */
+  /** Ratings for many providers in ONE query. */
   async ratingsFor(
     providerIds: string[],
     tx?: Tx,

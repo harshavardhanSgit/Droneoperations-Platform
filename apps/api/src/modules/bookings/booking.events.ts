@@ -1,10 +1,4 @@
-/**
- * Events this module publishes.
- *
- * Booking emits these and knows nothing about who listens. The payload carries
- * only what a subscriber needs — never an entity, because an entity's shape is
- * this module's private business and a payload is a public contract.
- */
+/** Events this module publishes. */
 export const BOOKING_EVENTS = {
   ASSIGNED: 'booking.assigned',
   ACCEPTED: 'booking.accepted',

@@ -22,10 +22,7 @@ export const getProvider = (id: string) =>
 export const listProviderDocuments = (id: string) =>
   apiFetch<ProviderDocument[]>(`/api/v1/admin/providers/${id}/documents`);
 
-/**
- * Returns a short-lived URL, not the bytes. The reviewer's browser then fetches
- * the file straight from storage — it never streams through the API.
- */
+/** Returns a short-lived URL, not the bytes. */
 export const getDocumentLink = (providerId: string, documentId: string) =>
   apiFetch<{ url: string }>(
     `/api/v1/admin/providers/${providerId}/documents/${documentId}/link`,
@@ -41,9 +38,8 @@ export const rejectProvider = (id: string, reason: string) =>
   });
 
 /**
- * Customers are Organisations, not a separate entity — so this is the generic
- * organisation list narrowed by kind, not a new endpoint. The Organisations
- * module owns the data; the admin console just asks it a filtered question.
+ * Customers are Organisations, not a separate entity — so this is the generic organisation list
+ * narrowed by kind, not a new endpoint.
  */
 export const listOrganisations = (kind?: string, page = 1, limit = 20) => {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });

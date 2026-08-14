@@ -47,11 +47,7 @@ export class ProviderRepository {
     return this.db(tx).provider.update({ where: { id }, data: profile });
   }
 
-  /**
-   * Base and range only. Narrower than updateProfile on purpose: this path is
-   * open to ACTIVATED providers, so it must be incapable of touching the
-   * business details staff verified.
-   */
+  /** Base and range only. */
   updateCoverage(
     id: string,
     coverage: {
@@ -64,11 +60,7 @@ export class ProviderRepository {
     return this.db(tx).provider.update({ where: { id }, data: coverage });
   }
 
-  /**
-   * Moves a provider to a new stage AND records the event, in one call. The
-   * two must never happen separately — a stage without its event is history
-   * that cannot be reconstructed.
-   */
+  /** Moves a provider to a new stage AND records the event, in one call. */
   async transition(
     input: {
       id: string;
@@ -116,8 +108,8 @@ export class ProviderRepository {
       this.db(tx).provider.findMany({
         where,
         include: { organisation: true },
-        // Oldest first: a review queue should be first-in-first-out, or the
-        // longest-waiting applicant is the one who never gets seen.
+        // Oldest first: a review queue should be first-in-first-out, or the longest-waiting
+        // applicant is the one who never gets seen.
         orderBy: { stageEnteredAt: 'asc' },
         skip: page.skip,
         take: page.take,

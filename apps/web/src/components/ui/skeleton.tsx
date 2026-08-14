@@ -1,18 +1,6 @@
 import { cardGrid } from "./surface";
 
-/**
- * Placeholders shaped like the content they stand in for.
- *
- * The point is NOT decoration. A bare "Loading…" occupies one line, so when the
- * real data lands the page grows by several hundred pixels and everything the
- * user was about to click moves. A spinner in the same place shifts just as
- * badly. A skeleton that occupies the eventual space means nothing moves — the
- * grey shapes simply become text.
- *
- * Everything here is aria-hidden and wrapped in a role="status" region, so a
- * screen reader hears "Loading" once instead of reading out a wall of empty
- * boxes.
- */
+/** Placeholders shaped like the content they stand in for. */
 function Bar({ className = "" }: { className?: string }) {
   return <span className={`block animate-pulse rounded bg-neutral-bg ${className}`} aria-hidden />;
 }
@@ -26,14 +14,7 @@ function Region({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * Matches a Surface card: title, subtitle, a divider and a body.
- *
- * `layout` exists because the whole point is to occupy the EVENTUAL space, and
- * that is not always a two-up grid — the search results list is a single
- * column beside a map, so a 2-up skeleton would reserve the wrong shape and
- * the page would still jump.
- */
+/** Matches a Surface card: title, subtitle, a divider and a body. */
 export function CardListSkeleton({
   count = 4,
   layout = cardGrid,

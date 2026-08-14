@@ -177,8 +177,8 @@ function Queue() {
     setTotal(list.total);
   }, [stage]);
 
-  // Clearing the open row belongs with the stage change that caused it, not in
-  // an effect body — and the fetch keeps its setState inside promise callbacks.
+  // Clearing the open row belongs with the stage change that caused it, not in an effect body —
+  // and the fetch keeps its setState inside promise callbacks.
   useEffect(() => {
     let cancelled = false;
 

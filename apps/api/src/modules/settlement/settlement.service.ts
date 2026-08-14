@@ -24,11 +24,7 @@ export class SettlementService {
     private readonly providers: ProviderRepository,
   ) {}
 
-  /**
-   * Either party may record payment. The platform never sees the money (D6),
-   * so it cannot verify this — it only witnesses the claim. R8 stands: both
-   * sides can read the record, and disagreement is a V2 dispute flow.
-   */
+  /** Either party may record payment. */
   async record(
     actor: ActorContext,
     bookingId: string,
@@ -82,8 +78,8 @@ export class SettlementService {
   }
 
   async findForBooking(actor: ActorContext, bookingId: string): Promise<PaymentDto | null> {
-    // Reuses Booking's own visibility rule rather than re-deriving it — the
-    // module that owns the booking is the only one that knows who may see it.
+    // Reuses Booking's own visibility rule rather than re-deriving it — the module that owns
+    // the booking is the only one that knows who may see it.
     await this.bookings.findOne(actor, bookingId);
 
     const payment = await this.settlement.findByBooking(bookingId);
@@ -106,15 +102,13 @@ export class SettlementService {
       ...(booking.completedAt
         ? { completedOn: booking.completedAt.toISOString().slice(0, 10) }
         : {}),
-      // finalAmount is what was actually delivered (BR14). Falling back to the
-      // estimate only covers older rows completed before a final was recorded.
+      // finalAmount is what was actually delivered (BR14).
       amountMinor: booking.finalAmountMinor ?? booking.estimatedTotalMinor ?? 0,
       paid: booking.payment !== null,
       ...(booking.payment ? { paidOn: booking.payment.paidOn.toISOString().slice(0, 10) } : {}),
     }));
 
-    // Unpaid first — that is the question this screen exists to answer. Within
-    // each group the repository's newest-first order is preserved.
+    // Unpaid first — that is the question this screen exists to answer.
     jobs.sort((a, b) => Number(a.paid) - Number(b.paid));
 
     const receivedMinor = completed.reduce((sum, b) => sum + (b.payment?.amountMinor ?? 0), 0);

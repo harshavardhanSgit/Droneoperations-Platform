@@ -51,8 +51,8 @@ export class DroneService {
   async update(actor: ActorContext, id: string, dto: UpdateDroneDto): Promise<DroneDto> {
     const drone = await this.requireOwnDrone(actor, id);
 
-    // A provider cannot declare a grounded drone serviceable — only closing the
-    // maintenance ticket can do that. Otherwise the flag and reality diverge.
+    // A provider cannot declare a grounded drone serviceable — only closing the maintenance
+    // ticket can do that.
     if (dto.serviceability && drone.serviceability === 'UNDER_MAINTENANCE') {
       throw new ResourceConflictException(
         'DRONE_UNDER_MAINTENANCE',

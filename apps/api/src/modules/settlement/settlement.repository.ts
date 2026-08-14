@@ -34,19 +34,10 @@ export class SettlementRepository {
   }
 
   /**
-   * Earnings are DERIVED from completed bookings and their payments, never
-   * kept as a running total on the provider. A stored total is a second source
-   * of truth that drifts the first time a write fails halfway.
+   * Earnings are DERIVED from completed bookings and their payments, never kept as a running
+   * total on the provider.
    */
-  /**
-   * Every completed job for this provider, each with its payment or the absence
-   * of one.
-   *
-   * Returns the rows rather than only the totals: the caller needs both, and
-   * the totals are derived from exactly these rows. Summing here and fetching
-   * the same bookings again for the breakdown would be two queries answering
-   * one question — and two chances for the list and the total to disagree.
-   */
+  /** Every completed job for this provider, each with its payment or the absence of one. */
   earningsFor(providerId: string) {
     return this.prisma.booking.findMany({
       where: {
@@ -61,8 +52,8 @@ export class SettlementRepository {
         customerOrganisation: { select: { name: true } },
         payment: { select: { amountMinor: true, paidOn: true } },
       },
-      // Unpaid work is what the provider came here to find, and the oldest
-      // unpaid job is the one that needs chasing.
+      // Unpaid work is what the provider came here to find, and the oldest unpaid job is the
+      // one that needs chasing.
       orderBy: { completedAt: 'desc' },
     });
   }

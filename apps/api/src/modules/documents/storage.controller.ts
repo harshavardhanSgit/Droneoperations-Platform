@@ -6,17 +6,7 @@ import { InvalidInputException, ResourceNotFoundException } from '../../common/e
 import { LocalDiskStorageService } from '../../infrastructure/storage/local-disk-storage.service';
 import { Public } from '../identity/decorators/public.decorator';
 
-/**
- * DEVELOPMENT ONLY — the local stand-in for object storage.
- *
- * @Public() because the caller presents a SIGNED URL, not a bearer token. That
- * is exactly how S3 presigned URLs work: the signature IS the authorisation,
- * which is what lets a browser upload directly without ever holding a
- * long-lived credential.
- *
- * Excluded from Swagger: this endpoint does not exist in production, and
- * documenting it would imply otherwise.
- */
+/** DEVELOPMENT ONLY — the local stand-in for object storage. */
 @ApiExcludeController()
 @Controller('storage')
 export class StorageController {
@@ -61,20 +51,16 @@ export class StorageController {
       res.sendFile(
         absolutePath,
         {
-          // Express defaults to dotfiles:'ignore', which 404s any path
-          // containing a dot-prefixed segment — a sensible default for static
-          // file servers (it hides .env, .git, .ssh). Our development storage
-          // root is `.storage`, so we must opt in. The path is one we resolved
-          // ourselves and already checked stays inside the storage root; it is
-          // never taken from the request.
+          // Express defaults to dotfiles:'ignore', which 404s any path containing a
+          // dot-prefixed segment — a sensible default for static file servers (it hides .env,
+          // .git, .ssh).
           dotfiles: 'allow',
         },
         (error) => (error ? reject(error) : resolve()),
       );
     }).catch(() => {
-      // A signature that verified but a file that is gone means the metadata
-      // and the bytes have diverged. 404 is the honest answer; the opaque 500
-      // it produced before told the caller nothing.
+      // A signature that verified but a file that is gone means the metadata and the bytes have
+      // diverged.
       throw new ResourceNotFoundException('File', key);
     });
   }

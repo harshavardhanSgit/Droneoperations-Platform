@@ -114,14 +114,7 @@ export default function Landing() {
   const { status, account } = useAuth();
   const router = useRouter();
 
-  /**
-   * Signed-in visitors go straight to their own first screen.
-   *
-   * NOT next/navigation's redirect(): that runs on the server, and the server
-   * cannot see this session. The access token lives in memory and the refresh
-   * cookie is httpOnly, scoped to /api/v1/auth, and set by the API's origin —
-   * a different host from the web app in production. Only the browser knows.
-   */
+  /** Signed-in visitors go straight to their own first screen. */
   useEffect(() => {
     if (status === "authenticated" && account) {
       const first = linksFor(account.organisation.kind, account.role)[0];
@@ -129,8 +122,7 @@ export default function Landing() {
     }
   }, [status, account, router]);
 
-  // Nothing until we know. Rendering the landing page to someone who is
-  // already signed in, then yanking it away, reads as a bug.
+  // Nothing until we know.
   if (status !== "anonymous") {
     return <div className="min-h-dvh" />;
   }

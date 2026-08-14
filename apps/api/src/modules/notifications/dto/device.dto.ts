@@ -2,14 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, Length } from 'class-validator';
 
 export class RegisterDeviceDto {
-  /**
-   * The FCM registration token.
-   *
-   * Length-bounded rather than pattern-matched: the format is Google's to
-   * change, and a regex written against today's tokens would start rejecting
-   * valid devices the day it does. A dead token is already handled — FCM says
-   * so on send and the row is pruned.
-   */
+  /** The FCM registration token. */
   @ApiProperty({ description: 'FCM registration token for this browser' })
   @IsString()
   @Length(10, 4096)

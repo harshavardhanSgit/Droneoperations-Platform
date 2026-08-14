@@ -14,14 +14,7 @@ import { RequireAuth, RequireRole } from "@/core/auth/require-auth";
 import { rupees, shortDate } from "@/features/bookings/format";
 import { getEarnings } from "@/features/provider/earnings-api";
 
-/**
- * Deliberately NOT four equal cards.
- *
- * A provider opens this asking one question — "how much am I still owed?" —
- * and four identically-weighted tiles answer it no faster than a table would.
- * Outstanding is set large because it is the question; everything else is the
- * context that makes it trustworthy.
- */
+/** Deliberately NOT four equal cards. */
 function EarningsView() {
   const [data, setData] = useState<Earnings | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -23,13 +23,7 @@ interface AuthState {
   account: CurrentAccount | null;
   signIn: (email: string, password: string) => Promise<CurrentAccount>;
   signOut: () => Promise<void>;
-  /**
-   * Adopt an account the caller already fetched.
-   *
-   * Editing your profile changes the name shown in the sidebar footer, and the
-   * PATCH response already carries the updated account — so this takes the
-   * object rather than issuing a second GET /auth/me for data we hold.
-   */
+  /** Adopt an account the caller already fetched. */
   setAccount: (account: CurrentAccount) => void;
 }
 
@@ -39,23 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>("loading");
   const [account, setAccount] = useState<CurrentAccount | null>(null);
 
-  /**
-   * True once an explicit sign-in or sign-out has decided who the user is.
-   *
-   * Session restore is asynchronous and can therefore still be in flight when
-   * someone signs in — and a late restore response would overwrite the fresh
-   * identity with the previous one, leaving the app rendering one role's
-   * navigation while holding another role's access token. Unmount is not the
-   * only reason to discard a stale response.
-   */
+  /** True once an explicit sign-in or sign-out has decided who the user is. */
   const decided = useRef(false);
 
-  /**
-   * Session restore. The access token lives in memory, so a page reload loses
-   * it — but the refresh cookie survives, so we exchange it for a new access
-   * token on mount. This is the trade for not putting tokens in localStorage:
-   * one extra request per page load instead of an XSS-readable credential.
-   */
+  /** Session restore. */
   useEffect(() => {
     let cancelled = false;
     const stale = () => cancelled || decided.current;
@@ -87,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await authApi.login(email, password);
 
-    // Claim the identity before any state is written, so a session restore
-    // still in flight cannot land afterwards and overwrite it.
+    // Claim the identity before any state is written, so a session restore still in flight
+    // cannot land afterwards and overwrite it.
     decided.current = true;
 
     const signedIn: CurrentAccount = {
@@ -108,9 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     decided.current = true;
-    // Drop this browser's push registration BEFORE the session goes, or a
-    // shared machine keeps ringing for whoever just left. Never allowed to
-    // block sign-out — disablePush swallows its own failures.
+    // Drop this browser's push registration BEFORE the session goes, or a shared machine keeps
+    // ringing for whoever just left.
     await disablePush();
     await authApi.logout();
     setAccessToken(null);

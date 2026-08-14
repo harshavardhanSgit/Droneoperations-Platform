@@ -3,14 +3,8 @@ import type { InputHTMLAttributes, SelectHTMLAttributes } from "react";
 import { Button } from "./button";
 
 /**
- * Inputs are 44px tall for the same reason buttons are: these forms are filled
- * in on a phone, outdoors. A 32px input is a desktop assumption.
- *
- * Split into a width-less base and a full-width variant because a few controls
- * — the sort select on the search page — must size to their content. Appending
- * `w-auto` to a string that already contains `w-full` is a coin flip: Tailwind
- * resolves that conflict by CSS source order, not by the order of the class
- * string. Exporting the base is the honest fix.
+ * Inputs are 44px tall for the same reason buttons are: these forms are filled in on a phone,
+ * outdoors.
  */
 export const fieldBase =
   "h-11 rounded-control border border-border-strong bg-bg px-3 text-[15px] outline-none focus:border-accent disabled:opacity-50";

@@ -13,8 +13,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   override canActivate(context: ExecutionContext) {
-    // getAllAndOverride checks the handler first, then the class, so @Public()
-    // on a single method beats the controller and vice versa.
+    // getAllAndOverride checks the handler first, then the class, so @Public() on a single
+    // method beats the controller and vice versa.
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -24,9 +24,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   /**
-   * Passport's default is to throw its own UnauthorizedException, which would
-   * bypass our error envelope. Overriding lets us emit a stable machine code
-   * the frontend can act on.
+   * Passport's default is to throw its own UnauthorizedException, which would bypass our error
+   * envelope.
    */
   override handleRequest<T = ActorContext>(err: unknown, user: T, info: unknown): T {
     if (err || !user) {

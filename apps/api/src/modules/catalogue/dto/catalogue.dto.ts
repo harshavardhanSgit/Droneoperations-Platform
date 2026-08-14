@@ -51,11 +51,7 @@ export class CreateServiceTypeDto {
   sortOrder?: number;
 }
 
-/**
- * `code` and `pricingUnit` are absent on purpose — both are immutable.
- * Changing a pricing unit would silently reinterpret every existing offering's
- * price (₹500 per acre becoming ₹500 per hour). Retire and replace instead.
- */
+/** `code` and `pricingUnit` are absent on purpose — both are immutable. */
 export class UpdateServiceTypeDto {
   @ApiPropertyOptional({ example: 'Crop spraying' })
   @IsOptional()

@@ -1,18 +1,8 @@
 import type { PaymentMethod, TimeWindow } from '../generated/prisma/client';
 
 /**
- * The PURE half of the history seed: given the activated marketplace and a
- * seed number, it produces the same ~415-job story every time.
- *
- * Its own module, and that is the whole point. This used to sit in
- * generate-history.ts beside the executor, which imports AppModule — so a unit
- * test that wanted only this function booted the entire Nest application and
- * its environment validation. It passed locally, where a git-ignored .env
- * supplies DATABASE_URL and JWT_ACCESS_SECRET, and failed on the first CI run
- * against a fresh clone, where there is no .env at all.
- *
- * The file's own comment already claimed this planner was "unit-testable
- * without a database". Splitting it is what makes that true.
+ * The PURE half of the history seed: given the activated marketplace and a seed number, it
+ * produces the same ~415-job story every time.
  */
 
 // --------------------------------------------------------------- the planner
@@ -161,8 +151,8 @@ function sampleQuantity(rng: () => number, minQuantity: number): number {
 }
 
 /**
- * A service date in the last year, weighted towards the kharif season
- * (June–October) when spraying demand peaks.
+ * A service date in the last year, weighted towards the kharif season (June–October) when
+ * spraying demand peaks.
  */
 function sampleServiceDaysAgo(rng: () => number, nowMs: number): number {
   for (;;) {

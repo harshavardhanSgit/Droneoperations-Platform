@@ -18,8 +18,7 @@ async function bootstrap(): Promise<void> {
   // Express can SET cookies natively but not READ them; this populates req.cookies.
   app.use(cookieParser());
 
-  // The local storage adapter receives raw bytes, not JSON. Registered only
-  // for that path so every other route keeps normal body parsing.
+  // The local storage adapter receives raw bytes, not JSON.
   app.use(
     '/api/v1/storage/upload',
     express.raw({ type: () => true, limit: '16mb' }),
@@ -34,8 +33,7 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalPipes(
     new ValidationPipe({
-      // Strip properties not declared on the DTO. Without this, a client could
-      // POST { role: "ADMIN" } and a careless spread would persist it.
+      // Strip properties not declared on the DTO.
       whitelist: true,
       // Reject rather than silently strip, so typos surface instead of being ignored.
       forbidNonWhitelisted: true,
@@ -50,15 +48,13 @@ async function bootstrap(): Promise<void> {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   // credentials:true is what allows the browser to send the refresh cookie.
-  // It requires an explicit origin — the spec forbids pairing it with "*".
   app.enableCors({
     origin: config.get('WEB_ORIGIN', { infer: true }),
     credentials: true,
   });
 
-  // Not exposed in production: this API is internal, and publishing a complete
-  // map of every endpoint and payload shape is an unnecessary gift to anyone
-  // probing it. Public-API companies make the opposite call deliberately.
+  // Not exposed in production: this API is internal, and publishing a complete map of every
+  // endpoint and payload shape is an unnecessary gift to anyone probing it.
   if (config.get('NODE_ENV', { infer: true }) !== 'production') {
     setupSwagger(app);
   }
@@ -70,8 +66,8 @@ async function bootstrap(): Promise<void> {
   NestLogger.log(`API listening on http://localhost:${port}/api/v1`, 'Bootstrap');
 }
 
-// Deliberately console.error, not the Nest logger: bootstrap can fail before
-// the logger exists, and a fatal handler must not depend on what it reports on.
+// Deliberately console.error, not the Nest logger: bootstrap can fail before the logger exists,
+// and a fatal handler must not depend on what it reports on.
 bootstrap().catch((error: unknown) => {
   console.error('Fatal error during bootstrap:', error);
   process.exit(1);

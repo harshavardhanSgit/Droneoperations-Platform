@@ -1,19 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/**
- * Map source, shared by every map in the app.
- *
- * Extracted from MapPicker when a second map appeared. Duplicating it would
- * mean setting NEXT_PUBLIC_MAPBOX_TOKEN and having half the app quietly stay
- * on OpenStreetMap — a bug nobody would notice until a bill or a rate limit.
- *
- * OpenStreetMap's public tiles need no API key and cover India well, so the
- * default stack costs nothing and works immediately. A premium provider drops
- * in without code changes:
- *
- *   NEXT_PUBLIC_MAPBOX_TOKEN=sk…  → Mapbox Streets (billing required)
- *   NEXT_PUBLIC_MAP_TILE_URL=…    → any XYZ tile server
- */
+/** Map source, shared by every map in the app. */
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export const TILE_URL =
@@ -28,24 +15,10 @@ export const TILE_ATTRIBUTION = MAPBOX_TOKEN
 
 export const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
 
-/**
- * The picked point — "your field".
- *
- * Painted in --map-you, never --accent. Accent flips to near-white in dark
- * mode while OpenStreetMap's tiles stay light in every theme, so an
- * accent-coloured pin disappeared against the map after dark.
- *
- * The white stroke is what lifts it off forest green and water blue; the drop
- * shadow alone is not enough over mid-tone terrain.
- */
+/** The picked point — "your field". */
 export const PIN_HTML = `<span style="display:block;width:26px;height:26px;transform:translate(-13px,-26px);filter:drop-shadow(0 2px 3px rgb(0 0 0 / 0.4))"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C7.6 2 4 5.6 4 10c0 5.4 8 12 8 12s8-6.6 8-12c0-4.4-3.6-8-8-8z" fill="var(--map-you, #1d4ed8)" stroke="var(--map-outline, #fff)" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="var(--map-outline, #fff)"/></svg></span>`;
 
-/**
- * True after the first client render, false on the server.
- *
- * Leaflet touches `window` at import time, so every map must be created in an
- * effect keyed on this — never during render.
- */
+/** True after the first client render, false on the server. */
 export function useMapMounted(): boolean {
   return useSyncExternalStore(
     () => () => {},

@@ -19,9 +19,8 @@ function flatten(errors: ValidationError[], parent = ''): Record<string, string[
 }
 
 /**
- * Turns class-validator output into our error envelope with per-field detail,
- * so a client can highlight the offending input rather than showing one
- * concatenated string.
+ * Turns class-validator output into our error envelope with per-field detail, so a client can
+ * highlight the offending input rather than showing one concatenated string.
  */
 export function validationExceptionFactory(errors: ValidationError[]): InvalidInputException {
   return new InvalidInputException('Validation failed', { fields: flatten(errors) });

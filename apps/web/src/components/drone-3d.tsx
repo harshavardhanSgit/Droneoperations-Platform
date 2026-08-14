@@ -2,17 +2,7 @@
 
 import { useRef, type PointerEvent } from "react";
 
-/**
- * A stylised 3D agricultural drone built purely from CSS 3D transforms.
- *
- * No WebGL, no libraries — every part is a box made of six shaded faces, and
- * the whole assembly sits on a slow turntable so it clearly reads as 3D. The
- * camera follows the cursor (parallax) and everything is switched off under
- * prefers-reduced-motion.
- *
- * Coordinate space: +x right, +y down (CSS), +z toward the viewer. Each box
- * is centred on the drone's origin, which lives at the middle of the stage.
- */
+/** A stylised 3D agricultural drone built purely from CSS 3D transforms. */
 
 type BoxProps = {
   w: number;

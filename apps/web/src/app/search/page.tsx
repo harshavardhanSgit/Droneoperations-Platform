@@ -28,10 +28,8 @@ function tomorrow(): string {
 }
 
 /**
- * A Nominatim display_name is a full postal address ("Mandi Bazar Rd,
- * Subedari, Hanamkonda, Warangal, Telangana, 506002, India") — too long for a
- * note the provider reads in a list. The first few parts are enough to be
- * useful; the exact pin is in the coordinates, which travel with the booking.
+ * A Nominatim display_name is a full postal address ("Mandi Bazar Rd, Subedari, Hanamkonda,
+ * Warangal, Telangana, 506002, India") — too long for a note the provider reads in a list.
  */
 function shortLabel(label: string): string {
   return label
@@ -47,14 +45,7 @@ const unitNoun = (pricingUnit: string) => pricingUnit.replace("PER_", "").toLowe
 const inclusionWords = (items: string[]) =>
   items.map((item) => (INCLUSION_LABEL[item] ?? item).toLowerCase()).join(", ");
 
-/**
- * Which result wins on price, distance and rating.
- *
- * Computed here rather than asked of the server: unlike the sort order — whose
- * ranking rule rightly lives in one place, the API — "which of the rows already
- * on screen holds the lowest number" is a pure function of the response. A
- * round trip would buy nothing and create a second source of truth.
- */
+/** Which result wins on price, distance and rating. */
 function standoutMarks(matches: Match[]): Map<string, string[]> {
   const marks = new Map<string, string[]>();
 
@@ -89,8 +80,7 @@ function standoutMarks(matches: Match[]): Map<string, string[]> {
 
   award("Cheapest", (m) => m.price.estimatedTotalMinor, (a, b) => a < b);
   award("Nearest", (m) => m.provider.distanceKm, (a, b) => a < b);
-  // 5.0 from a single customer is not "best rated". Three is the smallest
-  // number that is an average rather than an anecdote.
+  // 5.0 from a single customer is not "best rated".
   award(
     "Best rated",
     (m) => (m.provider.ratingCount >= 3 ? m.provider.rating : undefined),
@@ -115,22 +105,17 @@ function Search() {
   const [date, setDate] = useState(tomorrow());
   const [window_, setWindow] = useState("DAWN");
   const [locationNote, setLocationNote] = useState("");
-  // The field's exact spot, picked on the map. Sent with the booking; shown to
-  // the provider as a pin they can open in OpenStreetMap.
+  // The field's exact spot, picked on the map.
   const [point, setPoint] = useState<{ latitude: number; longitude: number } | null>(null);
-  // The pin's own place name, kept apart from locationNote because the customer
-  // may have replaced that with their own words ("behind the water tank").
+  // The pin's own place name, kept apart from locationNote because the customer may have
+  // replaced that with their own words ("behind the water tank").
   const [pinLabel, setPinLabel] = useState<string | null>(null);
-  // Whether the customer has typed their own words into the note. Auto-fill
-  // from a picked place must not overwrite those — and must keep updating as
-  // they re-pick a different spot on the map while the note is untouched.
+  // Whether the customer has typed their own words into the note.
   const noteEdited = useRef(false);
-  // The state/district the pin auto-selected, so "Clear location" can undo
-  // exactly that — a select the customer then changed by hand is left alone.
+  // The state/district the pin auto-selected, so "Clear location" can undo exactly that — a
+  // select the customer then changed by hand is left alone.
   const pickFilled = useRef<{ stateId?: string; areaId?: string }>({});
   // Picks resolve asynchronously (districts load after the state is known).
-  // A sequence number lets a newer pick supersede an older one's in-flight
-  // district load instead of both racing to the selects.
   const pickSeq = useRef(0);
 
   const [sort, setSort] = useState<discoveryApi.MatchSort>("PRICE_ASC");
@@ -140,12 +125,9 @@ function Search() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  // Whether the form is open. Once a search has run it collapses to a summary,
-  // and "Change" brings it back — inline, beneath the same hairline the rest of
-  // the app uses for in-card panels. There are no dialogs in this product.
+  // Whether the form is open.
   const [editing, setEditing] = useState(false);
-  // The card the pointer is over, and the one selected from the map. Both are
-  // offeringIds; `active` is what the map emphasises.
+  // The card the pointer is over, and the one selected from the map.
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -169,9 +151,7 @@ function Search() {
     })();
   }, []);
 
-  // Cascading select: districts load only when a state is chosen. The API
-  // returns one level at a time on purpose — no whole-tree fetch. Returns the
-  // list so the pin auto-fill can match against it without a second fetch.
+  // Cascading select: districts load only when a state is chosen.
   const loadDistricts = useCallback(async (parent: string) => {
     setAreaId("");
     const districts = parent ? await catalogueApi.listAreas(parent) : [];
@@ -179,18 +159,7 @@ function Search() {
     return districts;
   }, []);
 
-  /**
-   * Open on the customer's saved field rather than the middle of India.
-   *
-   * The whole point of the saved default: a farmer books the same land over
-   * and over, and re-dropping the same pin every time is the single most
-   * repetitive thing this page used to ask of them.
-   *
-   * Deliberately does NOT run a search. A pre-filled pin is a starting point,
-   * not an instruction — the service type and quantity are still theirs to
-   * choose, and searching on their behalf would show results for a job nobody
-   * described.
-   */
+  /** Open on the customer's saved field rather than the middle of India. */
   useEffect(() => {
     let cancelled = false;
 
@@ -203,10 +172,9 @@ function Search() {
         setPoint({ latitude: profile.latitude, longitude: profile.longitude });
         setPinLabel(profile.locationLabel ?? "Your saved field");
 
-        // The district select is cascading — it has no options until its state
-        // is chosen — so the state has to be restored and its districts loaded
-        // before the district id means anything. Setting the id alone would
-        // leave the select blank, which reads as the saved value being lost.
+        // The district select is cascading — it has no options until its state is chosen — so
+        // the state has to be restored and its districts loaded before the district id means
+        // anything.
         if (profile.defaultAreaId && profile.defaultAreaParentId) {
           const stateId = profile.defaultAreaParentId;
           const areaId = profile.defaultAreaId;
@@ -233,27 +201,22 @@ function Search() {
   }, []);
 
   /**
-   * A picked pin is a precise answer — carry it into the State and District
-   * selects so the customer does not re-type what the map already knows.
-   *
-   * The name-matching itself lives in features/catalogue/resolve-area, shared
-   * with the account page's default-field picker. What stays here is the part
-   * that is genuinely about THIS page: the sequence guard, and remembering
-   * which selects the pin filled so "Clear location" can undo exactly those.
+   * A picked pin is a precise answer — carry it into the State and District selects so the
+   * customer does not re-type what the map already knows.
    */
   const fillFromPin = useCallback(
     async (location: PickedLocation) => {
       const seq = ++pickSeq.current;
       const resolved = await resolveAreaFromPin(location, states);
 
-      // Superseded by a newer pick, or by the customer choosing a state by
-      // hand while this was in flight.
+      // Superseded by a newer pick, or by the customer choosing a state by hand while this was
+      // in flight.
       if (seq !== pickSeq.current) return;
       if (!resolved.stateId) return; // outside the catalogue — leave the selects alone
 
       setStateId(resolved.stateId);
-      // Straight from the resolver rather than a second fetch: it already
-      // loaded exactly the rows this select needs.
+      // Straight from the resolver rather than a second fetch: it already loaded exactly the
+      // rows this select needs.
       setDistricts(resolved.districts);
       setAreaId(resolved.areaId ?? "");
 
@@ -269,9 +232,8 @@ function Search() {
 
     setError(null);
     setBusy("search");
-    // A fresh search invalidates the old rows entirely; a re-sort keeps them on
-    // screen and dims them, because the same rows in a new order is a smaller
-    // visual event than replacing them all with grey bars.
+    // A fresh search invalidates the old rows entirely; a re-sort keeps them on screen and dims
+    // them.
     if (options.fresh) {
       setResults(null);
       setSelected(null);
@@ -304,9 +266,7 @@ function Search() {
     await runSearch(sort, { fresh: true });
   }
 
-  // Re-sorting asks the server rather than reordering in the browser. The
-  // ranking rule — unrated providers last, price breaking ties — belongs in one
-  // place, and duplicating it here is how two sort orders start to disagree.
+  // Re-sorting asks the server rather than reordering in the browser.
   async function resort(next: discoveryApi.MatchSort) {
     setSort(next);
     if (!results) return;
@@ -325,17 +285,14 @@ function Search() {
     try {
       setReviews(await getProviderRating(providerId));
     } catch {
-      // A profile that will not load must not break the booking flow. The
-      // customer can still see price and inclusions and book.
+      // A profile that will not load must not break the booking flow.
       setReviews({ providerId, count: 0, reviews: [] });
     }
   }
 
   /**
-   * The API envelope carries per-field reasons ("longitude must have no more
-   * than 7 decimal places") under details.fields, but its top-level message is
-   * the bare "Validation failed". The customer needs the why, not the label:
-   * join the field reasons into the message instead of hiding them.
+   * The API envelope carries per-field reasons ("longitude must have no more than 7 decimal
+   * places") under details.fields, but its top-level message is the bare "Validation failed".
    */
   function validationDetail(caught: ApiError): string | null {
     const fields = caught.details?.fields as Record<string, string[]> | undefined;
@@ -375,16 +332,7 @@ function Search() {
     }
   }
 
-  /**
-   * Result markers, keyed by PROVIDER rather than by offering.
-   *
-   * One provider selling two services yields two cards but a single point.
-   * Keying on offeringId would stack two discs on the same coordinate and make
-   * "highlight the hovered card's marker" ambiguous.
-   *
-   * The undefined guard is load-bearing: a provider who never set a base is a
-   * real state, and dropping it would put a marker at 0,0 in the Gulf of Guinea.
-   */
+  /** Result markers, keyed by PROVIDER rather than by offering. */
   const markers = useMemo<MapMarker[]>(() => {
     const byProvider = new Map<string, MapMarker>();
 
@@ -426,8 +374,8 @@ function Search() {
 
       setSelected(match.offeringId);
       document.getElementById(`match-${match.offeringId}`)?.scrollIntoView({
-        // "nearest", not "center": on desktop the card is usually already
-        // visible, and yanking the page would be worse than not moving it.
+        // "nearest", not "center": on desktop the card is usually already visible, and yanking
+        // the page would be worse than not moving it.
         block: "nearest",
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
@@ -448,8 +396,8 @@ function Search() {
   const mapColumn = (
     <div className="lg:sticky lg:top-8">
       <MapPicker
-        // Literal strings: Tailwind v4 scans source text, so an interpolated
-        // height compiles to no CSS and the map collapses.
+        // Literal strings: Tailwind v4 scans source text, so an interpolated height compiles to
+        // no CSS and the map collapses.
         heightClass="h-64 sm:h-80 lg:h-[calc(100dvh-8rem)]"
         initial={point ?? undefined}
         markers={markers}
@@ -460,28 +408,24 @@ function Search() {
         onPick={(location: PickedLocation) => {
           setPoint({ latitude: location.latitude, longitude: location.longitude });
           setPinLabel(shortLabel(location.label));
-          // The pin is the precise answer; the note stays human. Fill it from
-          // the place name only while the customer has not written their own
-          // words ("field behind the water tank" beats "Mandi Bazar Rd").
+          // The pin is the precise answer; the note stays human.
           if (!noteEdited.current) setLocationNote(shortLabel(location.label));
           void fillFromPin(location);
         }}
         onClear={() => {
-          // Removing the pin also removes the coordinates from the booking —
-          // and the note it auto-filled, unless the customer replaced it with
-          // their own words. A state/district the pin filled is undone too, but
-          // a select the customer changed by hand stays.
+          // Removing the pin also removes the coordinates from the booking — and the note it
+          // auto-filled, unless the customer replaced it with their own words.
           pickSeq.current++; // a stale district load must not re-fill
           setPoint(null);
           setPinLabel(null);
-          // Results framed around a pin that no longer exists is a confusing
-          // screen, so they go with it.
+          // Results framed around a pin that no longer exists is a confusing screen, so they go
+          // with it.
           setResults(null);
           setSelected(null);
           setHovered(null);
           setEditing(false);
-          // "Nearest first" has nothing to measure from once the pin is gone,
-          // and the API refuses that combination.
+          // "Nearest first" has nothing to measure from once the pin is gone, and the API
+          // refuses that combination.
           setSort((current) => (current === "DISTANCE_ASC" ? "PRICE_ASC" : current));
           if (!noteEdited.current) setLocationNote("");
           const filled = pickFilled.current;
@@ -588,8 +532,8 @@ function Search() {
           label="State"
           value={stateId}
           onChange={(e) => {
-            // A hand-chosen state must win over an in-flight pin fill, so a
-            // still-loading district response cannot clobber it.
+            // A hand-chosen state must win over an in-flight pin fill, so a still-loading
+            // district response cannot clobber it.
             pickSeq.current++;
             setStateId(e.target.value);
             void loadDistricts(e.target.value);
@@ -848,8 +792,8 @@ function Search() {
       )}
     </section>
   ) : searching ? (
-    // Single column, not the default two-up grid: the point of a skeleton is to
-    // occupy the eventual space, and the eventual space here is one column.
+    // Single column, not the default two-up grid: the point of a skeleton is to occupy the
+    // eventual space, and the eventual space here is one column.
     <CardListSkeleton count={3} layout="space-y-3" />
   ) : null;
 

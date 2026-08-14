@@ -15,14 +15,7 @@ import type { ActorContext } from '../identity/actor-context';
 import { CurrentUser } from '../identity/decorators/current-user.decorator';
 import { RequirePermissions } from '../identity/decorators/require-permissions.decorator';
 
-/**
- * Controllers only — the sixth admin surface.
- *
- * Force-cancel routes to the SAME BookingService.cancel() a customer uses. The
- * state machine, the history entry and the optimistic lock are identical; only
- * the actor differs. An admin-specific cancel path would be a second
- * implementation of BR9 and BR16, and the two would drift.
- */
+/** Controllers only — the sixth admin surface. */
 @ApiTags('Administration')
 @ApiBearerAuth('access-token')
 @Controller('admin/bookings')

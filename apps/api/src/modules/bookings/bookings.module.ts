@@ -9,10 +9,8 @@ import { BookingService } from './booking.service';
 import { ProviderBookingController } from './provider-booking.controller';
 
 /**
- * Booking, assignments and status history are ONE aggregate, so they live in
- * one module — an aggregate must be written in a single transaction, and
- * splitting it across modules would force a cross-module transactional write,
- * which the architecture forbids.
+ * Booking, assignments and status history are ONE aggregate, so they live in one module — an
+ * aggregate must be written in a single transaction.
  */
 @Module({
   imports: [PrismaModule, OfferingsModule, OrganisationsModule],

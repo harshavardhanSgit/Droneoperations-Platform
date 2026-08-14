@@ -16,9 +16,8 @@ import { setUnreadCount, useUnreadCount } from "@/features/notifications/unread-
 import { dayLabel, destinationFor, timeLabel } from "@/features/notifications/route";
 
 /**
- * The bell is a preview — the last fifteen, in a dropdown you lose the moment
- * you click anything. This is the record: everything, grouped by day, filterable
- * down to what still needs an answer.
+ * The bell is a preview — the last fifteen, in a dropdown you lose the moment you click
+ * anything.
  */
 function Notifications() {
   const { account } = useAuth();
@@ -75,12 +74,7 @@ function Notifications() {
     }
   };
 
-  /**
-   * Marks read optimistically. This is the one place where not waiting for the
-   * server is right: the user is navigating away, and a row that stays bold
-   * until a round trip completes looks broken. The worst case is a read flag
-   * that reverts on the next load — no data is lost either way.
-   */
+  /** Marks read optimistically. */
   const open = (notification: Notification) => {
     if (notification.read) return;
 

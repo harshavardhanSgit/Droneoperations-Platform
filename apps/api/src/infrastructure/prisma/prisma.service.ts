@@ -21,8 +21,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.$connect();
 
     // $connect() is lazy with the pg adapter — it does not prove reachability.
-    // Verify, but do not throw: booting degraded and reporting not-ready beats
-    // refusing to start, because a brief outage would otherwise block a deploy.
     if (await this.isReachable()) {
       this.logger.log('Database reachable');
     } else {

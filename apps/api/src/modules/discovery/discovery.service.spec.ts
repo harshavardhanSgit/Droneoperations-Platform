@@ -9,15 +9,8 @@ import { DiscoveryService } from './discovery.service';
 import { MatchSort } from './dto/discovery.dto';
 
 /**
- * BR13, as it now reads: a provider covers a base plus a declared travel
- * radius, and discovery returns everyone whose own radius reaches the pin.
- *
- * These are the rules that used to be a district join. Losing them silently is
- * the failure mode worth guarding — a broken radius filter does not throw, it
- * just quietly returns the wrong providers, which looks like a working search.
- *
- * No database: the repository's bounding box is deliberately generous and does
- * NOT decide anything, so a candidate 400 km away is a legitimate input here.
+ * BR13, as it now reads: a provider covers a base plus a declared travel radius, and discovery
+ * returns everyone whose own radius reaches the pin.
  */
 
 // Warangal. Every distance below is measured from this point.
@@ -94,31 +87,27 @@ describe('DiscoveryService — radius coverage', () => {
 
   it('excludes a provider whose radius falls short', async () => {
     // Same provider, same distance — only the number they declared differs.
-    // This is the whole feature: the provider decides their own range.
     await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 40 })]);
 
     expect((await search()).matches).toHaveLength(0);
   });
 
   it('excludes a provider who has declared no radius', async () => {
-    // Null is "not stated yet", never "unlimited". Guessing a range would send
-    // a business work it never agreed to travel for.
+    // Null is "not stated yet", never "unlimited".
     await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: null })]);
 
     expect((await search()).matches).toHaveLength(0);
   });
 
   it('excludes a provider with a radius but no base', async () => {
-    // A distance from nowhere. Belt and braces: the provider service refuses to
-    // save this combination, but discovery must not depend on that holding.
+    // A distance from nowhere.
     await setup([candidate('a', { latitude: null, longitude: null, serviceRadiusKm: 200 })]);
 
     expect((await search()).matches).toHaveLength(0);
   });
 
   it('does not filter on the district, even when one is supplied', async () => {
-    // areaId rides along for the booking that follows. If it ever reached the
-    // repository as a filter again, this assertion is what would catch it.
+    // areaId rides along for the booking that follows.
     await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 120 })]);
 
     const results = await search({ areaId: 'area-elsewhere' });
@@ -140,8 +129,7 @@ describe('DiscoveryService — radius coverage', () => {
   });
 
   it('never leaks the provider’s exact coordinates', async () => {
-    // The map gets a coarsened point; the registered base does not leave the
-    // API. A regression here is silent — the map would look identical.
+    // The map gets a coarsened point; the registered base does not leave the API.
     await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 120 })]);
 
     const payload = JSON.stringify((await search()).matches);
@@ -160,16 +148,15 @@ describe('DiscoveryService — radius coverage', () => {
     // Coarse enough to be worth calling approximate...
     expect(p?.approxLatitude).not.toBe(KHAMMAM.latitude);
     expect(p?.approxLongitude).not.toBe(KHAMMAM.longitude);
-    // ...and close enough that the marker is not simply wrong. Half a cell
-    // diagonal is the worst case the grid can produce.
+    // ...and close enough that the marker is not simply wrong.
     expect(
       distanceKm({ latitude: p!.approxLatitude!, longitude: p!.approxLongitude! }, KHAMMAM),
     ).toBeLessThanOrEqual((Math.SQRT2 / 2) * GRID_KM);
   });
 
   it('puts the same provider on the same spot every search', async () => {
-    // A marker that wandered between searches would read as broken data, and
-    // re-rolled offsets average out to the true position when sampled.
+    // A marker that wandered between searches would read as broken data, and re-rolled offsets
+    // average out to the true position when sampled.
     await setup([candidate('a', { ...KHAMMAM, serviceRadiusKm: 120 })]);
 
     const first = (await search()).matches[0]?.provider;

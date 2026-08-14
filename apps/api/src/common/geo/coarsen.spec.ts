@@ -5,21 +5,18 @@ const WARANGAL = { latitude: 17.9689, longitude: 79.5941 };
 
 describe('coarsen', () => {
   it('is deterministic — the same input always gives the same point', () => {
-    // The property the whole design rests on. A re-rolled random offset would
-    // move the marker on every search, which reads as broken data.
+    // The property the whole design rests on.
     expect(coarsen(WARANGAL)).toEqual(coarsen(WARANGAL));
   });
 
   it('moves the point off the real base', () => {
-    // If it ever returned the input unchanged, the exact position would be
-    // published under a name that promised otherwise.
+    // If it ever returned the input unchanged, the exact position would be published under a
+    // name that promised otherwise.
     expect(coarsen(WARANGAL)).not.toEqual(WARANGAL);
   });
 
   it('stays within the cell it snapped to', () => {
     // Half a cell diagonal is the worst case: sqrt(2)/2 * GRID_KM ~ 3.54 km.
-    // Assert against that bound rather than a magic number, so changing
-    // GRID_KM cannot silently invalidate the test.
     const bound = (Math.SQRT2 / 2) * GRID_KM;
 
     for (let dLat = -0.05; dLat <= 0.05; dLat += 0.011) {
@@ -35,8 +32,8 @@ describe('coarsen', () => {
   });
 
   it('collapses nearby points onto one marker', () => {
-    // Two bases a few hundred metres apart must not be distinguishable on the
-    // map — otherwise the grid narrows nothing for providers in a cluster.
+    // Two bases a few hundred metres apart must not be distinguishable on the map — otherwise
+    // the grid narrows nothing for providers in a cluster.
     const a = coarsen(WARANGAL);
     const b = coarsen({ latitude: WARANGAL.latitude + 0.002, longitude: WARANGAL.longitude + 0.002 });
 
@@ -44,10 +41,7 @@ describe('coarsen', () => {
   });
 
   it('sizes the longitude grid from the SNAPPED latitude, not the raw one', () => {
-    // Two points in the same latitude band, differing only below the snap
-    // threshold. If the longitude step were derived from the raw latitude they
-    // would land on different longitudes, leaking back the precision the snap
-    // just removed.
+    // Two points in the same latitude band, differing only below the snap threshold.
     const a = coarsen({ latitude: 17.9689, longitude: 79.5941 });
     const b = coarsen({ latitude: 17.9695, longitude: 79.5941 });
 
@@ -62,8 +56,7 @@ describe('coarsen', () => {
   });
 
   it('handles 0,0 as a real point', () => {
-    // A truthiness guard anywhere in the chain would reject the equator and
-    // the prime meridian.
+    // A truthiness guard anywhere in the chain would reject the equator and the prime meridian.
     expect(coarsen({ latitude: 0, longitude: 0 })).toEqual({ latitude: 0, longitude: 0 });
   });
 

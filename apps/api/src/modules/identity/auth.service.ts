@@ -27,8 +27,7 @@ import { TokenService } from './token.service';
 
 const UNIQUE_VIOLATION = 'P2002';
 
-/** What login hands back to the controller. The refresh token goes in a cookie,
- *  so it is kept out of the response body DTO entirely. */
+/** What login hands back to the controller. */
 export interface LoginResult {
   body: LoginResponseDto;
   refreshToken: string;
@@ -86,9 +85,8 @@ export class AuthService {
           tx,
         );
 
-        // A PROVIDER organisation is meaningless without its onboarding record,
-        // so it is created here rather than lazily. Same transaction, same
-        // documented account-provisioning exception.
+        // A PROVIDER organisation is meaningless without its onboarding record, so it is
+        // created here rather than lazily.
         if (organisation.kind === 'PROVIDER') {
           await this.providerProfiles.create(organisation.id, tx);
         }
@@ -123,9 +121,8 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.users.findByEmail(email);
 
-    // No user: still run a verify against a throwaway hash so the response time
-    // matches the "wrong password" path. Without this, timing reveals which
-    // emails have accounts even though the message does not.
+    // No user: still run a verify against a throwaway hash so the response time matches the
+    // "wrong password" path.
     if (!user) {
       await this.passwords.verify(await this.getDummyHash(), dto.password);
       throw this.invalidCredentials();
@@ -135,8 +132,8 @@ export class AuthService {
       throw this.invalidCredentials();
     }
 
-    // Distinct message here is deliberate: a suspended user has already proved
-    // who they are, and telling them nothing would just generate support load.
+    // Distinct message here is deliberate: a suspended user has already proved who they are,
+    // and telling them nothing would just generate support load.
     if (user.status !== 'ACTIVE') {
       throw new AccessDeniedException('This account has been suspended');
     }
@@ -184,12 +181,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * Exchanges a refresh token for a new access token and a NEW refresh token.
-   *
-   * The old token is revoked in the same transaction that issues its
-   * replacement, so a token can only ever be spent once.
-   */
+  /** Exchanges a refresh token for a new access token and a NEW refresh token. */
   async refresh(presentedToken: string | undefined): Promise<RefreshResult> {
     if (!presentedToken) {
       throw new UnauthenticatedException('No refresh token provided', 'NO_REFRESH_TOKEN');
@@ -202,9 +194,7 @@ export class AuthService {
       throw new UnauthenticatedException('Invalid refresh token', 'SESSION_INVALID');
     }
 
-    // REUSE DETECTED. A legitimate client never presents a token it has already
-    // exchanged, so this means a copy exists somewhere. Kill every descendant
-    // of that login — the attacker's session and the victim's alike.
+    // REUSE DETECTED.
     if (stored.revokedAt) {
       await this.refreshTokens.revokeFamily(stored.familyId);
       this.logger.warn(
@@ -238,9 +228,8 @@ export class AuthService {
     const rotated = this.tokens.issueRefreshToken(stored.familyId);
 
     await this.prisma.$transaction(async (tx) => {
-      // Conditional revoke: the WHERE clause includes `revokedAt: null`, so if
-      // a concurrent request rotated this token first, count is 0 and we know
-      // we lost the race rather than silently issuing a second child.
+      // Conditional revoke: the WHERE clause includes `revokedAt: null`, so if a concurrent
+      // request rotated this token first.
       const revoked = await this.refreshTokens.revokeByHash(tokenHash, tx);
 
       if (revoked.count === 0) {
@@ -276,11 +265,8 @@ export class AuthService {
   }
 
   /**
-   * Revokes only the presented token, not the family — signing out on your
-   * phone must not sign you out on your laptop.
-   *
-   * Never errors on an unknown or absent token: logout must always appear to
-   * succeed, or it becomes a probe for which tokens are valid.
+   * Revokes only the presented token, not the family — signing out on your phone must not sign
+   * you out on your laptop.
    */
   async logout(presentedToken: string | undefined): Promise<void> {
     if (!presentedToken) {
@@ -291,9 +277,8 @@ export class AuthService {
   }
 
   /**
-   * The token already proves who the actor is, so this only fetches the
-   * mutable profile fields a token should not carry (name, email, phone) —
-   * those change, and a stale token must not be the source of truth for them.
+   * The token already proves who the actor is, so this only fetches the mutable profile fields
+   * a token should not carry (name, email, phone) — those change.
    */
   async me(actor: ActorContext): Promise<MeResponseDto> {
     const user = await this.users.findById(actor.userId);
@@ -325,41 +310,21 @@ export class AuthService {
     };
   }
 
-  /**
-   * Edit your own name and phone.
-   *
-   * The id comes from the access token, never from the request body — there is
-   * no path by which one user can edit another, so no ownership check is
-   * needed or possible.
-   */
+  /** Edit your own name and phone. */
   async updateAccount(actor: ActorContext, dto: UpdateAccountDto): Promise<MeResponseDto> {
     const fullName = dto.fullName?.trim();
 
     await this.users.updateProfile(actor.userId, {
       ...(fullName ? { fullName } : {}),
-      // "" means clear it, which reaches Prisma as null; undefined means leave
-      // the column alone. Collapsing the two would make a phone number
-      // impossible to delete once entered.
+      // "" means clear it, which reaches Prisma as null; undefined means leave the column
+      // alone.
       ...(dto.phone !== undefined ? { phone: dto.phone === '' ? null : dto.phone.trim() } : {}),
     });
 
     return this.me(actor);
   }
 
-  /**
-   * Change your password, and end every other session.
-   *
-   * Two things make this safe rather than decorative:
-   *
-   * 1. The CURRENT password is required. Without it, a stolen access token —
-   *    which lives in memory for 15 minutes and needs no cookie — would be
-   *    enough to take permanent ownership of the account.
-   *
-   * 2. Every refresh token is revoked. Someone changing their password is
-   *    usually responding to a suspicion that another device is signed in, and
-   *    a refresh token keeps minting access tokens no matter what the password
-   *    says. Leaving them alive would make the change theatre.
-   */
+  /** Change your password, and end every other session. */
   async changePassword(actor: ActorContext, dto: ChangePasswordDto): Promise<void> {
     const user = await this.users.findById(actor.userId);
 
@@ -368,9 +333,8 @@ export class AuthService {
     }
 
     if (!(await this.passwords.verify(user.passwordHash, dto.currentPassword))) {
-      // Deliberately NOT "wrong current password" vs "no such account": this
-      // route is already authenticated, so the only information to protect is
-      // whether the guess was right.
+      // Deliberately NOT "wrong current password" vs "no such account": this route is already
+      // authenticated, so the only information to protect is whether the guess was right.
       throw new UnauthenticatedException('Current password is incorrect');
     }
 

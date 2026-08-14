@@ -9,8 +9,7 @@ import { CatalogueService } from './catalogue.service';
   imports: [PrismaModule],
   controllers: [CatalogueController],
   providers: [CatalogueService, CatalogueRepository],
-  // Offerings, Discovery and Booking all need to validate against the
-  // catalogue. None of them may touch its tables directly.
+  // Offerings, Discovery and Booking all need to validate against the catalogue.
   exports: [CatalogueService],
 })
 export class CatalogueModule {}

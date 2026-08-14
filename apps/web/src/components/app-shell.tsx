@@ -12,14 +12,8 @@ import { NotificationBell } from "./notification-bell";
 type Link = { href: string; label: string };
 
 /**
- * Keyed by organisation KIND and then ROLE — the same two coordinates the
- * backend's permission map uses. Kind alone is not enough: an Admin and a
- * Service Engineer are both PLATFORM, and showing an engineer the provider
- * approval queue would advertise a page the API will refuse.
- *
- * A single nav with hidden items is where permission bugs live; a link a role
- * cannot use should not exist for them at all. This is still presentation only
- * — hiding a link protects nobody, the API's guard is the boundary.
+ * Keyed by organisation KIND and then ROLE — the same two coordinates the backend's permission
+ * map uses.
  */
 const NOTIFICATIONS: Link = { href: "/notifications", label: "Notifications" };
 const ACCOUNT: Link = { href: "/account", label: "Account" };
@@ -63,21 +57,17 @@ const NAV: Record<string, Record<string, Link[]>> = {
   },
 };
 
-/** Exported so the landing page can send a signed-in visitor to their first
- * screen without duplicating the map. One source of truth for role → links. */
+/**
+ * Exported so the landing page can send a signed-in visitor to their first screen without
+ * duplicating the map.
+ */
 export function linksFor(kind: string, role: string): Link[] {
   const byRole = NAV[kind];
   if (!byRole) return [];
   return byRole[role] ?? byRole["*"] ?? [];
 }
 
-/**
- * Which links belong under "Account" rather than "Workspace".
- *
- * Derived from the shared constants rather than re-listing them, so a change to
- * NAV cannot leave the grouping behind. linksFor() itself is untouched — this
- * only decides where its output is drawn.
- */
+/** Which links belong under "Account" rather than "Workspace". */
 const ACCOUNT_HREFS = new Set([NOTIFICATIONS.href, ACCOUNT.href]);
 
 const ROLE_LABEL: Record<string, string> = {
@@ -139,17 +129,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
-  // Read from the shared store, not owned here. This badge, the bell and the
-  // notifications page all show the same fact; three copies of it is what
-  // made marking something read leave two of them stale.
+  // Read from the shared store, not owned here.
   const unread = useUnreadCount();
 
   /**
-   * On desktop there is no top bar to hang a bell from, so the Notifications
-   * row carries the count instead. Refetched on focus rather than polled — the
-   * endpoint is cheap but not free, and a user looking at another tab does not
-   * need a live number. Everything else that changes the count publishes to
-   * the store directly, so this is a backstop rather than the mechanism.
+   * On desktop there is no top bar to hang a bell from, so the Notifications row carries the
+   * count instead.
    */
   const refreshUnread = useCallback(() => {
     if (status !== "authenticated") return;
@@ -162,12 +147,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("focus", refreshUnread);
   }, [refreshUnread]);
 
-  /*
-   * The drawer closes where it is dismissed — on the link, the overlay, the
-   * close button and Escape — rather than in an effect watching the pathname.
-   * Watching the URL would close it as a side effect of navigation instead of
-   * as part of the click that caused it, and React rightly objects to setting
-   * state synchronously in an effect body.
+  /**
+   * The drawer closes where it is dismissed — on the link, the overlay, the close button and
+   * Escape — rather than in an effect watching the pathname.
    */
   useEffect(() => {
     if (!drawer) return;
@@ -179,8 +161,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [drawer]);
 
-  // Public pages render bare — a sign-in screen with a nav bar advertising
-  // links you cannot follow is worse than no nav bar.
+  // Public pages render bare — a sign-in screen with a nav bar advertising links you cannot
+  // follow is worse than no nav bar.
   if (status !== "authenticated" || !account) {
     return <>{children}</>;
   }
@@ -195,14 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onSignOut = async () => {
     await signOut();
 
-    // A hard navigation, deliberately not router.replace(). The moment status
-    // flips to anonymous, RequireAuth (still mounted beneath us for one render)
-    // redirects to /login, and the navigation itself re-triggers that effect
-    // via a new router identity — so a client-side navigation home races it and
-    // loses. location.replace() loads a fresh document, which nothing in this
-    // page can supersede. Home, not the login form: a signed-out visitor lands
-    // on the landing page and chooses their path. replace() semantics keep the
-    // authenticated screen out of the back history.
+    // A hard navigation, deliberately not router.replace().
     window.location.replace("/");
   };
 

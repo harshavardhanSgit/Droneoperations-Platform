@@ -1,16 +1,4 @@
-/**
- * A deliberately small in-memory cache with time-based expiry.
- *
- * Single-instance API, tiny payloads: a Map with an expiry timestamp beats
- * Redis by a dependency and a network hop. The rules for the day this stops
- * being true are documented at the coverage endpoint — many instances sharing
- * a cache means Redis; a projections table is the read-model answer, fed by
- * the transactional outbox the architecture review defers to V1.
- *
- * Not a promise cache: callers that want to deduplicate concurrent misses
- * compose that themselves (the coverage route doesn't need it — a miss costs
- * three narrow queries, and the rate limiter keeps that affordable).
- */
+/** A deliberately small in-memory cache with time-based expiry. */
 export class TtlCache<T> {
   private readonly store = new Map<string, { value: T; expiresAt: number }>();
 

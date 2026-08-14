@@ -14,10 +14,8 @@ import { ProviderRepository } from './provider.repository';
 import { ProviderService } from './provider.service';
 
 @Module({
-  // CatalogueModule is a new dependency: a saved default district is validated
-  // against the catalogue before it is stored, so a retired area cannot sit in
-  // a profile waiting to fail at booking time. The arrow points the same way
-  // the architecture already declares — Organisations reads Catalogue.
+  // CatalogueModule is a new dependency: a saved default district is validated against the
+  // catalogue before it is stored.
   imports: [PrismaModule, DocumentsModule, CatalogueModule],
   controllers: [OrganisationController, ProviderController, CustomerController],
   providers: [
@@ -28,9 +26,8 @@ import { ProviderService } from './provider.service';
     CustomerService,
     CustomerRepository,
   ],
-  // The repository is exported because Identity writes to it during account
-  // provisioning — the documented exception in the aggregates doc. The service
-  // is exported for the Admin console to compose.
+  // The repository is exported because Identity writes to it during account provisioning — the
+  // documented exception in the aggregates doc.
   exports: [OrganisationRepository, OrganisationService, ProviderRepository, ProviderService],
 })
 export class OrganisationsModule {}

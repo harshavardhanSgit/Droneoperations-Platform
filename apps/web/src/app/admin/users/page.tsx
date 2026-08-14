@@ -44,8 +44,8 @@ function Users() {
     }
   }, []);
 
-  // Initial load owns its own fetch so every setState lands in a promise
-  // callback rather than synchronously in the effect body.
+  // Initial load owns its own fetch so every setState lands in a promise callback rather than
+  // synchronously in the effect body.
   useEffect(() => {
     let cancelled = false;
 

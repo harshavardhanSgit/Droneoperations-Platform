@@ -9,18 +9,8 @@ import { CoverageDto, PublicCoverageDto } from './dto/coverage.dto';
 import { RateLimitGuard } from './rate-limit.guard';
 
 /**
- * Two doors into ONE aggregation, the access model the platform was built on:
- *
- *  - GET /coverage       — the REAL numbers, platform staff only (admin sees
- *                          the whole market; a provider sees their own on
- *                          their own screens; a customer theirs). Never cached.
- *  - GET /coverage/public — the SAME real numbers, anonymous, TTL-cached and
- *                          rate-limited for the landing page. There is no demo
- *                          dataset: a visitor sees exactly what the database
- *                          proves, no more.
- *
- * The DTO is shared, so the map and cards on the landing page are the same
- * components the admin screen renders against the same data.
+ * Two doors into ONE aggregation, the access model the platform was built on: - GET /coverage —
+ * the REAL numbers, platform staff only (admin sees the whole market.
  */
 @ApiTags('Coverage')
 @Controller('coverage')

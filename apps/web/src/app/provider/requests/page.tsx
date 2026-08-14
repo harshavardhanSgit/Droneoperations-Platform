@@ -24,12 +24,7 @@ import * as providerApi from "@/features/provider/bookings-api";
 
 type Panel = { id: string; kind: "decline" | "propose" } | null;
 
-/**
- * A request the provider has already answered by proposing their own date. It
- * stays in this inbox because the assignment is still PENDING — the customer's
- * confirmation is what accepts it. Showing "Accept / Decline" again here would
- * invite a provider to answer a question they have already answered.
- */
+/** A request the provider has already answered by proposing their own date. */
 function awaitingCustomer(booking: Booking) {
   return booking.pendingSchedule?.proposedBy === "PROVIDER";
 }
@@ -59,9 +54,7 @@ function Requests() {
     void load();
   }, []);
 
-  // Every action reloads rather than patching local state. A booking is a
-  // shared aggregate — the customer may have cancelled it while this screen sat
-  // open — so the server's answer is the only trustworthy one.
+  // Every action reloads rather than patching local state.
   const run = async (id: string, work: () => Promise<unknown>, done?: string) => {
     setBusy(id);
     setError(null);

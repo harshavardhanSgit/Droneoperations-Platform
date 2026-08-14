@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
-/** Registration can only create the two marketplace sides. PLATFORM accounts
- *  (Admin, Service Engineer) are created by an existing Admin. */
+/** Registration can only create the two marketplace sides. */
 export enum RegisterAccountType {
   CUSTOMER = 'CUSTOMER',
   PROVIDER = 'PROVIDER',
@@ -14,11 +13,7 @@ export class RegisterDto {
   @MaxLength(254)
   email: string;
 
-  /**
-   * Length is the only rule. NIST 800-63B explicitly advises AGAINST composition
-   * requirements (one uppercase, one symbol) — they push users toward
-   * predictable substitutions like "Password1!" and add no real entropy.
-   */
+  /** Length is the only rule. */
   @ApiProperty({ example: 'a long passphrase works best', minLength: 10 })
   @IsString()
   @Length(10, 128)

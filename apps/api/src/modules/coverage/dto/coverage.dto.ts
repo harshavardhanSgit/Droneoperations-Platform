@@ -1,13 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-/**
- * Aggregates of what has actually been delivered, per area and per provider.
- *
- * Every number is DERIVED at request time from bookings, offerings and drones —
- * nothing here is stored. A count that cannot be recomputed from source rows
- * is a count that can drift, and this screen is the one place the platform
- * claims numbers publicly.
- */
+/** Aggregates of what has actually been delivered, per area and per provider. */
 
 export class CoverageTotalsDto {
   @ApiProperty({ example: 1240, description: 'Acres delivered on completed jobs' })
@@ -77,17 +70,7 @@ export class CoverageProviderDto {
   drones: number;
 }
 
-/**
- * What an anonymous visitor may see: geography and totals, never a named
- * business.
- *
- * Deliberately a SEPARATE type from CoverageDto rather than the same class with
- * a field left empty. A provider's acreage and job count next to their name is
- * competitor intelligence, and they never agreed to publish it. Making the
- * public shape narrower in the type system means the leak cannot come back by
- * someone adding a field to the staff DTO — and the generated OpenAPI tells the
- * truth about what each door returns.
- */
+/** What an anonymous visitor may see: geography and totals, never a named business. */
 export class PublicCoverageDto {
   @ApiProperty({ type: CoverageTotalsDto })
   totals: CoverageTotalsDto;

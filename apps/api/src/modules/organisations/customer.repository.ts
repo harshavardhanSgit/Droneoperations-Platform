@@ -28,14 +28,7 @@ export class CustomerRepository {
     });
   }
 
-  /**
-   * Upsert, not create-then-update.
-   *
-   * A customer has no profile until they save one, and two tabs saving at once
-   * would race a check-then-act. The unique index on organisationId is what
-   * makes this safe; upsert lets the database settle it rather than the
-   * application guessing.
-   */
+  /** Upsert, not create-then-update. */
   save(
     organisationId: string,
     input: CustomerProfileInput,

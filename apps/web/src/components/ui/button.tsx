@@ -1,16 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-/**
- * Size is the density decision, made explicit.
- *
- *   field   — 44px. The smallest target a thumb hits reliably, and the number
- *             Apple and Google both publish. Used wherever a provider or
- *             customer is on a phone, outdoors, in a hurry.
- *   console — 32px. Pointer-driven, many controls on screen, admin only.
- *
- * A component that guesses its own density produces screens that are
- * accidentally dense or accidentally huge. Callers state which world they are in.
- */
+/** Size is the density decision, made explicit. field — 44px. */
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "field" | "console";
 

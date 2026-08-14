@@ -12,7 +12,6 @@ import { DiscoveryService } from './discovery.service';
   controllers: [DiscoveryController],
   providers: [DiscoveryService, DiscoveryRepository],
   // Exported because V2's Assignment module calls findMatches() to auto-assign.
-  // Same matching logic, different caller — that is why this is a module.
   exports: [DiscoveryService],
 })
 export class DiscoveryModule {}

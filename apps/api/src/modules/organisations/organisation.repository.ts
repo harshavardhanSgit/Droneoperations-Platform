@@ -14,9 +14,8 @@ export type MembershipWithOrganisation = MembershipModel & {
 };
 
 /**
- * Memberships live here rather than in their own repository because they are
- * INSIDE the Organisation aggregate — see docs/architecture/aggregates-and-invariants.md.
- * A membership is never loaded or written independently of its organisation.
+ * Memberships live here rather than in their own repository because they are INSIDE the
+ * Organisation aggregate — see docs/architecture/aggregates-and-invariants.md.
  */
 @Injectable()
 export class OrganisationRepository {
@@ -41,8 +40,8 @@ export class OrganisationRepository {
   }
 
   /**
-   * Both the membership AND its organisation must be ACTIVE — suspending an
-   * organisation must lock out every one of its members, not just new ones.
+   * Both the membership AND its organisation must be ACTIVE — suspending an organisation must
+   * lock out every one of its members, not just new ones.
    */
   findActiveMemberships(userId: string, tx?: Tx): Promise<MembershipWithOrganisation[]> {
     return this.db(tx).membership.findMany({

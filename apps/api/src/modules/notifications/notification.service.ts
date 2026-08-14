@@ -26,21 +26,13 @@ export class NotificationService {
   /**
    * Record a notification, then try to push it.
    *
-   * ORDER IS THE CONTRACT. The database row is the notification; the push is a
-   * courtesy. Persisting first means a user who has never granted permission,
-   * or whose device is unreachable, still finds it in the bell — and a push
-   * that fails costs nothing, because the record already exists.
-   *
-   * Reversing this would make delivery depend on Google being available.
+   * ORDER MATTERS: the row is the notification, the push is a courtesy. Push first and a
+   * Firebase outage loses the record entirely.
    */
   async deliver(input: NotificationInput): Promise<void> {
     await this.notifications.create(input);
 
-    // Caught HERE as well as inside PushService. Belt and braces on purpose:
-    // this method's contract is "the notification is recorded", and letting a
-    // transport failure reject it would make that untrue at the one boundary
-    // where it is stated. PushService already swallows its own errors; this
-    // survives the day someone adds a transport that does not.
+    // Caught HERE as well as inside PushService.
     try {
       await this.push.pushToOrganisation(input.organisationId, {
         title: input.title,
@@ -62,8 +54,10 @@ export class NotificationService {
     return this.devices.deleteByToken(token);
   }
 
-  /** Whether the server can push at all — the client uses this to decide
-   *  whether offering a permission prompt would be honest. */
+  /**
+   * Whether the server can push at all — the client uses this to decide whether offering a
+   * permission prompt would be honest.
+   */
   get pushEnabled(): boolean {
     return this.push.enabled;
   }

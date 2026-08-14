@@ -14,9 +14,7 @@ import {
 
 import { DocumentStatus, ProviderDocumentKind, ProviderStage } from '../../../generated/prisma/client';
 
-// Derived from the Prisma enums, never hand-copied. A hand-written duplicate is
-// how the OpenAPI spec ends up describing values the API no longer returns —
-// and the generated frontend types then contradict reality.
+// Derived from the Prisma enums, never hand-copied.
 const STAGES = Object.values(ProviderStage);
 const DOCUMENT_KINDS = Object.values(ProviderDocumentKind);
 const DOCUMENT_STATUSES = Object.values(DocumentStatus);
@@ -57,15 +55,11 @@ export class UpdateProviderProfileDto {
   pincode: string;
 
   /**
-   * Where the business operates, picked on a map. Latitude and longitude are a
-   * pair: sending one without the other is rejected by the ValidateIf rules
-   * below, so a provider cannot save a point with a missing axis.
+   * Where the business operates, picked on a map.
    *
-   * NOTE — do NOT add @IsOptional to either field. The pair rule depends on
-   * ValidateIf short-circuiting the @IsNumber check when the OTHER field is
-   * absent: with only longitude sent, latitude's IsNumber sees `undefined` and
-   * fails the request. @IsOptional would short-circuit that failure and let a
-   * half-pair through. provider.dto.spec.ts pins this behaviour.
+   * Do NOT add @IsOptional to either coordinate. The both-or-neither rule relies on
+   * ValidateIf, and @IsOptional short-circuits it, letting half a pair through.
+   * provider.dto.spec.ts pins this.
    */
   @ApiPropertyOptional({ example: 17.9689, description: 'Latitude of the business location' })
   @ValidateIf((o) => o.longitude !== undefined)
@@ -81,20 +75,7 @@ export class UpdateProviderProfileDto {
   @Max(180)
   longitude?: number;
 
-  /**
-   * How far the business will travel from that base. This IS their coverage —
-   * discovery matches a customer's pin against base + radius.
-   *
-   * Capped at 500 km because beyond that the straight-line measure stops being
-   * a useful proxy for a day's drive with a machine on a trailer, and a radius
-   * that large is really "anywhere", which is not a claim this platform should
-   * help anyone make.
-   *
-   * A radius is only meaningful from a point, so it is rejected unless the
-   * provider has also given coordinates. That check needs the persisted row and
-   * therefore lives in the service, not here — a DTO cannot see whether a
-   * latitude was saved on an earlier request.
-   */
+  /** How far the business will travel from that base. */
   @ApiPropertyOptional({
     example: 60,
     description: 'Kilometres this provider will travel from their base. Requires coordinates.',
@@ -106,15 +87,7 @@ export class UpdateProviderProfileDto {
   serviceRadiusKm?: number;
 }
 
-/**
- * Coverage on its own: where the business works from, and how far it will go.
- *
- * Separate from the profile because it has a different lifetime. The profile
- * is verified once and re-enters review if it changes; coverage is an
- * operating decision an ACTIVATED provider adjusts whenever their fleet does.
- * Same field rules as above — the pair contract and the 500 km cap are the
- * same contract, restated for a smaller payload.
- */
+/** Coverage on its own: where the business works from, and how far it will go. */
 export class UpdateProviderCoverageDto {
   @ApiPropertyOptional({ example: 17.9689 })
   @ValidateIf((o: UpdateProviderCoverageDto) => o.longitude !== undefined)

@@ -91,19 +91,8 @@ export class ReputationService {
     };
   }
 
-  /**
-   * The average is recomputed on every read.
-   *
-   * Storing it on Provider would mean writing to two aggregates per review, and
-   * a failure between them leaves a rating that no longer matches its reviews.
-   * At this volume the aggregate query costs nothing; if it ever does, the fix
-   * is a cache with a clear invalidation rule, not a denormalised column.
-   */
-  /**
-   * The aggregate only, for many providers at once. Discovery displays this
-   * next to each result; it never needs the review text there, so this
-   * deliberately does not load it.
-   */
+  /** The average is recomputed on every read. */
+  /** The aggregate only, for many providers at once. */
   ratingsFor(providerIds: string[]): Promise<Map<string, { average: number | null; count: number }>> {
     return this.reviews.ratingsFor(providerIds);
   }

@@ -32,11 +32,7 @@ export class CoverageService {
     @Inject(COVERAGE_CACHE) private readonly cache: TtlCache<PublicCoverageDto>,
   ) {}
 
-  /**
-   * Resolves any area to its DISTRICT for roll-up purposes. Talukas fold into
-   * their district; a state-level area has no district row, so it contributes
-   * to the state total but not the district list.
-   */
+  /** Resolves any area to its DISTRICT for roll-up purposes. */
   private districtOf(area: AreaWithParent): DistrictKey | null {
     if (area.level === 'DISTRICT') {
       return { id: area.id, name: area.name, state: area.parent?.name ?? 'Unknown' };
@@ -62,19 +58,13 @@ export class CoverageService {
     return null;
   }
 
-  /**
-   * The public face of the SAME aggregation. TTL-cached so anonymous page
-   * loads never hammer the database; the admin endpoint calls overview()
-   * directly and always gets fresh numbers. Both endpoints share one code
-   * path, so the landing page and the admin screen can never drift.
-   */
+  /** The public face of the SAME aggregation. */
   async publicOverview(): Promise<PublicCoverageDto> {
     const cached = this.cache.get(COVERAGE_CACHE_KEY);
     if (cached) return cached;
 
-    // Destructured away, not deleted after the fact: `providers` never enters
-    // the cached object, so the cache itself holds nothing private. If it were
-    // ever dumped or shared, there would be no named business in it.
+    // Destructured away, not deleted after the fact: `providers` never enters the cached
+    // object, so the cache itself holds nothing private.
     const { providers: _staffOnly, ...publicFacing } = await this.overview();
 
     this.cache.set(COVERAGE_CACHE_KEY, publicFacing);
@@ -117,9 +107,7 @@ export class CoverageService {
       return fresh;
     };
 
-    // Delivered work: the acres a map may truthfully claim. Only PER_ACRE
-    // bookings produce an acre count — a survey in square kilometres is work,
-    // but it is not acres covered, and conflating them is how dashboards lie.
+    // Delivered work: the acres a map may truthfully claim.
     for (const booking of bookings) {
       const acres =
         booking.pricingUnit === 'PER_ACRE'

@@ -26,11 +26,8 @@ const FILTERS = [
 ];
 
 /**
- * The operator's question is "what is stuck?", so UNASSIGNED is the default
- * view rather than everything — a job nobody has taken is the one state that
- * needs a human. Force-cancel is the only write here, and it is deliberately
- * low-emphasis: it is terminal, and terminal actions should not be the easiest
- * thing on the screen.
+ * The operator's question is "what is stuck?", so UNASSIGNED is the default view rather than
+ * everything — a job nobody has taken is the one state that needs a human.
  */
 function AdminBookings() {
   const toast = useToast();
@@ -99,14 +96,10 @@ function AdminBookings() {
     }
   };
 
-  // Asks Discovery the same question a customer's search asks — S10 in
-  // practice: one matching implementation, two callers. V2's auto-assignment
-  // becomes a third caller of this exact query.
+  // Asks Discovery the same question a customer's search asks — S10 in practice: one matching
+  // implementation, two callers.
   const findProviders = async (b: Booking) => {
-    // Matching is by distance now, so a booking with no pin has nothing to
-    // measure from. Older bookings predate the map, hence the guard rather
-    // than an assumption. `canPlace` keeps the button off in that case; this
-    // is the belt to its braces.
+    // Matching is by distance now, so a booking with no pin has nothing to measure from.
     if (b.latitude === undefined || b.longitude === undefined) {
       setError("That booking has no map pin, so nearby providers cannot be worked out.");
       return;

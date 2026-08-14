@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/core/auth/auth-context";
-import * as notificationApi from "@/features/notifications/api";
+import { refreshUnreadCount, useUnreadCount } from "@/features/notifications/unread-store";
 import { CloseIcon, CollapseIcon, MenuIcon, NavIcon, SignOutIcon } from "./icons";
 import { NotificationBell } from "./notification-bell";
 
@@ -139,17 +139,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
-  const [unread, setUnread] = useState(0);
+  // Read from the shared store, not owned here. This badge, the bell and the
+  // notifications page all show the same fact; three copies of it is what
+  // made marking something read leave two of them stale.
+  const unread = useUnreadCount();
 
   /**
-   * The count that used to live only inside the bell. On desktop there is no
-   * top bar to hang a bell from, so the Notifications row carries it instead.
-   * Refetched on focus rather than polled — the endpoint is cheap but not free,
-   * and a user looking at another tab does not need a live number.
+   * On desktop there is no top bar to hang a bell from, so the Notifications
+   * row carries the count instead. Refetched on focus rather than polled — the
+   * endpoint is cheap but not free, and a user looking at another tab does not
+   * need a live number. Everything else that changes the count publishes to
+   * the store directly, so this is a backstop rather than the mechanism.
    */
   const refreshUnread = useCallback(() => {
     if (status !== "authenticated") return;
-    void notificationApi.unreadCount().then(setUnread).catch(() => undefined);
+    void refreshUnreadCount();
   }, [status]);
 
   useEffect(() => {

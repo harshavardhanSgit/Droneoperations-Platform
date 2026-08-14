@@ -12,6 +12,7 @@ import type { Notification } from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as notificationApi from "@/features/notifications/api";
+import { setUnreadCount, useUnreadCount } from "@/features/notifications/unread-store";
 import { dayLabel, destinationFor, timeLabel } from "@/features/notifications/route";
 
 /**
@@ -23,7 +24,8 @@ function Notifications() {
   const { account } = useAuth();
 
   const [items, setItems] = useState<Notification[]>([]);
-  const [unread, setUnread] = useState(0);
+  // Shared with the sidebar badge and the bell — see unread-store.
+  const unread = useUnreadCount();
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ function Notifications() {
   const load = () =>
     notificationApi.listNotifications(100).then((list) => {
       setItems(list.items);
-      setUnread(list.unread);
+      setUnreadCount(list.unread);
     });
 
   useEffect(() => {
@@ -43,7 +45,7 @@ function Notifications() {
       .then((list) => {
         if (cancelled) return;
         setItems(list.items);
-        setUnread(list.unread);
+        setUnreadCount(list.unread);
       })
       .catch((caught: unknown) => {
         if (cancelled) return;
@@ -85,7 +87,7 @@ function Notifications() {
     setItems((current) =>
       current.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
     );
-    setUnread((n) => Math.max(0, n - 1));
+    setUnreadCount(Math.max(0, unread - 1));
     void notificationApi.markRead(notification.id).catch(() => undefined);
   };
 

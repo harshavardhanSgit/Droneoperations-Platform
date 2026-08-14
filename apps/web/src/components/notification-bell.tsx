@@ -14,6 +14,11 @@ import {
   syncExistingPermission,
 } from "@/features/notifications/push";
 import { destinationFor } from "@/features/notifications/route";
+import {
+  refreshUnreadCount,
+  setUnreadCount,
+  useUnreadCount,
+} from "@/features/notifications/unread-store";
 
 function ago(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -25,7 +30,9 @@ function ago(iso: string): string {
 
 export function NotificationBell() {
   const { account } = useAuth();
-  const [unread, setUnread] = useState(0);
+  // Shared with the sidebar badge and the notifications page — see
+  // unread-store. Local state here is what made the count go stale.
+  const unread = useUnreadCount();
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -34,7 +41,7 @@ export function NotificationBell() {
   const [pushNote, setPushNote] = useState<string | null>(null);
 
   const refreshCount = useCallback(() => {
-    void api.unreadCount().then(setUnread).catch(() => undefined);
+    void refreshUnreadCount();
   }, []);
 
   /**
@@ -137,7 +144,7 @@ export function NotificationBell() {
       try {
         const list = await api.listNotifications();
         setItems(list.items);
-        setUnread(list.unread);
+        setUnreadCount(list.unread);
       } catch {
         setItems([]);
       }
@@ -147,7 +154,7 @@ export function NotificationBell() {
   async function readAll() {
     await api.markAllRead().catch(() => undefined);
     setItems((current) => current.map((n) => ({ ...n, read: true })));
-    setUnread(0);
+    setUnreadCount(0);
   }
 
   return (

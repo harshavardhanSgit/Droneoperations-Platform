@@ -37,7 +37,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
 // ============================================================================
 // IDENTITY  — who someone is, and what they may do
 //
@@ -120,10 +119,10 @@ model Organisation {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  memberships Membership[]
-  provider    Provider?
-  customer    CustomerProfile?
-  bookings    Booking[]
+  memberships   Membership[]
+  provider      Provider?
+  customer      CustomerProfile?
+  bookings      Booking[]
   notifications Notification[]
 
   @@index([kind, status])
@@ -470,10 +469,10 @@ model Area {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  parent   Area?  @relation("AreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children Area[] @relation("AreaHierarchy")
-  offerings OfferingArea[]
-  bookings  Booking[]
+  parent           Area?             @relation("AreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children         Area[]            @relation("AreaHierarchy")
+  offerings        OfferingArea[]
+  bookings         Booking[]
   customerDefaults CustomerProfile[]
 
   @@unique([parentId, name])
@@ -635,48 +634,47 @@ enum AssignmentStrategy {
 model Booking {
   id String @id @default(uuid()) @db.Uuid
 
-  /// The organisation the work is FOR. D7: this is the principal, which is not
-  /// necessarily the organisation of the person who clicked the button.
+  // --- who ------------------------------------------------------------------
+  /// D7. The organisation the work is FOR — the principal, which is not
+  /// necessarily the organisation of whoever clicked the button.
   customerOrganisationId String @map("customer_organisation_id") @db.Uuid
+  /// Who clicked. Differs from the principal for assisted booking.
+  createdByUserId        String @map("created_by_user_id") @db.Uuid
 
-  /// Who actually created it. Differs from the principal for assisted booking.
-  createdByUserId String @map("created_by_user_id") @db.Uuid
-
+  // --- what and where -------------------------------------------------------
   serviceTypeId String @map("service_type_id") @db.Uuid
+  /// The service-market scope. The pin below is the actual delivery point.
   areaId        String @map("area_id") @db.Uuid
 
   quantity     Int
   locationNote String? @map("location_note")
+  /// Optional: a booking created without a map pin is still valid.
+  latitude     Float?
+  longitude    Float?
 
-  /// Where the field actually is, picked on a map. The district (areaId) is the
-  /// service-market scope; these coordinates are the delivery point. Optional
-  /// because a booking created without a pin is still valid.
-  latitude  Float? @map("latitude")
-  longitude Float? @map("longitude")
-
-  /// F3. The quote. Points at an IMMUTABLE offering version, so the agreed
-  /// price cannot change when the provider reprices. This is what replaces the
-  /// unit_price_snapshot column the blueprint originally planned.
-  offeringVersionId String? @map("offering_version_id") @db.Uuid
-
-  /// Denormalised at assignment for fast listing. Authoritative source is the
-  /// offering version above.
+  // --- the quote ------------------------------------------------------------
+  /// F3. Pinned to an IMMUTABLE offering version, so the agreed price cannot
+  /// move when the provider reprices.
+  offeringVersionId   String?     @map("offering_version_id") @db.Uuid
+  /// Denormalised at assignment for fast listing; offeringVersionId is authoritative.
   unitPriceMinor      Int?        @map("unit_price_minor")
   estimatedTotalMinor Int?        @map("estimated_total_minor")
   currency            String      @default("INR")
   pricingUnit         PricingUnit @map("pricing_unit")
 
-  /// F9. A calendar date, not an instant, plus a named band.
+  // --- when -----------------------------------------------------------------
+  /// F9. A calendar date plus a named band — never a UTC instant.
   preferredDate   DateTime   @map("preferred_date") @db.Date
   preferredWindow TimeWindow @map("preferred_window")
 
-  status BookingStatus @default(UNASSIGNED)
-
+  // --- lifecycle ------------------------------------------------------------
+  status  BookingStatus @default(UNASSIGNED)
   /// F6. Optimistic lock. Every transition bumps this; a stale value loses.
-  version Int @default(0)
+  version Int           @default(0)
 
-  /// BR14. What was actually delivered, which may differ from what was booked
-  /// — 18 acres sprayed of 20 booked. Recorded at completion, never assumed.
+  // --- outcome --------------------------------------------------------------
+  /// BR14. What was actually DELIVERED — 18 acres sprayed of 20 booked.
+  /// Recorded at completion, never assumed equal to `quantity`.
   finalQuantity    Int?      @map("final_quantity")
   finalAmountMinor Int?      @map("final_amount_minor")
   completionNote   String?   @map("completion_note")

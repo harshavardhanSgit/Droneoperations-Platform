@@ -179,7 +179,11 @@ function Detail() {
       {booking.status === "UNASSIGNED" ? (
         <p className="mt-4 rounded-md bg-warning-bg px-3 py-2.5 text-sm text-warning">
           No provider is assigned.{" "}
-          <Link href="/search" className="underline underline-offset-4">
+          {/*
+            The booking id travels with the link. Without it the search page would create a
+            SECOND booking, stranding this one and losing the record of who declined it (D9).
+          */}
+          <Link href={`/search?reassign=${id}`} className="underline underline-offset-4">
             Find another
           </Link>{" "}
           — your requirement and history are kept.

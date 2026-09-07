@@ -1,7 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { MapPicker, type MapMarker, type PickedLocation } from "@/components/map-picker";
 import { Button } from "@/components/ui/button";
@@ -9,7 +17,14 @@ import { Field, fieldBase, FormError, SelectField } from "@/components/ui/form";
 import { CardListSkeleton } from "@/components/ui/skeleton";
 import { EmptyState, Page, PageHeader, Surface } from "@/components/ui/surface";
 import { ApiError } from "@/core/api/client";
-import type { Area, Match, MatchResults, ProviderRating, ServiceType } from "@/core/api/types";
+import type {
+  Area,
+  BookingDetail,
+  Match,
+  MatchResults,
+  ProviderRating,
+  ServiceType,
+} from "@/core/api/types";
 import { useAuth } from "@/core/auth/auth-context";
 import { RequireAuth } from "@/core/auth/require-auth";
 import * as bookingApi from "@/features/bookings/api";
@@ -94,6 +109,17 @@ function Search() {
   const router = useRouter();
   const { account } = useAuth();
 
+  /**
+   * D9. A rejected booking keeps its requirement, quote history and timeline, so choosing
+   * another provider must ASSIGN to that booking — not create a second one. The id arrives as
+   * ?reassign=<bookingId>; while it is set the requirement is fixed and only the provider changes.
+   */
+  const reassignId = useSearchParams().get("reassign");
+  const [reassigning, setReassigning] = useState<BookingDetail | null>(null);
+  // The search runs itself once the booking has filled the form in. Guarded so a re-sort or a
+  // later render cannot trigger a second automatic search.
+  const autoSearched = useRef(false);
+
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [states, setStates] = useState<Area[]>([]);
   const [districts, setDistricts] = useState<Area[]>([]);
@@ -144,12 +170,54 @@ function Search() {
         ]);
         setServiceTypes(types);
         setStates(topLevel);
-        if (types[0]) setServiceTypeId(types[0].id);
+        // Not while reassigning: the booking's own service type wins, and picking a different
+        // one would produce an offering the API refuses (assertOfferingMatches).
+        if (types[0] && !reassignId) setServiceTypeId(types[0].id);
       } catch (caught) {
         setError(caught instanceof ApiError ? caught.message : "Could not load the catalogue");
       }
     })();
-  }, []);
+  }, [reassignId]);
+
+  /**
+   * Reassigning: the requirement comes from the booking, not from the form. Everything the
+   * search needs — service, quantity and the field's pin — is already on the booking, so the
+   * customer never re-enters it and cannot accidentally pick an offering for a different job.
+   */
+  useEffect(() => {
+    if (!reassignId) return;
+
+    let cancelled = false;
+
+    bookingApi
+      .getBooking(reassignId)
+      .then((booking) => {
+        if (cancelled) return;
+
+        setReassigning(booking);
+        setServiceTypeId(booking.serviceTypeId);
+        setAreaId(booking.areaId);
+        setQuantity(booking.quantity);
+        setDate(booking.preferredDate);
+        setWindow(booking.preferredWindow);
+        if (booking.locationNote) setLocationNote(booking.locationNote);
+
+        if (booking.latitude != null && booking.longitude != null) {
+          setPoint({ latitude: booking.latitude, longitude: booking.longitude });
+          setPinLabel(booking.locationNote ?? booking.areaName);
+        }
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(
+          caught instanceof ApiError ? caught.message : "Could not load the booking to reassign",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reassignId]);
 
   // Cascading select: districts load only when a state is chosen.
   const loadDistricts = useCallback(async (parent: string) => {
@@ -161,6 +229,9 @@ function Search() {
 
   /** Open on the customer's saved field rather than the middle of India. */
   useEffect(() => {
+    // Reassigning uses the booking's own field, not the saved default.
+    if (reassignId) return;
+
     let cancelled = false;
 
     customerApi
@@ -198,7 +269,7 @@ function Search() {
     // add a real dependency later and turn a one-time restore into a loop that
     // overwrites whatever the customer has since chosen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reassignId]);
 
   /**
    * A picked pin is a precise answer — carry it into the State and District selects so the
@@ -266,6 +337,21 @@ function Search() {
     await runSearch(sort, { fresh: true });
   }
 
+  /**
+   * Reassigning has nothing to fill in, so the search runs itself as soon as the booking has
+   * supplied the service and the pin. `autoSearched` makes it once, not once per render.
+   */
+  useEffect(() => {
+    if (!reassigning || autoSearched.current) return;
+    if (!serviceTypeId || !point) return;
+
+    autoSearched.current = true;
+    void runSearch(sort, { fresh: true });
+    // runSearch closes over form state that is already settled by this point, and listing it
+    // would re-run the search on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reassigning, serviceTypeId, point]);
+
   // Re-sorting asks the server rather than reordering in the browser.
   async function resort(next: discoveryApi.MatchSort) {
     setSort(next);
@@ -308,16 +394,21 @@ function Search() {
     setBusy(match.offeringId);
 
     try {
-      const booking = await bookingApi.createBooking({
-        serviceTypeId,
-        areaId,
-        quantity,
-        preferredDate: date,
-        preferredWindow: window_,
-        offeringId: match.offeringId,
-        ...(locationNote.trim() ? { locationNote: locationNote.trim() } : {}),
-        ...(point ? { latitude: point.latitude, longitude: point.longitude } : {}),
-      });
+      // D9: an existing booking is ASSIGNED to, never recreated. Creating a second booking
+      // would strand the first one and lose the record of who already declined it.
+      const booking = reassignId
+        ? await bookingApi.assignProvider(reassignId, match.offeringId)
+        : await bookingApi.createBooking({
+            serviceTypeId,
+            areaId,
+            quantity,
+            preferredDate: date,
+            preferredWindow: window_,
+            offeringId: match.offeringId,
+            ...(locationNote.trim() ? { locationNote: locationNote.trim() } : {}),
+            ...(point ? { latitude: point.latitude, longitude: point.longitude } : {}),
+          });
+
       router.push(`/bookings/${booking.id}`);
     } catch (caught) {
       const detail = caught instanceof ApiError ? validationDetail(caught) : null;
@@ -326,7 +417,9 @@ function Search() {
           ? detail
             ? `${caught.message}: ${detail}`
             : caught.message
-          : "Could not create the booking",
+          : reassignId
+            ? "Could not assign this provider"
+            : "Could not create the booking",
       );
       setBusy(null);
     }
@@ -352,6 +445,25 @@ function Search() {
 
     return [...byProvider.values()];
   }, [results]);
+
+  /**
+   * Providers who already turned THIS booking down, and why.
+   *
+   * Discovery matches on service, area and distance — it knows nothing about one booking's
+   * history, so a provider who declined an hour ago comes back in the results. Asking them
+   * again is legitimate (they may be free now), so they are kept in the list and labelled
+   * rather than hidden: the customer decides, but not blindly.
+   */
+  const declined = useMemo(() => {
+    const byProvider = new Map<string, string | null>();
+
+    for (const assignment of reassigning?.assignments ?? []) {
+      if (assignment.status !== "REJECTED") continue;
+      byProvider.set(assignment.providerId, assignment.rejectionReason ?? null);
+    }
+
+    return byProvider;
+  }, [reassigning]);
 
   /** offeringId → providerId, so card hover can address a marker. */
   const providerOf = useMemo(() => {
@@ -599,6 +711,13 @@ function Search() {
           </p>
         ) : null}
 
+        {declined.has(p.providerId) ? (
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-warning">
+            Already declined this job
+            {declined.get(p.providerId) ? ` — ${declined.get(p.providerId)}` : ""}
+          </p>
+        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate font-medium">{p.name}</p>
@@ -800,8 +919,14 @@ function Search() {
   return (
     <Page size="console">
       <PageHeader
-        title="Book a service"
-        description="Tell us the job. We'll show who can do it and what it costs."
+        title={reassignId ? "Choose another provider" : "Book a service"}
+        description={
+          reassigning
+            ? `${reassigning.serviceTypeName} · ${reassigning.quantity} ${unitNoun(
+                reassigning.pricingUnit,
+              )} · ${reassigning.areaName}. Your requirement and history are kept — only the provider changes.`
+            : "Tell us the job. We'll show who can do it and what it costs."
+        }
       />
 
       {/*
@@ -879,7 +1004,10 @@ function Search() {
 export default function SearchPage() {
   return (
     <RequireAuth>
-      <Search />
+      {/* useSearchParams() reads the request, so Next requires a boundary above it. */}
+      <Suspense fallback={<CardListSkeleton />}>
+        <Search />
+      </Suspense>
     </RequireAuth>
   );
 }

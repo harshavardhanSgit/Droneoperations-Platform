@@ -297,21 +297,30 @@ export class BookingService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      // Supersede whatever was open.
-      await this.bookings.supersedeOpenSchedules(booking.id, tx);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.bookings.supersedeOpenSchedules(booking.id, tx);
 
-      await this.bookings.createSchedule(
-        {
-          bookingId: booking.id,
-          proposedDate: new Date(dto.date),
-          proposedWindow: dto.window,
-          proposedByRole: role,
-          proposedByUserId: actor.userId,
-        },
-        tx,
-      );
-    });
+        await this.bookings.createSchedule(
+          {
+            bookingId: booking.id,
+            proposedDate: new Date(dto.date),
+            proposedWindow: dto.window,
+            proposedByRole: role,
+            proposedByUserId: actor.userId,
+          },
+          tx,
+        );
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === UNIQUE_VIOLATION) {
+        throw new ResourceConflictException(
+          'BOOKING_CONCURRENTLY_MODIFIED',
+          'This booking changed while you were working on it. Reload and try again.',
+        );
+      }
+      throw error;
+    }
 
     const reloaded = await this.requireBooking(booking.id);
     this.emit(BOOKING_EVENTS.SCHEDULE_PROPOSED, {

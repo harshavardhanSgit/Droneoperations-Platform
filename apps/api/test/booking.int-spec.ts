@@ -289,6 +289,48 @@ describe('Booking — database-enforced rules', () => {
     });
   });
 
+  describe('BR15 — at most one outstanding date proposal', () => {
+    it('two simultaneous proposals leave exactly one PENDING schedule', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+
+      // booking_schedules_one_pending is a PARTIAL unique index, so the loser comes back
+      // from Postgres as P2002 rather than from an application check.
+      const results = await Promise.allSettled([
+        bookings.proposeSchedule(fx.customer, booking.id, { date: '2026-10-01', window: 'DAWN' as never }),
+        bookings.proposeSchedule(fx.customer, booking.id, { date: '2026-10-02', window: 'DAWN' as never }),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled').length).toBeGreaterThanOrEqual(1);
+
+      const pending = await prisma.bookingSchedule.count({
+        where: { bookingId: booking.id, status: 'PENDING' },
+      });
+      expect(pending).toBe(1);
+    });
+
+    it('a lost race is a 409, never an unhandled P2002', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+
+      // Ten rounds because the two requests only truly overlap some of the time; a single
+      // round can pass by luck while the bug is still there.
+      for (let round = 0; round < 10; round += 1) {
+        const results = await Promise.allSettled([
+          bookings.proposeSchedule(fx.customer, booking.id, { date: '2026-10-01', window: 'DAWN' as never }),
+          bookings.proposeSchedule(fx.customer, booking.id, { date: '2026-10-02', window: 'DAWN' as never }),
+        ]);
+
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            // Whatever surfaces, it must be a domain error — never a raw Prisma one.
+            expect(result.reason).toMatchObject({ code: 'BOOKING_CONCURRENTLY_MODIFIED' });
+          }
+        }
+      }
+    });
+  });
+
   describe('optimistic locking', () => {
     it('two simultaneous cancels leave exactly one cancellation', async () => {
       const booking = await newBooking();

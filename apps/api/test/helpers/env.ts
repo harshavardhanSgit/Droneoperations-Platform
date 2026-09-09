@@ -5,9 +5,12 @@
  * .env by accident. Truncating the wrong database is a mistake you only make
  * once, and it should be impossible rather than merely unlikely.
  */
+// The default matches docker-compose: user drone_ops, host port 5433. Anything
+// else needs TEST_DATABASE_URL, because a wrong default here does not fail
+// loudly — every suite just dies at resetDatabase with a connection error.
 process.env['DATABASE_URL'] =
   process.env['TEST_DATABASE_URL'] ??
-  'postgresql://marut@localhost:5432/drone_ops_test?schema=public';
+  'postgresql://drone_ops:drone_ops@localhost:5433/drone_ops_test?schema=public';
 
 process.env['NODE_ENV'] = 'test';
 process.env['JWT_ACCESS_SECRET'] ??= 'integration-test-secret-at-least-32-chars-long';

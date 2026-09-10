@@ -2,8 +2,12 @@ import { apiFetch } from "@/core/api/client";
 import type { BookingDetail, BookingList } from "@/core/api/types";
 
 /** Unscoped — every booking on the platform. Requires booking:read-any. */
-export const listAllBookings = (status?: string) =>
-  apiFetch<BookingList>(`/api/v1/admin/bookings${status ? `?status=${status}` : ""}`);
+export const listAllBookings = (status?: string, page = 1) => {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  params.set("page", String(page));
+  return apiFetch<BookingList>(`/api/v1/admin/bookings?${params}`);
+};
 
 export const getBookingAsAdmin = (id: string) =>
   apiFetch<BookingDetail>(`/api/v1/admin/bookings/${id}`);

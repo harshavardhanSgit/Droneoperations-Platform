@@ -15,6 +15,20 @@ import * as admin from "@/features/admin/bookings-api";
 import * as discoveryApi from "@/features/discovery/api";
 import { rupees, shortDate, STATUS_LABEL, STATUS_TONE } from "@/features/bookings/format";
 
+/** Must match PaginationQueryDto's default limit — the endpoint takes a page, not a size. */
+const PAGE_SIZE = 20;
+
+function pageWindow(current: number, last: number): (number | "…")[] {
+  const out: (number | "…")[] = [];
+
+  for (let n = 1; n <= last; n += 1) {
+    if (n === 1 || n === last || Math.abs(n - current) <= 1) out.push(n);
+    else if (out[out.length - 1] !== "…") out.push("…");
+  }
+
+  return out;
+}
+
 const FILTERS = [
   { value: "UNASSIGNED", label: "Needs a provider" },
   { value: "ASSIGNED", label: "Awaiting provider" },
@@ -33,6 +47,8 @@ function AdminBookings() {
   const toast = useToast();
   const [items, setItems] = useState<Booking[]>([]);
   const [status, setStatus] = useState("UNASSIGNED");
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -42,10 +58,13 @@ function AdminBookings() {
   const [placing, setPlacing] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Match[] | null>(null);
 
-  const load = (next: string) =>
+  const load = (next: string, nextPage: number) =>
     admin
-      .listAllBookings(next || undefined)
-      .then((list) => setItems(list.items))
+      .listAllBookings(next || undefined, nextPage)
+      .then((list) => {
+        setItems(list.items);
+        setTotal(list.total);
+      })
       .catch((caught: unknown) =>
         setError(caught instanceof ApiError ? caught.message : "Could not load bookings"),
       )
@@ -59,6 +78,7 @@ function AdminBookings() {
       .then((list) => {
         if (cancelled) return;
         setItems(list.items);
+        setTotal(list.total);
       })
       .catch((caught: unknown) => {
         if (cancelled) return;
@@ -77,7 +97,17 @@ function AdminBookings() {
     setStatus(next);
     setCancelling(null);
     setLoading(true);
-    void load(next);
+    setPage(1);
+    void load(next, 1);
+  };
+
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const go = (nextPage: number) => {
+    setPage(nextPage);
+    setCancelling(null);
+    setLoading(true);
+    void load(status, nextPage);
   };
 
   const cancel = async (id: string) => {
@@ -88,7 +118,7 @@ function AdminBookings() {
       toast("Booking cancelled", "warning");
       setCancelling(null);
       setReason("");
-      await load(status);
+      await load(status, page);
     } catch (caught: unknown) {
       setError(caught instanceof ApiError ? caught.message : "Could not cancel that booking");
     } finally {
@@ -131,7 +161,7 @@ function AdminBookings() {
       toast("Placed — the provider has been notified");
       setPlacing(null);
       setCandidates(null);
-      await load(status);
+      await load(status, page);
     } catch (caught: unknown) {
       setError(caught instanceof ApiError ? caught.message : "Could not place that booking");
     } finally {
@@ -270,6 +300,50 @@ function AdminBookings() {
           </table>
         </div>
       )}
+
+      {!loading && total > PAGE_SIZE ? (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-fg-muted">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+          </p>
+
+          <div className="flex items-center gap-1">
+            <Button size="console" variant="ghost" disabled={page <= 1} onClick={() => go(page - 1)}>
+              ‹
+            </Button>
+
+            {pageWindow(page, lastPage).map((n, i) =>
+              n === "…" ? (
+                <span key={`gap-${i}`} className="px-1 text-sm text-fg-subtle">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  onClick={() => go(n)}
+                  aria-current={n === page ? "page" : undefined}
+                  className={`h-8 min-w-8 rounded-control px-2 text-sm ${
+                    n === page
+                      ? "bg-accent font-medium text-accent-fg"
+                      : "text-fg-muted hover:bg-neutral-bg hover:text-fg"
+                  }`}
+                >
+                  {n}
+                </button>
+              ),
+            )}
+
+            <Button
+              size="console"
+              variant="ghost"
+              disabled={page >= lastPage}
+              onClick={() => go(page + 1)}
+            >
+              ›
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {placing ? (
         <section className="mt-4 rounded-surface border border-border p-4">

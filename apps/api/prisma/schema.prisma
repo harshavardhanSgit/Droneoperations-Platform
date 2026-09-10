@@ -667,6 +667,11 @@ model Booking {
   preferredDate   DateTime   @map("preferred_date") @db.Date
   preferredWindow TimeWindow @map("preferred_window")
 
+  /// The agreed date, copied from the CONFIRMED schedule. Null until both sides agree one.
+  /// Denormalised so a provider's inbox can be ordered and paged by it — Prisma cannot sort
+  /// by a filtered row of a to-many relation, and a booking has many schedules.
+  confirmedDate DateTime? @map("confirmed_date") @db.Date
+
   // --- lifecycle ------------------------------------------------------------
   status  BookingStatus @default(UNASSIGNED)
   /// F6. Optimistic lock. Every transition bumps this; a stale value loses.
@@ -698,6 +703,8 @@ model Booking {
 
   @@index([customerOrganisationId, status])
   @@index([status, preferredDate])
+  /// The provider inbox pages through bookings in this order.
+  @@index([confirmedDate])
   @@map("bookings")
 }
 

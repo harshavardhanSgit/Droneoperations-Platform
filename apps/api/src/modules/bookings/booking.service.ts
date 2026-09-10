@@ -250,7 +250,14 @@ export class BookingService {
         this.assertWon(
           (
             await this.bookings.closeSchedule(
-              { id: pending.id, from: 'PENDING', to: 'CONFIRMED', confirmedByUserId: actor.userId },
+              {
+                id: pending.id,
+                bookingId: booking.id,
+                from: 'PENDING',
+                to: 'CONFIRMED',
+                proposedDate: pending.proposedDate,
+                confirmedByUserId: actor.userId,
+              },
               tx,
             )
           ).count,
@@ -353,7 +360,14 @@ export class BookingService {
       this.assertWon(
         (
           await this.bookings.closeSchedule(
-            { id: pending.id, from: 'PENDING', to: 'CONFIRMED', confirmedByUserId: actor.userId },
+            {
+              id: pending.id,
+              bookingId: booking.id,
+              from: 'PENDING',
+              to: 'CONFIRMED',
+              proposedDate: pending.proposedDate,
+              confirmedByUserId: actor.userId,
+            },
             tx,
           )
         ).count,

@@ -143,7 +143,12 @@ export class BookingRepository {
       this.db(tx).booking.findMany({
         where,
         include: DETAIL_INCLUDE,
-        orderBy: { preferredDate: 'asc' },
+        // The agreed date first, because that is when the provider actually flies. Jobs with
+        // no agreed date yet fall to the end, ordered by the date the customer asked for.
+        orderBy: [
+          { confirmedDate: { sort: 'asc', nulls: 'last' } },
+          { preferredDate: 'asc' },
+        ],
         skip: page.skip,
         take: page.take,
       }),
@@ -290,16 +295,18 @@ export class BookingRepository {
   }
 
   /** Conditional, so a concurrent confirm/supersede cannot double-apply. */
-  closeSchedule(
+  async closeSchedule(
     input: {
       id: string;
+      bookingId: string;
       from: ScheduleStatus;
       to: ScheduleStatus;
+      proposedDate: Date;
       confirmedByUserId?: string | undefined;
     },
     tx?: Tx,
   ): Promise<{ count: number }> {
-    return this.db(tx).bookingSchedule.updateMany({
+    const result = await this.db(tx).bookingSchedule.updateMany({
       where: { id: input.id, status: input.from },
       data: {
         status: input.to,
@@ -308,12 +315,32 @@ export class BookingRepository {
           : {}),
       },
     });
+
+    // Only the winner of the conditional update above may copy the date onto the booking.
+    // A loser writing here would leave bookings.confirmed_date pointing at a schedule row
+    // that never reached CONFIRMED.
+    if (result.count > 0 && input.to === 'CONFIRMED') {
+      await this.db(tx).booking.update({
+        where: { id: input.bookingId },
+        data: { confirmedDate: input.proposedDate },
+      });
+    }
+
+    return result;
   }
 
-  supersedeOpenSchedules(bookingId: string, tx?: Tx): Promise<{ count: number }> {
-    return this.db(tx).bookingSchedule.updateMany({
+  async supersedeOpenSchedules(bookingId: string, tx?: Tx): Promise<{ count: number }> {
+    const result = await this.db(tx).bookingSchedule.updateMany({
       where: { bookingId, status: { in: ['PENDING', 'CONFIRMED'] } },
       data: { status: 'SUPERSEDED' },
     });
+
+    // Nothing is CONFIRMED any more, so the copy must go with it.
+    await this.db(tx).booking.update({
+      where: { id: bookingId },
+      data: { confirmedDate: null },
+    });
+
+    return result;
   }
 }

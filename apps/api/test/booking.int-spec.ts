@@ -331,6 +331,68 @@ describe('Booking — database-enforced rules', () => {
     });
   });
 
+  describe('bookings.confirmedDate mirrors the CONFIRMED schedule', () => {
+    // The column is a copy, kept so the provider inbox can be ordered and paged by the date
+    // they actually fly. A copy is only worth having while it cannot drift from its source.
+    const confirmedDateOf = async (bookingId: string) =>
+      (await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } })).confirmedDate;
+
+    it('is null until both sides agree a date', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+
+      expect(await confirmedDateOf(booking.id)).toBeNull();
+    });
+
+    it('is stamped when the provider accepts the date the customer asked for', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+      await bookings.accept(fx.provider, booking.id);
+
+      const schedule = await prisma.bookingSchedule.findFirstOrThrow({
+        where: { bookingId: booking.id, status: 'CONFIRMED' },
+      });
+
+      expect(await confirmedDateOf(booking.id)).toEqual(schedule.proposedDate);
+    });
+
+    it('follows a reschedule instead of keeping the old date', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+      await bookings.accept(fx.provider, booking.id);
+
+      const first = await confirmedDateOf(booking.id);
+
+      // The provider proposes a new date; BR15 means the customer is the one who confirms it.
+      await bookings.proposeSchedule(fx.provider, booking.id, {
+        date: '2027-03-15',
+        window: 'MORNING' as never,
+      });
+      await bookings.confirmSchedule(fx.customer, booking.id);
+
+      const second = await confirmedDateOf(booking.id);
+
+      expect(second).not.toEqual(first);
+      expect(second?.toISOString().slice(0, 10)).toBe('2027-03-15');
+    });
+
+    it('is cleared while a new proposal is outstanding', async () => {
+      const booking = await newBooking();
+      await bookings.assign(fx.customer, booking.id, fx.offeringId);
+      await bookings.accept(fx.provider, booking.id);
+
+      expect(await confirmedDateOf(booking.id)).not.toBeNull();
+
+      // Proposing supersedes the confirmed schedule, so nothing is agreed any more.
+      await bookings.proposeSchedule(fx.provider, booking.id, {
+        date: '2027-03-15',
+        window: 'MORNING' as never,
+      });
+
+      expect(await confirmedDateOf(booking.id)).toBeNull();
+    });
+  });
+
   describe('optimistic locking', () => {
     it('two simultaneous cancels leave exactly one cancellation', async () => {
       const booking = await newBooking();
